@@ -7,7 +7,7 @@ from link_bot_data.base_collect_dynamics_data import collect_dynamics_data
 from link_bot_data.wandb_datasets import wandb_save_dataset
 from moonshine.gpu_config import limit_gpu_mem
 
-limit_gpu_mem(0.1)
+limit_gpu_mem(None)
 
 
 @ros_init.with_ros("collect_dynamics_data")
