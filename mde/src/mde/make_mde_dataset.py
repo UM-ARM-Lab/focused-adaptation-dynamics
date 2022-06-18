@@ -44,7 +44,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
     new_hparams_filename = outdir / 'hparams.hjson'
     my_hdump(mde_dataset_hparams, new_hparams_filename.open("w"), indent=2)
 
-    with Pool() as pool:
+    with get_context("spawn").Pool() as pool:
         results = []
         total_example_idx = 0
         for mode in ['test', 'val', 'train']:
