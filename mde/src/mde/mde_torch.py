@@ -162,7 +162,7 @@ class MDE(pl.LightningModule):
                     raster_msg = environment_to_vg_msg(raster_dict, frame='local_env_vg', stamp=rospy.Time.now())
                     self.debug.raster_debug_pubs[i].publish(raster_msg)
 
-        if self.hparams['use_sdf']:
+        if self.hparams.get('use_sdf', False):
             import tensorflow as tf
             from moonshine.gpu_config import limit_gpu_mem
             from moonshine.tfa_sdf import build_sdf_3d
@@ -259,34 +259,40 @@ class MDE(pl.LightningModule):
         pred_error = self.forward(val_batch)
         loss, mse, mae, bce = self.compute_loss(val_batch, pred_error)
         true_error_after = val_batch['error'][:, 1]
-        true_error_after_binary = (true_error_after < self.hparams['error_threshold']).int()
-        logits = -pred_error
-        pred_error_probabilities = torch.sigmoid(logits)
         signed_loss = pred_error - true_error_after
+        true_error_after_binary = (true_error_after < self.hparams['error_threshold']).int()
         self.log('val_loss', loss)
         self.log('val_mae', mae)
         self.log('val_mse', mse)
         self.log('val_bce', bce)
-        self.val_accuracy(pred_error_probabilities, true_error_after_binary)  # updates the metric
         self.log('pred_minus_true_error', signed_loss)
-
+        if self.hparams.get("loss_type", 'mse') == 'BCE':
+            logits = -pred_error
+            pred_error_probabilities = torch.sigmoid(logits)
+            self.val_accuracy(pred_error_probabilities, true_error_after_binary)
+        else:
+            pred_error_binary = pred_error < self.hparams['error_threshold']
+            self.val_accuracy(pred_error_binary, true_error_after_binary)
         return loss
 
     def test_step(self, test_batch, batch_idx):
         pred_error = self.forward(test_batch)
         loss, mse, mae, bce = self.compute_loss(test_batch, pred_error)
-        true_error = test_batch['error'][:, 1]
-        signed_loss = pred_error - true_error
         true_error_after = test_batch['error'][:, 1]
+        signed_loss = pred_error - true_error_after
         true_error_after_binary = (true_error_after < self.hparams['error_threshold']).int()
-        logits = -pred_error
-        pred_error_probabilities = torch.sigmoid(logits)
         self.log('test_loss', loss)
         self.log('test_mae', mae)
         self.log('test_mse', mse)
         self.log('test_bce', bce)
         self.log('pred_minus_true_error', signed_loss)
-        self.test_accuracy(pred_error_probabilities, true_error_after_binary)  # updates the metric
+        if self.hparams.get("loss_type", 'mse') == 'BCE':
+            logits = -pred_error
+            pred_error_probabilities = torch.sigmoid(logits)
+            self.test_accuracy(pred_error_probabilities, true_error_after_binary)
+        else:
+            pred_error_binary = pred_error < self.hparams['error_threshold']
+            self.test_accuracy(pred_error_binary, true_error_after_binary)
         return loss
 
     def on_test_epoch_end(self):

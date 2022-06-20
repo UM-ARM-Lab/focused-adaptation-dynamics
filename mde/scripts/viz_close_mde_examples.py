@@ -42,7 +42,9 @@ def main():
         actions, _ = get_actions(all_dataset.time_indexed_keys, val_traj)
         ref_actions_list.append(actions)
 
-    cache = pathlib.Path("viz_close_mde_examples.pkl")
+    root = pathlib.Path('results') / 'mde_train_examples_for_viz' / args.dataset.name
+    root.mkdir(parents=True, exist_ok=True)
+    cache = root / "mde_train_examples_for_viz.pkl"
     if cache.exists():
         with cache.open('rb') as f:
             train_actions_list, train_example_indices = pickle.load(f)
@@ -82,12 +84,8 @@ def main():
 
         ref_pred_0 = get_pred_t(all_dataset[ref_example_index], 0)
         ref_pred_1 = get_pred_t(all_dataset[ref_example_index], 1)
-        ref_pred_1.pop(add_predicted("left_gripper"))
-        ref_pred_1.pop(add_predicted("right_gripper"))
         nearest_train_0 = get_pred_t(all_dataset[nearest_train_example_index], 0)
         nearest_train_1 = get_pred_t(all_dataset[nearest_train_example_index], 1)
-        nearest_train_1.pop(add_predicted("left_gripper"))
-        nearest_train_1.pop(add_predicted("right_gripper"))
         ref_actual_0 = get_actual_t(all_dataset[ref_example_index], 0)
         ref_actual_1 = get_actual_t(all_dataset[ref_example_index], 1)
 
@@ -97,12 +95,19 @@ def main():
         print(f"but nearest training example has error {nearest_train_example['error']}")
         s.plot_state_rviz(ref_pred_0, label='ref_pred_0', color='red')
         s.plot_state_rviz(ref_pred_1, label='ref_pred_1', color=adjust_lightness('red', 0.5))
-        s.plot_action_rviz(ref_pred_0, ref_pred_1, label='ref', color='red')
         s.plot_state_rviz(ref_actual_0, label='ref_actual_0', color='red')
         s.plot_state_rviz(ref_actual_1, label='ref_actual_1', color=adjust_lightness('red', 0.5))
         s.plot_state_rviz(nearest_train_0, label='nearest_train_0', color='blue')
         s.plot_state_rviz(nearest_train_1, label='nearest_train_1', color=adjust_lightness('blue', 0.5))
+
+        ref_pred_1.pop(add_predicted("left_gripper"))
+        ref_pred_1.pop(add_predicted("right_gripper"))
+        nearest_train_1.pop(add_predicted("left_gripper"))
+        nearest_train_1.pop(add_predicted("right_gripper"))
+
+        s.plot_action_rviz(ref_pred_0, ref_pred_1, label='ref', color='red')
         s.plot_action_rviz(nearest_train_0, nearest_train_1, label='nearest_train', color='blue')
+
         anim.step()
 
 
