@@ -42,6 +42,7 @@ def main():
     for i in tqdm(range(len(dataset))):
         process_example((i, dataset, outdir))
 
+    print(outdir)
     # with Pool() as pool:
     #     tasks = [(i, dataset, outdir) for i in range(len(dataset))]
     #     for _ in tqdm(pool.imap_unordered(process_example, tasks), total=len(tasks)):

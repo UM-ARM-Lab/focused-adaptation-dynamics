@@ -82,10 +82,17 @@ def fetch_udnn_dataset(dataset_dir):
 
 def fetch_dataset(dataset_dir, project):
     if not dataset_dir.exists():
-        dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
-                                                        project=project,
-                                                        dataset_name=dataset_dir.as_posix(),
-                                                        version='latest')
+        if ':v' in dataset_dir.name:
+            dataset_name, version = dataset_dir.name.split(":")
+            dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
+                                                            project=project,
+                                                            dataset_name=dataset_name,
+                                                            version=version)
+        else:
+            dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
+                                                            project=project,
+                                                            dataset_name=dataset_dir.as_posix(),
+                                                            version='latest')
         return dataset_dir_downloaded
     else:
         return dataset_dir

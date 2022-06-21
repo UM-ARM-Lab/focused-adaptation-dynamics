@@ -1,5 +1,5 @@
 import pathlib
-from multiprocessing import Pool
+from multiprocessing import Pool, get_context
 
 from tqdm import tqdm
 
@@ -50,20 +50,21 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
         for mode in ['test', 'val', 'train']:
             dataset = TorchDynamicsDataset(dataset_dir=dataset_dir, mode=mode)
             model.scenario = dataset.get_scenario()
-
-            steps_per_traj = dataset[0][dataset.state_keys[0]].shape[0]
-
-            total = n_seq(steps_per_traj - 1) * len(dataset) / step
             files = []
-            for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step), total=total):
-                result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
-                results.append(result)
 
-                metadata_filename = index_to_filename('.pkl', total_example_idx)
-                full_metadata_filename = outdir / metadata_filename
-                files.append(full_metadata_filename)
+            if len(dataset) > 0:
+                steps_per_traj = dataset[0][dataset.state_keys[0]].shape[0]
 
-                total_example_idx += 1
+                total = n_seq(steps_per_traj - 1) * len(dataset) / step
+                for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step), total=total):
+                    result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
+                    results.append(result)
+
+                    metadata_filename = index_to_filename('.pkl', total_example_idx)
+                    full_metadata_filename = outdir / metadata_filename
+                    files.append(full_metadata_filename)
+
+                    total_example_idx += 1
 
             write_mode(outdir, files, mode)
 

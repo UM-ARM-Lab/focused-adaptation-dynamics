@@ -28,7 +28,7 @@ class ResultsToDynamicsDataset:
 
     def __init__(self,
                  results_dir: pathlib.Path,
-                 outdir: pathlib.Path,
+                 outname: str,
                  visualize: bool,
                  traj_length: Optional[int] = None,
                  val_split=DEFAULT_VAL_SPLIT,
@@ -37,7 +37,7 @@ class ResultsToDynamicsDataset:
         self.traj_length = traj_length
         self.results_dir = results_dir
         self.trials = (list(results_utils.trials_generator(self.results_dir)))
-        self.outdir = outdir
+        self.outdir = pathlib.Path("fwd_model_data") / outname
         self.val_split = val_split
         self.test_split = test_split
 
@@ -45,7 +45,7 @@ class ResultsToDynamicsDataset:
 
         self.example_idx = None
 
-        outdir.mkdir(exist_ok=True, parents=True)
+        self.outdir.mkdir(exist_ok=True, parents=True)
 
     def run(self):
         self.save_hparams()
