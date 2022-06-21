@@ -15,7 +15,7 @@ from tqdm import tqdm
 from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_mde_dataset
 from link_bot_pycommon.load_wandb_model import load_model_artifact
-from mde.mde_torch import MDE
+from mde.torch_mde import MDE
 from mde.torch_mde_dataset import TorchMDEDataset
 from moonshine.torch_datasets_utils import my_collate, dataset_shard, dataset_take
 from state_space_dynamics.torch_dynamics_dataset import remove_keys

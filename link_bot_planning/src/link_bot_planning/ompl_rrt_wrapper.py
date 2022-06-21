@@ -26,7 +26,7 @@ import rospy
 from link_bot_classifiers.base_constraint_checker import BaseConstraintChecker
 from link_bot_planning.timeout_or_not_progressing import TimeoutOrNotProgressing
 from state_space_dynamics.base_dynamics_function import BaseDynamicsFunction
-from mde.mde_torch import MDEConstraintChecker
+from mde.torch_mde import MDEConstraintChecker
 
 
 def is_mde(classifier):

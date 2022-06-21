@@ -5,7 +5,7 @@ import torch
 from torch.nn import Parameter
 
 from link_bot_data.dataset_utils import add_predicted
-from mde.mde_torch import MDE
+from mde.torch_mde import MDE
 from state_space_dynamics.meta_udnn import UDNN
 
 

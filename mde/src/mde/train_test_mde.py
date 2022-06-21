@@ -15,7 +15,7 @@ from link_bot_data.visualization import init_viz_env
 from link_bot_data.wandb_datasets import get_dataset_with_version
 from link_bot_pycommon.load_wandb_model import load_model_artifact, model_artifact_path
 from mde.mde_data_module import MDEDataModule
-from mde.mde_torch import MDE
+from mde.torch_mde import MDE
 from mde.torch_mde_dataset import TorchMDEDataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.filepath_tools import load_hjson
