@@ -35,6 +35,7 @@
   dropout_p: 0
   no_lstm: true
   use_prev_error: true
+  prev_error_res: true
   use_batchnorm: true
   use_res3d: true
   use_sdf: true

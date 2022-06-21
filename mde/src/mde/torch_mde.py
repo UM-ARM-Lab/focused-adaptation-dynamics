@@ -193,8 +193,9 @@ class MDE(pl.LightningModule):
         flat_conv_h = self.conv_encoder(flat_voxel_grids)
         conv_h = flat_conv_h.reshape(batch_size, time, -1)
         # NOTE: maybe we should be using the previous predicted error?
-        prev_pred_error = inputs['error'][:, 0].unsqueeze(-1).unsqueeze(-1)
-        padded_prev_pred_error = F.pad(prev_pred_error, [0, 0, 0, 1, 0, 0])
+        prev_pred_error = inputs['error'][:, 0]  # [b]
+        prev_pred_error_time = prev_pred_error.unsqueeze(-1).unsqueeze(-1)
+        padded_prev_pred_error = F.pad(prev_pred_error_time, [0, 0, 0, 1, 0, 0])
         if self.hparams.get("use_prev_error", True):
             cat_args = [conv_h,
                         padded_prev_pred_error] + states_robot_frame_list + states_local_frame_list + padded_actions
@@ -205,13 +206,16 @@ class MDE(pl.LightningModule):
         if self.no_lstm:
             fc_out_h = self.fc(fc_in)
             out_h = fc_out_h.reshape(batch_size, -1)
-            predicted_error = self.output_layer(out_h)
-            predicted_error = predicted_error.squeeze(1)
+            predicted_errors = self.output_layer(out_h)  # [b, 1]
+            predicted_error = predicted_errors.squeeze(1)  # [b]
         else:
             out_h, _ = self.fc(fc_in)
             # for every timestep's output, map down to a single scalar, the logit for accept probability
-            predicted_errors = self.output_layer(out_h)
-            predicted_error = predicted_errors[:, 1:].squeeze(1).squeeze(1)
+            predicted_errors = self.output_layer(out_h)  # [b, 1]
+            predicted_error = predicted_errors[:, 1:].squeeze(1).squeeze(1)  # [b]
+
+        if self.hparams.get("use_prev_error", True) and self.hparams.get('prev_error_res', False):
+            predicted_error = prev_pred_error + predicted_error
 
         return predicted_error
 
