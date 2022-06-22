@@ -1,5 +1,5 @@
 {
-  loss_type: biased_mse
+  loss_type: MAE
   point_state_keys: [
     rope
     left_gripper
@@ -18,15 +18,15 @@
     right_gripper_position
   ]
   learning_rate:  0.0004
-  rnn_size: 512
-  fc_layer_sizes: [ 512, 512 ]
+  rnn_size: 128
+  fc_layer_sizes: [ 128, 128 ]
   pooling: [ 2, 2, 2 ]
   conv_filters: [
-    [ 64, [ 3, 3, 3 ] ]
-    [ 64, [ 3, 3, 3 ] ]
-    [ 64, [ 3, 3, 3 ] ]
+    [ 32, [ 3, 3, 3 ] ]
+    [ 32, [ 3, 3, 3 ] ]
+    [ 32, [ 3, 3, 3 ] ]
   ]
-  conv_out_size: 8000
+  conv_out_size: 4000
   local_env_h_rows: 44
   local_env_w_cols: 44
   local_env_c_channels: 44
@@ -35,8 +35,8 @@
   dropout_p: 0
   no_lstm: true
   use_prev_error: true
-  prev_error_res: true
+  prev_error_res: false
   use_batchnorm: true
   use_res3d: true
-  use_sdf: true
+  use_sdf: false
 }

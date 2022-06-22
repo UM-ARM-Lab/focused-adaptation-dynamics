@@ -16,6 +16,7 @@ from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_mde_dataset
 from link_bot_pycommon.load_wandb_model import load_model_artifact
 from mde.torch_mde import MDE
+from wandb.util import generate_id
 from mde.torch_mde_dataset import TorchMDEDataset
 from moonshine.torch_datasets_utils import my_collate, dataset_shard, dataset_take
 from state_space_dynamics.torch_dynamics_dataset import remove_keys
@@ -41,7 +42,7 @@ def main():
 
     wandb.init(project='mde_scatter',
                entity='armlab',
-               name=f'mde_scatter_{args.checkpoint}',
+               name=f'mde_scatter_{args.checkpoint}-{generate_id(3)}',
                config={
                    'dataset_dir': args.dataset_dir,
                    'checkpoint':  args.checkpoint,
