@@ -28,7 +28,7 @@ def main():
     args = parser.parse_args()
 
     root = pathlib.Path("mde_datasets")
-    outdir = root / (args.out_name + f'_{int(time.time())}')
+    outdir = root / f"mde_{args.out_name}"
     success = mkdir_and_ask(outdir, parents=True, yes=args.yes)
     if not success:
         print(Fore.RED + "Aborting" + Fore.RESET)

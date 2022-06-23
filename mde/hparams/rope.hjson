@@ -1,5 +1,5 @@
 {
-  loss_type: MAE
+  loss_type: biased_mse
   point_state_keys: [
     rope
     left_gripper
@@ -17,7 +17,7 @@
     left_gripper_position
     right_gripper_position
   ]
-  learning_rate:  0.0004
+  learning_rate:  0.0005
   rnn_size: 128
   fc_layer_sizes: [ 128, 128 ]
   pooling: [ 2, 2, 2 ]
@@ -38,5 +38,5 @@
   prev_error_res: false
   use_batchnorm: true
   use_res3d: true
-  use_sdf: false
+  use_sdf: true
 }
