@@ -128,6 +128,8 @@ class ResultsToDynamicsDataset:
 
         actions = []
         states = []
+        states_step = None
+        actions_step = None
         for step_idx, step in enumerate(steps):
             if step['type'] == 'executed_plan':
                 planning_result: PlanningResult = step['planning_result']
@@ -154,10 +156,22 @@ class ResultsToDynamicsDataset:
             states.extend(states_step)
 
         if self.traj_length is not None:
-            state_subsequences = reversed_chunked(states, self.traj_length)
-            action_subsequences = reversed_chunked(actions, self.traj_length)
-            action_subsequences = [aseq[:-1] for aseq in action_subsequences]
+            time_mask = np.ones(self.traj_length, np.float32)
+            if len(states) < self.traj_length:
+                time_mask[len(states):] = 0
+                n_pad = self.traj_length - len(states)
+                pad_state = {k: np.zeros_like(v) for k, v in states_step[-1].items()}
+                pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
+                states_padded = states + n_pad * [pad_state]
+                actions_padded = actions + (n_pad - 1) * [pad_action]
+                state_subsequences = [states_padded]
+                action_subsequences = [actions_padded]
+            else:
+                state_subsequences = reversed_chunked(states, self.traj_length)
+                action_subsequences = reversed_chunked(actions, self.traj_length)
+                action_subsequences = [aseq[:-1] for aseq in action_subsequences]
         else:
+            time_mask = np.ones_like(states).astype(np.float32)
             action_subsequences = [actions]
             state_subsequences = [states]
 
@@ -178,5 +192,6 @@ class ResultsToDynamicsDataset:
             example.pop("stdev", None)
             example.pop("error", None)
             example.pop("num_diverged", None)
+            example['time_mask'] = time_mask
 
             yield example

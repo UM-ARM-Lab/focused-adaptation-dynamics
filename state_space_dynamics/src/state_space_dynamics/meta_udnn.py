@@ -119,9 +119,9 @@ class UDNN(MetaModule, pl.LightningModule):
         s_t_plus_1 = self.scenario.integrate_dynamics(s_t, delta_s_t)
         return s_t_plus_1
 
-    def compute_batch_loss(self, inputs, outputs, use_meta_mask: bool):
+    def compute_batch_loss(self, inputs, outputs, use_mask: bool):
         batch_time_loss = compute_batch_time_loss(inputs, outputs)
-        if use_meta_mask:
+        if use_mask:
             if self.hparams.get('iterative_lowest_error', False):
                 mask_padded = self.low_error_mask(inputs, outputs)
                 # skip the first few steps because training dynamics are weird...?
@@ -131,6 +131,11 @@ class UDNN(MetaModule, pl.LightningModule):
                 initial_model_outputs = self.initial_model.forward(inputs)
                 mask_padded = self.low_error_mask(inputs, initial_model_outputs)
                 batch_time_loss = mask_padded * batch_time_loss
+
+        if 'time_mask' in inputs and self.training:
+            time_mask = inputs['time_mask']
+            batch_time_loss = time_mask * batch_time_loss
+
         batch_loss = batch_time_loss.sum(-1)
 
         rope_reg_weight = self.hparams.get('rope_reg', 0)

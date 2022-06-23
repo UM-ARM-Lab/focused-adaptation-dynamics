@@ -2,12 +2,11 @@
 import argparse
 import pathlib
 import shutil
-from multiprocessing import Pool
 
+import numpy as np
 from tqdm import tqdm
 
 from arc_utilities import ros_init
-from link_bot_data.dataset_utils import modify_pad_env
 from link_bot_data.tf_dataset_utils import pkl_write_example
 from moonshine.my_torch_dataset import MyTorchDataset
 
@@ -16,7 +15,7 @@ def process_example(args):
     i, dataset, outdir = args
     example = dataset[i]
 
-    modify_pad_env(example, 70, 50, 67)
+    example['time_mask'] = np.ones([100], dtype=np.float32)
 
     pkl_write_example(outdir, example, example['metadata']['example_idx'])
 

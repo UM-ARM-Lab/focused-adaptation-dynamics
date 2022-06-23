@@ -164,7 +164,7 @@ class MWNet(pl.LightningModule):
         train_batch = inputs['train']
 
         udnn_outputs = self.udnn(train_batch)
-        udnn_loss = self.udnn.compute_batch_loss(train_batch, udnn_outputs, use_meta_mask=False)
+        udnn_loss = self.udnn.compute_batch_loss(train_batch, udnn_outputs, use_mask=False)
         batch_indices = train_batch['example_idx']
         weights = torch.take_along_dim(self.sample_weights, batch_indices, dim=0)
         positive_weights = torch.sigmoid(weights)

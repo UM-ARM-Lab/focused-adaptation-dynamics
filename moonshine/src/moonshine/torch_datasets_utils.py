@@ -2,6 +2,7 @@ import collections
 
 import numpy as np
 import torch
+from colorama import Fore
 from torch._six import string_classes
 from torch.utils.data import Subset, ConcatDataset
 from torch.utils.data._utils.collate import np_str_obj_array_pattern, default_collate_err_msg_format
@@ -39,6 +40,17 @@ def dataset_shard(dataset, shard):
 
     dataset_take = Subset(dataset, range(0, len(dataset), shard))
     return dataset_take
+
+
+keys_has_warned = []
+
+
+def warn_about_not_common_key(key):
+    global keys_has_warned
+    if key not in keys_has_warned:
+        key_colored = Fore.YELLOW + key + Fore.RESET
+        print(f"Warning! Key {key_colored} is missing from some elements in the batch and will be dropped.")
+        keys_has_warned.append(key)
 
 
 def my_collate(batch):
@@ -80,6 +92,7 @@ def my_collate(batch):
             for b in batch:
                 if key not in b:
                     is_common = False
+                    warn_about_not_common_key(key)
                     break
             if is_common:
                 common_keys.append(key)

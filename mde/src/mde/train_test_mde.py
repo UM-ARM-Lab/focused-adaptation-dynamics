@@ -45,7 +45,6 @@ def train_main(dataset_dir: pathlib.Path,
     pl.seed_everything(seed, workers=True)
 
     params = load_hjson(params_filename)
-    print(params)
 
     data_module = MDEDataModule(dataset_dir,
                                 batch_size=batch_size,
