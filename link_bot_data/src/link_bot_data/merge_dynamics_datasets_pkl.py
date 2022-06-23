@@ -5,6 +5,7 @@ import hjson
 from tqdm import tqdm
 
 from arc_utilities.filesystem_utils import rm_tree
+from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_data.split_dataset import write_mode
 from link_bot_data.tf_dataset_utils import pkl_write_example
 from moonshine.filepath_tools import load_params
@@ -21,15 +22,19 @@ def merge_dynamics_datasets_pkl(outdir: pathlib.Path, indirs: List[pathlib.Path]
 
     outdir.mkdir()
 
+    fetched_indirs = []
+    for dataset_dir in indirs:
+        fetched_indirs.append(fetch_udnn_dataset(dataset_dir))
+
     hparams_filename = 'hparams.hjson'
-    path = indirs[0] / hparams_filename
+    path = fetched_indirs[0] / hparams_filename
     new_hparams_filename = outdir / hparams_filename
     # log this operation in the params!
     hparams = hjson.load(path.open('r'))
-    hparams['created_by_merging'] = [str(indir) for indir in indirs]
+    hparams['created_by_merging'] = [str(indir) for indir in fetched_indirs]
 
     total_n_trajs = 0
-    for indir in indirs:
+    for indir in fetched_indirs:
         p = load_params(indir)
         total_n_trajs += p['n_trajs']
     hparams['n_trajs'] = total_n_trajs
@@ -41,7 +46,7 @@ def merge_dynamics_datasets_pkl(outdir: pathlib.Path, indirs: List[pathlib.Path]
     traj_idx = 0
     for mode in ['train', 'val', 'test']:
         files = []
-        for dataset_dir in indirs:
+        for dataset_dir in fetched_indirs:
             dataset = MyTorchDataset(dataset_dir, mode=mode, no_update_with_metadata=True)
             for e in tqdm(dataset):
                 e['traj_idx'] = traj_idx
