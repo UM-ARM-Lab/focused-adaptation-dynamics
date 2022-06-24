@@ -11,12 +11,13 @@ from sklearn.linear_model import LinearRegression
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from tqdm import tqdm
+from wandb.util import generate_id
 
 from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_mde_dataset
 from link_bot_pycommon.load_wandb_model import load_model_artifact
+from mde import train_test_mde
 from mde.torch_mde import MDE
-from wandb.util import generate_id
 from mde.torch_mde_dataset import TorchMDEDataset
 from moonshine.torch_datasets_utils import my_collate, dataset_shard, dataset_take
 from state_space_dynamics.torch_dynamics_dataset import remove_keys
@@ -52,7 +53,7 @@ def main():
 
     modes = args.modes.split(",")
     for mode in modes:
-        transform = transforms.Compose([remove_keys("scene_msg")])
+        transform = transforms.Compose([remove_keys("scene_msg", "sdf", "sdf_grad")])
         full_dataset = TorchMDEDataset(dataset_dir, mode=mode, transform=transform)
         full_dataset = dataset_take(full_dataset, args.take)
         # s = full_dataset.get_scenario()
@@ -144,6 +145,8 @@ def main():
         plt.close()
 
     wandb.finish()
+
+    train_test_mde.eval_main(args.dataset_dir, args.checkpoint, mode='test', batch_size=32, user='armlab')
 
 
 if __name__ == '__main__':

@@ -2,11 +2,13 @@
 import argparse
 import pathlib
 import shutil
+from multiprocessing import get_context
 
 import numpy as np
 from tqdm import tqdm
 
 from arc_utilities import ros_init
+from link_bot_data.dataset_utils import modify_pad_env
 from link_bot_data.tf_dataset_utils import pkl_write_example
 from moonshine.my_torch_dataset import MyTorchDataset
 
@@ -15,7 +17,12 @@ def process_example(args):
     i, dataset, outdir = args
     example = dataset[i]
 
-    example['time_mask'] = np.ones([100], dtype=np.float32)
+    modify_pad_env(example, 70, 50, 67)
+    # jn = np.array(['front_left_wheel', 'front_right_wheel', 'rear_left_wheel', 'rear_right_wheel', 'joint56', 'joint57',
+    #                'joint41', 'joint42', 'joint43', 'joint44', 'joint45', 'joint46', 'joint47', 'leftgripper',
+    #                'leftgripper2', 'joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'rightgripper',
+    #                'rightgripper2'])
+    # example['joint_names'] = np.array(2 * [jn])
 
     pkl_write_example(outdir, example, example['metadata']['example_idx'])
 
@@ -38,14 +45,13 @@ def main():
 
     dataset = MyTorchDataset(args.dataset_dir, mode='all', no_update_with_metadata=True)
 
-    for i in tqdm(range(len(dataset))):
-        process_example((i, dataset, outdir))
+    # for i in tqdm(range(len(dataset))):
+    #     process_example((i, dataset, outdir))
 
-    print(outdir)
-    # with Pool() as pool:
-    #     tasks = [(i, dataset, outdir) for i in range(len(dataset))]
-    #     for _ in tqdm(pool.imap_unordered(process_example, tasks), total=len(tasks)):
-    #         pass
+    with get_context("spawn").Pool() as pool:
+        tasks = [(i, dataset, outdir) for i in range(len(dataset))]
+        for _ in tqdm(pool.imap_unordered(process_example, tasks), total=len(tasks)):
+            pass
 
 
 if __name__ == '__main__':

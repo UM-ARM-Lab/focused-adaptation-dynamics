@@ -25,24 +25,27 @@ def main():
     np.set_printoptions(precision=4)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', type=pathlib.Path)
+    parser.add_argument('val_dataset', type=pathlib.Path)
+    parser.add_argument('train_dataset', type=pathlib.Path)
     parser.add_argument('example_indices', type=int_set_arg)
 
     args = parser.parse_args()
 
-    all_dataset = TorchMDEDataset(fetch_mde_dataset(args.dataset), mode='all')
-    s = all_dataset.get_scenario({'rope_name': 'rope_3d_alt'})
+    val_dataset = TorchMDEDataset(fetch_mde_dataset(args.val_dataset), mode='all')
+    s = val_dataset.get_scenario({'rope_name': 'rope_3d_alt'})
 
-    train_dataset = TorchMDEDataset(fetch_mde_dataset(args.dataset), mode='train')
+    train_dataset = TorchMDEDataset(fetch_mde_dataset(args.train_dataset), mode='train')
 
-    ref_actions_list = []
-    for example_idx in args.example_indices:
-        val_traj = all_dataset[example_idx]
-        print(f"found ref example {val_traj['example_idx']}")
-        actions, _ = get_actions(all_dataset.time_indexed_keys, val_traj)
-        ref_actions_list.append(actions)
+    val_actions_list = []
+    val_dataset_indices = []
+    for i, val_traj in enumerate(val_dataset):
+        if val_traj['example_idx'] in args.example_indices:
+            print(f"found val example {val_traj['example_idx']}")
+            actions, _ = get_actions(val_dataset.time_indexed_keys, val_traj)
+            val_actions_list.append(actions)
+            val_dataset_indices.append(i)
 
-    root = pathlib.Path('results') / 'mde_train_examples_for_viz' / args.dataset.name
+    root = pathlib.Path('results') / 'mde_train_examples_for_viz' / args.train_dataset.name
     root.mkdir(parents=True, exist_ok=True)
     cache = root / "mde_train_examples_for_viz.pkl"
     if cache.exists():
@@ -53,59 +56,58 @@ def main():
         with cache.open('wb') as f:
             pickle.dump((train_actions_list, train_example_indices), f)
 
-    ref_example_indices = args.example_indices
-
-    ref_actions = torch.tensor(ref_actions_list).cuda()
+    val_actions = torch.tensor(val_actions_list).cuda()
     train_actions = torch.tensor(train_actions_list).cuda()
     train_actions_batched = train_actions.permute([1, 2, 0, 3])
-    ref_actions_batched = ref_actions.permute([1, 2, 0, 3])
-    distances_to_ref_matrix_all = pairwise_squared_distances(train_actions_batched, ref_actions_batched).sqrt()
-    _, _, a, b = distances_to_ref_matrix_all.shape
-    distances_to_ref_matrix_flat = distances_to_ref_matrix_all.reshape([4, a, b])
-    distances_to_ref_matrix = distances_to_ref_matrix_flat[1:].mean(0)
+    val_actions_batched = val_actions.permute([1, 2, 0, 3])
+    distances_to_val_matrix_all = pairwise_squared_distances(train_actions_batched, val_actions_batched).sqrt()
+    _, _, a, b = distances_to_val_matrix_all.shape
+    distances_to_val_matrix_flat = distances_to_val_matrix_all.reshape([4, a, b])
+    distances_to_val_matrix = distances_to_val_matrix_flat[:].mean(0)
     # we want to compute the distance between each left/right before/after separately, so treat them as batch dims?
-    nearest_distances, nearest_indices = distances_to_ref_matrix.min(0)
+    nearest_distances, nearest_indices = distances_to_val_matrix.min(0)
 
     nearest_train_example_indices = np.array(train_example_indices)[nearest_indices.cpu().numpy()]
 
     def get_pred_t(example, _t):
-        return numpify(index_time(example, all_dataset.time_indexed_keys_predicted, _t, False))
+        return numpify(index_time(example, val_dataset.time_indexed_keys_predicted, _t, False))
 
     def get_actual_t(example, _t):
-        return numpify(index_time(example, all_dataset.time_indexed_keys, _t, False))
+        return numpify(index_time(example, val_dataset.time_indexed_keys, _t, False))
 
-    anim = RvizAnimationController(n_time_steps=len(ref_example_indices))
+    anim = RvizAnimationController(n_time_steps=len(val_dataset_indices))
     while not anim.done:
         t = anim.t()
-        ref_example_index = ref_example_indices[t]
+        val_dataset_idx = val_dataset_indices[t]
+        val_example_idx = args.example_indices[t]
         nearest_train_example_index = nearest_train_example_indices[t]
-        ref_example = all_dataset[ref_example_index]
-        nearest_train_example = all_dataset[nearest_train_example_index]
+        val_example = val_dataset[val_dataset_idx]
+        nearest_train_example = train_dataset[nearest_train_example_index]
 
-        ref_pred_0 = get_pred_t(all_dataset[ref_example_index], 0)
-        ref_pred_1 = get_pred_t(all_dataset[ref_example_index], 1)
-        nearest_train_0 = get_pred_t(all_dataset[nearest_train_example_index], 0)
-        nearest_train_1 = get_pred_t(all_dataset[nearest_train_example_index], 1)
-        ref_actual_0 = get_actual_t(all_dataset[ref_example_index], 0)
-        ref_actual_1 = get_actual_t(all_dataset[ref_example_index], 1)
+        val_pred_0 = get_pred_t(val_dataset[val_dataset_idx], 0)
+        val_pred_1 = get_pred_t(val_dataset[val_dataset_idx], 1)
+        nearest_train_0 = get_pred_t(train_dataset[nearest_train_example_index], 0)
+        nearest_train_1 = get_pred_t(train_dataset[nearest_train_example_index], 1)
+        val_actual_0 = get_actual_t(val_dataset[val_dataset_idx], 0)
+        val_actual_1 = get_actual_t(val_dataset[val_dataset_idx], 1)
 
-        s.plot_environment_rviz(ref_example)
-        print(f"{ref_example_index=}")
-        print(f"validation example has error {ref_example['error']}")
+        s.plot_environment_rviz(val_example)
+        print(f"{val_example_idx=}")
+        print(f"validation example has error {val_example['error']}")
         print(f"but nearest training example has error {nearest_train_example['error']}")
-        s.plot_state_rviz(ref_pred_0, label='ref_pred_0', color='red')
-        s.plot_state_rviz(ref_pred_1, label='ref_pred_1', color=adjust_lightness('red', 0.5))
-        s.plot_state_rviz(ref_actual_0, label='ref_actual_0', color='red')
-        s.plot_state_rviz(ref_actual_1, label='ref_actual_1', color=adjust_lightness('red', 0.5))
+        s.plot_state_rviz(val_pred_0, label='val_pred_0', color='red')
+        s.plot_state_rviz(val_pred_1, label='val_pred_1', color=adjust_lightness('red', 0.5))
+        s.plot_state_rviz(val_actual_0, label='val_actual_0', color='red')
+        s.plot_state_rviz(val_actual_1, label='val_actual_1', color=adjust_lightness('red', 0.5))
         s.plot_state_rviz(nearest_train_0, label='nearest_train_0', color='blue')
         s.plot_state_rviz(nearest_train_1, label='nearest_train_1', color=adjust_lightness('blue', 0.5))
 
-        ref_pred_1.pop(add_predicted("left_gripper"))
-        ref_pred_1.pop(add_predicted("right_gripper"))
+        val_pred_1.pop(add_predicted("left_gripper"))
+        val_pred_1.pop(add_predicted("right_gripper"))
         nearest_train_1.pop(add_predicted("left_gripper"))
         nearest_train_1.pop(add_predicted("right_gripper"))
 
-        s.plot_action_rviz(ref_pred_0, ref_pred_1, label='ref', color='red')
+        s.plot_action_rviz(val_pred_0, val_pred_1, label='ref', color='red')
         s.plot_action_rviz(nearest_train_0, nearest_train_1, label='nearest_train', color='blue')
 
         anim.step()

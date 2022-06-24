@@ -179,18 +179,19 @@ def viz_main(dataset_dir: pathlib.Path,
         predicted_error = model(inputs_batch)
 
         # for only showing missclassifications:
-        # pred_close = predicted_error[0].detach().numpy() < 0.08
-        # true_close = inputs['error'][1] < 0.08
-        # if pred_close != true_close:
-        predicted_error = remove_batch(predicted_error)
-        time_anim.reset()
-        while not time_anim.done:
-            t = time_anim.t()
-            init_viz_env(s, inputs, t)
-            dataset.transition_viz_t()(s, inputs, t)
-            s.plot_pred_error_rviz(predicted_error)
-            time_anim.step()
-            n_examples_visualized += 1
+        threshold = 0.08
+        pred_close = predicted_error[0].detach().numpy() < threshold
+        true_close = inputs['error'][1] < threshold
+        if pred_close == true_close:
+            predicted_error = remove_batch(predicted_error)
+            time_anim.reset()
+            while not time_anim.done:
+                t = time_anim.t()
+                init_viz_env(s, inputs, t)
+                dataset.transition_viz_t()(s, inputs, t)
+                s.plot_pred_error_rviz(predicted_error)
+                time_anim.step()
+                n_examples_visualized += 1
 
         dataset_anim.step()
 

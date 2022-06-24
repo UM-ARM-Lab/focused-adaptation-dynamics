@@ -160,7 +160,12 @@ class ResultsToDynamicsDataset:
             if len(states) < self.traj_length:
                 time_mask[len(states):] = 0
                 n_pad = self.traj_length - len(states)
-                pad_state = {k: np.zeros_like(v) for k, v in states_step[-1].items()}
+                pad_state = {}
+                for k, v in states_step[-1].items():
+                    if k == 'joint_names':
+                        pad_state[k] = v
+                    else:
+                        pad_state[k] = np.zeros_like(v)
                 pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
                 states_padded = states + n_pad * [pad_state]
                 actions_padded = actions + (n_pad - 1) * [pad_action]

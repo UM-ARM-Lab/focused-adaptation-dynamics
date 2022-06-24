@@ -1,6 +1,7 @@
 import pathlib
-from multiprocessing import Pool, get_context
+from multiprocessing import get_context
 
+import numpy as np
 from tqdm import tqdm
 
 from link_bot_data.dataset_utils import add_predicted
@@ -89,6 +90,10 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
     for example in dataset:
         from link_bot_data.tf_dataset_utils import deserialize_scene_msg
         deserialize_scene_msg(example)
+        if 'time_mask' in example:
+            time_mask = example['time_mask']
+        else:
+            time_mask = np.ones_like(example['time_idx'])
         for start_t in range(0, steps_per_traj - horizon + 1, step):
             start_state = {k: example[k][start_t:start_t + 1] for k in state_keys}  # :+1 to keep time dimension
             actions_from_start_t = {k: example[k][start_t:] for k in dataset.action_keys}
@@ -130,5 +135,8 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
                 out_example['metadata'] = {
                     'error': error,
                 }
+
+                if time_mask[dt] == 0 or time_mask[dt + 1] == 0:  # some examples are invalid/padding, so ignore those
+                    continue
 
                 yield out_example

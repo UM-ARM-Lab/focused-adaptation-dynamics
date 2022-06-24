@@ -58,7 +58,7 @@ def main():
             if example['example_idx'] not in args.indices:
                 dataset_anim.step()
                 continue
-        print(example['example_idx'])
+        print(f"{example['example_idx']=}")
         if 'traj_idx' in example:
             traj_idx = example['traj_idx']
             s.plot_traj_idx_rviz(traj_idx)
