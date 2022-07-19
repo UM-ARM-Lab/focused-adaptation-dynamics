@@ -20,7 +20,7 @@ from moonshine.moonshine_utils import get_num_workers
 from moonshine.robot_points_torch import RobotVoxelgridInfo
 from moonshine.tfa_sdf import build_sdf_3d
 from moonshine.torch_datasets_utils import my_collate, dataset_take
-from state_space_dynamics.meta_udnn import UDNN
+from state_space_dynamics.torch_udnn import UDNN
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 

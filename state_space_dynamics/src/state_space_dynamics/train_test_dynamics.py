@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 
 import pathlib
-from copy import deepcopy
 from datetime import datetime
 from typing import Optional
 
 import git
 import numpy as np
 import pytorch_lightning as pl
-import torch
-import torch.nn.functional as F
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 from wandb.util import generate_id
@@ -21,12 +18,10 @@ from link_bot_pycommon.load_wandb_model import load_model_artifact, model_artifa
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.filepath_tools import load_hjson
 from moonshine.my_pl_callbacks import HeartbeatCallback
-from moonshine.numpify import numpify
 from moonshine.torch_and_tf_utils import add_batch, remove_batch
 from moonshine.torch_datasets_utils import dataset_skip
 from moonshine.torchify import torchify
-from state_space_dynamics.meta_udnn import UDNN
-from state_space_dynamics.mw_net import MWNet
+from state_space_dynamics.torch_udnn import UDNN
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 from state_space_dynamics.udnn_data_module import UDNNDataModule
 
@@ -34,13 +29,8 @@ PROJECT = 'udnn'
 
 
 def load_udnn_model_wrapper(checkpoint, with_joint_positions=False):
-    try:
-        model = load_model_artifact(checkpoint, UDNN, 'udnn', version='best', user='armlab',
-                                    with_joint_positions=with_joint_positions)
-    except RuntimeError:
-        model_with_weights = load_model_artifact(checkpoint, MWNet, 'udnn', version='best', user='armlab',
-                                                 train_dataset=None, with_joint_positions=with_joint_positions)
-        model = model_with_weights.udnn
+    model = load_model_artifact(checkpoint, UDNN, 'udnn', version='best', user='armlab',
+                                with_joint_positions=with_joint_positions)
     model.eval()
     return model
 
@@ -233,11 +223,6 @@ def viz_main(dataset_dir: pathlib.Path,
 
         time_anim = RvizAnimationController(n_time_steps=inputs['left_gripper_position'].shape[0])
 
-        if 'meta_mask' in inputs:
-            if inputs['meta_mask'].sum() < 6:
-                dataset_anim.step()
-                continue
-            print(inputs['meta_mask'])
         weight = inputs.get('weight', np.ones_like(inputs['time_idx']))
         outputs = remove_batch(model(torchify(add_batch(inputs))))
 

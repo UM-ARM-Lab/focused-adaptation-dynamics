@@ -197,14 +197,17 @@ class UDNN(MetaModule, pl.LightningModule):
         low_error_mask = 1 - torch.sigmoid(self.global_step * (error - self.hparams['mask_threshold']))
         return low_error_mask
 
-    def compute_loss(self, inputs, outputs, use_meta_mask: bool):
-        batch_losses = self.compute_batch_loss(inputs, outputs, use_meta_mask)
+    def compute_loss(self, inputs, outputs, use_mask: bool):
+        batch_losses = self.compute_batch_loss(inputs, outputs, use_mask)
         return {k: v.mean() for k, v in batch_losses.items()}
 
     def training_step(self, train_batch, batch_idx):
         outputs = self.forward(train_batch)
-        use_meta_mask = self.hparams.get('use_meta_mask_train', False)
-        losses = self.compute_loss(train_batch, outputs, use_meta_mask)
+        if 'use_mask_train' in self.hparams:
+            use_mask = self.hparams.get('use_mask_train', False)
+        else:
+            use_mask = self.hparams.get('use_meta_mask_train', False)
+        losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
         self.log('train_rope_reg_loss', losses['rope_reg_loss'])
 
@@ -217,8 +220,11 @@ class UDNN(MetaModule, pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         val_udnn_outputs = self.forward(val_batch)
-        use_meta_mask = self.hparams.get('use_meta_mask_val', False)
-        val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_meta_mask)
+        if 'use_mask_val' in self.hparams:
+            use_mask = self.hparams.get('use_mask_val', False)
+        else:
+            use_mask = self.hparams.get('use_meta_mask_val', False)
+        val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
         self.log('val_loss', val_losses['loss'])
         self.log('val_rope_reg_loss', val_losses['rope_reg_loss'])
 
@@ -231,7 +237,7 @@ class UDNN(MetaModule, pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         test_udnn_outputs = self.forward(test_batch)
-        test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_meta_mask=False)
+        test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         self.log('test_loss', test_losses['loss'])
         self.log('test_rope_reg_loss', test_losses['rope_reg_loss'])
 

@@ -14,7 +14,7 @@ from merrrt_visualization.rviz_animation_controller import RvizAnimationControll
 from moonshine.numpify import numpify
 from moonshine.torch_and_tf_utils import add_batch, remove_batch
 from moonshine.torchify import torchify
-from state_space_dynamics.meta_udnn import UDNN
+from state_space_dynamics.torch_udnn import UDNN
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 

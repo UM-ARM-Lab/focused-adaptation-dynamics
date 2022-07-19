@@ -4,6 +4,7 @@ from typing import Dict, List
 import gpytorch
 import numpy as np
 import pytorch_lightning as pl
+import rospy
 import torch
 import torch.nn.functional as F
 import torchmetrics
@@ -12,7 +13,6 @@ from botorch.models.gp_regression import SingleTaskGP
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from torch import nn
 
-import rospy
 from autolab_core import YamlConfig
 from link_bot_data.dataset_utils import add_predicted_hack, add_predicted
 from link_bot_data.local_env_helper import LocalEnvHelper
@@ -131,6 +131,7 @@ class MDE(pl.LightningModule):
 
         self.val_accuracy = torchmetrics.Accuracy()
         self.test_accuracy = torchmetrics.Accuracy()
+        self.val_stat_scores = torchmetrics.StatScores()
 
     def forward(self, inputs: Dict[str, torch.Tensor]):
         if not self.has_checked_training_mode:
@@ -274,9 +275,11 @@ class MDE(pl.LightningModule):
             logits = -pred_error
             pred_error_probabilities = torch.sigmoid(logits)
             self.val_accuracy(pred_error_probabilities, true_error_after_binary)
+            self.val_stat_scores(pred_error_probabilities, true_error_after_binary)
         else:
             pred_error_binary = pred_error < self.hparams['error_threshold']
             self.val_accuracy(pred_error_binary, true_error_after_binary)
+            self.val_stat_scores(pred_error_binary, true_error_after_binary)
         return loss
 
     def test_step(self, test_batch, batch_idx):
@@ -307,6 +310,13 @@ class MDE(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         self.log('val_accuracy', self.val_accuracy.compute())  # logs the metric result/value
+        tp, fp, tn, fn, _ = self.val_stat_scores.compute()
+        fpr = fp / (fp + tn)
+        tpr = tp / (tp + fn)
+        self.log('val_fpr', fpr)
+        self.log('val_tnr', 1 - fpr)
+        self.log('val_tpr', tpr)
+        self.log('val_fnr', 1 - tpr)
 
         # reset all metrics
         self.val_accuracy.reset()

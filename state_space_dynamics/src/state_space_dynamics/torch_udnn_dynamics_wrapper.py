@@ -2,13 +2,12 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import torch
-from colorama import Fore
 
 from moonshine.numpify import numpify
 from moonshine.torch_and_tf_utils import remove_batch, add_batch
 from moonshine.torch_utils import sequence_of_dicts_to_dict_of_tensors, dict_of_tensors_to_sequence_of_dicts
 from moonshine.torchify import torchify
-from state_space_dynamics.meta_udnn import UDNN
+from state_space_dynamics.torch_udnn import UDNN
 from state_space_dynamics.train_test_dynamics import load_udnn_model_wrapper
 
 

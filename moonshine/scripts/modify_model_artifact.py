@@ -5,8 +5,7 @@ from pytorch_lightning import Trainer
 import wandb
 from arc_utilities.algorithms import nested_dict_update
 from link_bot_pycommon.load_wandb_model import get_model_artifact
-from state_space_dynamics.meta_udnn import UDNN
-from state_space_dynamics.mw_net import MWNet
+from state_space_dynamics.torch_udnn import UDNN
 
 
 def main():

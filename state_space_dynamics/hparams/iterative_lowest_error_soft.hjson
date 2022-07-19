@@ -1,6 +1,6 @@
 {
-  use_meta_mask_train: true
-  use_meta_mask_val: false
+  use_mask_train: true
+  use_mask_val: false
   iterative_lowest_error: true
   soft_masking: true
   soft_threshold_width: 0.01

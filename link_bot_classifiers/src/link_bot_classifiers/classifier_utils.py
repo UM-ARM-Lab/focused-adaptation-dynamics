@@ -17,7 +17,13 @@ def is_torch_model(path):
 
 
 def strip_torch_model_prefix(path):
-    return path.as_posix()[2:]
+    run_id = path.as_posix()[2:]
+    if run_id.startswith("model-"):
+        run_id = run_id[6:]
+        run_id = run_id.split(":")[0]
+        return run_id
+    else:
+        return run_id
 
 
 def is_gpytorch_model(path):

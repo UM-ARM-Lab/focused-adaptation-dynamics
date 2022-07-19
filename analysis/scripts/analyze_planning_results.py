@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from analysis.analyze_results import planning_results
-from analysis.results_figures import barplot, boxplot
+from analysis.results_figures import boxplot
 from arc_utilities import ros_init
 from link_bot_pycommon.string_utils import shorten
 from moonshine.gpu_config import limit_gpu_mem
@@ -38,17 +38,16 @@ def analyze_planning_results(args):
 
     boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))
 
-    _, ax = barplot(df, outdir, hue, 'any_solved', "Any Plans Found?", figsize=(12, 8), ci=None)
-    ax.set_ylim([0, 1])
+    barplot_with_values(df, 'any_solved', hue, outdir, figsize=(12, 8), title="Any Plans Found?")
 
-    success_barplot(df, 'success', hue, outdir, figsize=(12, 8))
+    barplot_with_values(df, 'success', hue, outdir, figsize=(12, 8))
 
     _, ax = boxplot(df, outdir, hue, 'task_error_given_solved', "Task Error (given solved)", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
     ax.set_ylim([0, 0.4])
     plt.savefig(outdir / f'task_error_given_solved.png')
 
-    success_barplot(df, 'success_given_solved', hue, outdir, figsize=(12, 8))
+    barplot_with_values(df, 'success_given_solved', hue, outdir, figsize=(12, 8))
 
     boxplot(df, outdir, hue, 'planning_time', "Total Planning Time", figsize=(12, 8))
 
@@ -58,7 +57,7 @@ def analyze_planning_results(args):
         plt.show(block=True)
 
 
-def success_barplot(df, y, hue, outdir, figsize):
+def barplot_with_values(df, y, hue, outdir, figsize, title=None):
     fig, ax = plt.subplots(figsize=figsize)
     sns.barplot(ax=ax, data=df, x=hue, y=y, palette='colorblind', linewidth=5, ci=None)
     for p in ax.patches:
@@ -67,7 +66,10 @@ def success_barplot(df, y, hue, outdir, figsize):
         value = '{:.2f}'.format(p.get_height())
         ax.text(_x, _y, value, ha="center")
     ax.set_ylim(0, 1.0)
-    ax.set_title(f"{y}")
+    if title is None:
+        ax.set_title(f"{y}")
+    else:
+        ax.set_title(title)
     plt.savefig(outdir / f'{y}.png')
 
 
