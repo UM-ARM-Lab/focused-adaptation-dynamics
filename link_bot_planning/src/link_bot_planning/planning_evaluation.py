@@ -232,6 +232,7 @@ def evaluate_planning(planner_params: Dict,
     planner.scenario.robot.disconnect()
 
 
+
 def evaluate_multiple_planning(outdir: pathlib.Path,
                                planners_params: List[Tuple[str, Dict]],
                                logfile_name: Optional = None,

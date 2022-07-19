@@ -2,7 +2,7 @@
 
 import pathlib
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union, List
 
 import git
 import numpy as np
@@ -35,7 +35,7 @@ def load_udnn_model_wrapper(checkpoint, with_joint_positions=False):
     return model
 
 
-def fine_tune_main(dataset_dir: pathlib.Path,
+def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                    checkpoint: str,
                    params_filename: pathlib.Path,
                    batch_size: int,

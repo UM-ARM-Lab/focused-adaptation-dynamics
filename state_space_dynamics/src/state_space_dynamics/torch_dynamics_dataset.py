@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Dict
+from typing import Dict, Union, List
 
 from torch.utils.data import DataLoader
 
@@ -68,7 +68,7 @@ class TorchLoaderWrapped:
 class TorchDynamicsDataset(MyTorchDataset, DynamicsDatasetParams):
 
     def __init__(self,
-                 dataset_dir: pathlib.Path,
+                 dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                  mode: str,
                  transform=None,
                  only_metadata=False,

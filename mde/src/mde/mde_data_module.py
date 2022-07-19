@@ -1,5 +1,5 @@
 import pathlib
-from typing import Optional, Dict
+from typing import Optional, Dict, Union, List
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -7,15 +7,16 @@ from torchvision.transforms import transforms
 
 from link_bot_data.new_dataset_utils import fetch_mde_dataset
 from link_bot_data.wandb_datasets import get_dataset_with_version
+from mde.torch_mde_dataset import TorchMDEDataset
 from moonshine.filepath_tools import load_params
 from moonshine.moonshine_utils import get_num_workers
 from moonshine.torch_datasets_utils import my_collate, dataset_take, dataset_skip, dataset_repeat
-from state_space_dynamics.torch_dynamics_dataset import remove_keys, TorchDynamicsDataset
+from state_space_dynamics.torch_dynamics_dataset import remove_keys
 
 
 class MDEDataModule(pl.LightningDataModule):
     def __init__(self,
-                 dataset_dir: pathlib.Path,
+                 dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                  batch_size: int,
                  take: int,
                  skip: int,
@@ -40,24 +41,27 @@ class MDEDataModule(pl.LightningDataModule):
 
         # NOTE: I'm not using prepare_data or setup correctly here. This is because in order to write the relevant info
         #  in `self.add_dataset_params` I need to have actually constructed the datasets
-        self.fetched_dataset_dir = fetch_mde_dataset(self.dataset_dir)
+        if isinstance(self.dataset_dir, list):
+            self.fetched_dataset_dir = [fetch_mde_dataset(d) for d in self.dataset_dir]
+        else:
+            self.fetched_dataset_dir = fetch_mde_dataset(self.dataset_dir)
         self.dataset_hparams = load_params(self.fetched_dataset_dir)
 
     def setup(self, stage: Optional[str] = None):
         transform = transforms.Compose([remove_keys("scene_msg", "sdf", "sdf_grad")])
 
-        train_dataset = TorchDynamicsDataset(self.fetched_dataset_dir, mode=self.train_mode, transform=transform)
+        train_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.train_mode, transform=transform)
         train_dataset_take = dataset_take(train_dataset, self.take)
         train_dataset_skip = dataset_skip(train_dataset_take, self.skip)
 
         self.train_dataset = dataset_repeat(train_dataset_skip, self.repeat)
 
         print("Applying take to validation & test as well")
-        val_dataset = TorchDynamicsDataset(self.fetched_dataset_dir, mode=self.val_mode, transform=transform)
+        val_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.val_mode, transform=transform)
         val_dataset_take = dataset_take(val_dataset, self.take)
         self.val_dataset = val_dataset_take
 
-        test_dataset = TorchDynamicsDataset(self.fetched_dataset_dir, mode=self.test_mode, transform=transform)
+        test_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.test_mode, transform=transform)
         test_dataset_take = dataset_take(test_dataset, self.take)
         self.test_dataset = test_dataset_take
 

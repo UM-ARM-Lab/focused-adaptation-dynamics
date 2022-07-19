@@ -9,7 +9,6 @@ from tqdm import tqdm
 from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
-from moonshine.torch_geometry import pairwise_squared_distances
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 
@@ -53,7 +52,7 @@ def compute_viz_data(ref_actions_list, train_actions_list):
     train_actions = torch.tensor(train_actions_list).cuda()
     train_actions_batched = train_actions.permute([1, 2, 0, 3])
     ref_actions_batched = ref_actions.permute([1, 2, 0, 3])
-    distances_to_ref_matrix_all = pairwise_squared_distances(train_actions_batched, ref_actions_batched).sqrt()
+    distances_to_ref_matrix_all = torch.cdist(train_actions_batched, ref_actions_batched)
     _, _, a, b = distances_to_ref_matrix_all.shape
     distances_to_ref_matrix_flat = distances_to_ref_matrix_all.reshape([4, a, b])
     distances_to_ref_matrix = distances_to_ref_matrix_flat[1:].mean(0)

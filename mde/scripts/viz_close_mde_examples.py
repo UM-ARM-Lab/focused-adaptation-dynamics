@@ -17,7 +17,6 @@ from mde.torch_mde_dataset import TorchMDEDataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.indexing import try_index_time, index_time
 from moonshine.numpify import numpify
-from moonshine.torch_geometry import pairwise_squared_distances
 
 
 @ros_init.with_ros("vis_close_mde_examples")
@@ -60,7 +59,7 @@ def main():
     train_actions = torch.tensor(train_actions_list).cuda()
     train_actions_batched = train_actions.permute([1, 2, 0, 3])
     val_actions_batched = val_actions.permute([1, 2, 0, 3])
-    distances_to_val_matrix_all = pairwise_squared_distances(train_actions_batched, val_actions_batched).sqrt()
+    distances_to_val_matrix_all = torch.cdist(train_actions_batched, val_actions_batched)
     _, _, a, b = distances_to_val_matrix_all.shape
     distances_to_val_matrix_flat = distances_to_val_matrix_all.reshape([4, a, b])
     distances_to_val_matrix = distances_to_val_matrix_flat[:].mean(0)

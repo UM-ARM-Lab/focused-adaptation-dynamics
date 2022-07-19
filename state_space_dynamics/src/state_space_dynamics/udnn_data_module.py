@@ -1,5 +1,5 @@
 import pathlib
-from typing import Optional, Dict
+from typing import Optional, Dict, Union, List
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -15,7 +15,7 @@ from state_space_dynamics.torch_dynamics_dataset import remove_keys, TorchDynami
 
 class UDNNDataModule(pl.LightningDataModule):
     def __init__(self,
-                 dataset_dir: pathlib.Path,
+                 dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                  batch_size: int,
                  take: int,
                  skip: int,

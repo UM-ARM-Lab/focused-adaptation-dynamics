@@ -1,5 +1,5 @@
 import pathlib
-from typing import Optional, Dict
+from typing import Optional, Dict, Union, List
 
 from torch.utils.data import Dataset
 
@@ -11,7 +11,7 @@ from link_bot_pycommon.get_scenario import get_scenario
 class MyTorchDataset(Dataset):
 
     def __init__(self,
-                 dataset_dir: pathlib.Path,
+                 dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                  mode: str,
                  transform=None,
                  only_metadata=False,

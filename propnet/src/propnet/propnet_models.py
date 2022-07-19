@@ -7,7 +7,7 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 from link_bot_pycommon.get_scenario import get_scenario
-from moonshine.torch_geometry import pairwise_squared_distances_self
+from moonshine.torch_utils import mask_diag
 from propnet.component_models import ParticleEncoder, RelationEncoder, Propagator, ParticlePredictor
 from state_space_dynamics.torch_dynamics_dataset import get_batch_size
 
@@ -313,7 +313,8 @@ class PropNet(pl.LightningModule):
         self.log('mean_error_pos', mean_error_pos)
 
         radius = val_batch['radius'][0, 0, 0]
-        dist_matrix = pairwise_squared_distances_self(pred_pos).sqrt()
+        dist_matrix = torch.cdist(pred_pos, pred_pos)
+        mask_diag(dist_matrix, d=torch.inf)
         dist_to_nearest, _ = dist_matrix.min(dim=-1)
 
         self.log("penetration", self.penetration(radius, dist_to_nearest))

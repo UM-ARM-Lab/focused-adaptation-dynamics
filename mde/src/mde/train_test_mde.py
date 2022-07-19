@@ -2,7 +2,7 @@
 
 import pathlib
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union, List
 
 import git
 import pytorch_lightning as pl
@@ -27,7 +27,7 @@ from moonshine.torchify import torchify
 PROJECT = 'mde'
 
 
-def train_main(dataset_dir: pathlib.Path,
+def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                params_filename: pathlib.Path,
                batch_size: int,
                epochs: int,

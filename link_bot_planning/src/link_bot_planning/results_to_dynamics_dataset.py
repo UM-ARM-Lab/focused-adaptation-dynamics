@@ -52,6 +52,8 @@ class ResultsToDynamicsDataset:
         self.results_to_dynamics_dataset()
         split_dataset(self.outdir, val_split=self.val_split, test_split=self.test_split)
 
+        return self.outdir
+
     def save_hparams(self):
         # FIXME: hard-coded
         planner_params = self.metadata['planner_params']

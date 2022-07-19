@@ -11,7 +11,6 @@ from torchmeta.modules import MetaModule, MetaLinear, MetaSequential
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_pycommon.get_scenario import get_scenario
 from moonshine.numpify import numpify
-from moonshine.torch_geometry import pairwise_squared_distances
 from moonshine.torch_utils import sequence_of_dicts_to_dict_of_tensors, vector_to_dict
 from moonshine.torchify import torchify
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
@@ -174,8 +173,7 @@ class UDNN(MetaModule, pl.LightningModule):
                 ref_actions_before_after = self.ref_actions.to(self.device).repeat([batch_size, 1, 1])  # [b,N,12]
 
                 # distance matrix has shape [b, T-1, N]
-                distances_to_ref_matrix = pairwise_squared_distances(train_actions_before_after,
-                                                                     ref_actions_before_after).sqrt()
+                distances_to_ref_matrix = torch.cdist(train_actions_before_after, ref_actions_before_after)
                 min_distances = distances_to_ref_matrix.min(-1)[0]  # [b, T-1]
                 planning_mask = min_distances < self.hparams['planning_mask_threshold']
                 planning_mask = min_distances < 0.04

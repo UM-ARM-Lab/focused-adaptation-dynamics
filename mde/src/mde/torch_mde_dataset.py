@@ -1,4 +1,5 @@
 import pathlib
+from typing import Union, List
 
 from link_bot_data.dataset_utils import add_predicted
 from link_bot_data.visualization import classifier_transition_viz_t, init_viz_env, plot_state_t
@@ -10,7 +11,12 @@ from moonshine.torch_and_tf_utils import remove_batch
 
 class TorchMDEDataset(MyTorchDataset):
 
-    def __init__(self, dataset_dir: pathlib.Path, mode: str, transform=None, only_metadata=False, is_empty=False):
+    def __init__(self,
+                 dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
+                 mode: str,
+                 transform=None,
+                 only_metadata=False,
+                 is_empty=False):
         super().__init__(dataset_dir, mode, transform, only_metadata, is_empty)
         self.model_hparams = self.params['fwd_model_hparams']
         self.data_collection_params = self.params['data_collection_params']

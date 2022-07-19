@@ -66,3 +66,9 @@ def repeat_tensor(v, repetitions, axis, new_axis):
     else:
         multiples[axis] *= repetitions
         return torch.tile(v, multiples)
+
+
+def mask_diag(x, d):
+    # in-place set diagonal of last 2 dims to be d
+    diag_values = torch.ones(x.shape[-1]) * d
+    x.diagonal(dim1=-2, dim2=-1).copy_(diag_values)
