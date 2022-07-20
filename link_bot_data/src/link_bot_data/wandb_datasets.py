@@ -30,11 +30,16 @@ def wandb_save_dataset(dataset_dir: pathlib.Path, project: str, entity='armlab')
             break
 
 
-def get_dataset_with_version(dataset_dir: pathlib.Path, project, entity='armlab'):
+def get_dataset_with_version(dataset_dir, project, entity='armlab'):
+    if isinstance(dataset_dir, pathlib.Path):
+        dataset_name = dataset_dir.name
+    else:
+        dataset_name = dataset_dir
+
     api = wandb.Api({'entity': entity})
     try:
-        artifact = api.artifact(f"{project}/{dataset_dir.name}:latest")
-        return f"{dataset_dir.name}-{artifact.version}"
+        artifact = api.artifact(f"{project}/{dataset_name}:latest")
+        return f"{dataset_name}-{artifact.version}"
     except CommError:
         return 'null'
 

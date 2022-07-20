@@ -32,12 +32,13 @@ class ResultsToDynamicsDataset:
                  visualize: bool,
                  traj_length: Optional[int] = None,
                  val_split=DEFAULT_VAL_SPLIT,
-                 test_split=DEFAULT_TEST_SPLIT):
+                 test_split=DEFAULT_TEST_SPLIT,
+                 root=pathlib.Path("fwd_model_data")):
         self.visualize = visualize
         self.traj_length = traj_length
         self.results_dir = results_dir
         self.trials = (list(results_utils.trials_generator(self.results_dir)))
-        self.outdir = pathlib.Path("fwd_model_data") / outname
+        self.outdir = root / outname
         self.val_split = val_split
         self.test_split = test_split
 

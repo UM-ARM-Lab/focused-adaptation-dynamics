@@ -81,21 +81,25 @@ def fetch_udnn_dataset(dataset_dir):
 
 
 def fetch_dataset(dataset_dir, project):
-    if not dataset_dir.exists():
-        if ':v' in dataset_dir.name:
-            dataset_name, version = dataset_dir.name.split(":")
-            dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
-                                                            project=project,
-                                                            dataset_name=dataset_name,
-                                                            version=version)
-        else:
-            dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
-                                                            project=project,
-                                                            dataset_name=dataset_dir.as_posix(),
-                                                            version='latest')
-        return dataset_dir_downloaded
+    if isinstance(dataset_dir, pathlib.Path):
+        if dataset_dir.exists():
+            return dataset_dir
+        dataset_name = dataset_dir.name
     else:
-        return dataset_dir
+        dataset_name = dataset_dir
+
+    if ':v' in dataset_name:
+        dataset_name, version = dataset_name.split(":")
+        dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
+                                                        project=project,
+                                                        dataset_name=dataset_name,
+                                                        version=version)
+    else:
+        dataset_dir_downloaded = wandb_download_dataset(entity='armlab',
+                                                        project=project,
+                                                        dataset_name=dataset_name,
+                                                        version='latest')
+    return dataset_dir_downloaded
 
 
 class DynamicsDatasetParams:

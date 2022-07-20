@@ -39,8 +39,12 @@ class UDNNDataModule(pl.LightningDataModule):
 
         # NOTE: I'm not using prepare_data or setup correctly here. This is because in order to write the relevant info
         #  in `self.add_dataset_params` I need to have actually constructed the datasets
-        self.fetched_dataset_dir = fetch_udnn_dataset(self.dataset_dir)
-        self.dataset_hparams = load_params(self.fetched_dataset_dir)
+        if isinstance(self.dataset_dir, list):
+            self.fetched_dataset_dir = [fetch_udnn_dataset(d) for d in self.dataset_dir]
+            self.dataset_hparams = load_params(self.fetched_dataset_dir[0])
+        else:
+            self.fetched_dataset_dir = fetch_udnn_dataset(self.dataset_dir)
+            self.dataset_hparams = load_params(self.fetched_dataset_dir)
 
     def setup(self, stage: Optional[str] = None):
         transform = transforms.Compose([remove_keys("scene_msg", "env", "sdf", "sdf_grad")])

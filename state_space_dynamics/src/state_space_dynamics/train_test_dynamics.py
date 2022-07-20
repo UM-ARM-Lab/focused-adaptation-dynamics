@@ -66,12 +66,12 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                                  val_mode=params['val_mode'],
                                  )
     data_module.add_dataset_params(params)
+    params['repeat'] = repeat
 
     model = load_model_artifact(checkpoint, UDNN, project=project, version='latest', user=user, **params)
 
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', entity=user)
     ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
-    es_cb = pl.callbacks.EarlyStopping(monitor="val_loss", divergence_threshold=0.02, patience=10)
     hearbeat_callback = HeartbeatCallback(model.scenario)
 
     trainer = pl.Trainer(gpus=1,
@@ -83,8 +83,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          check_val_every_n_epoch=1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
-                         gradient_clip_val=0.05)
-    wb_logger.watch(model)
+                         gradient_clip_val=0.001)
     trainer.fit(model, data_module)
     wandb.finish()
     eval_main(dataset_dir, run_id, mode='test', user=user, batch_size=batch_size)
@@ -122,6 +121,7 @@ def train_main(dataset_dir: pathlib.Path,
     stamp = "{:%B_%d_%H-%M-%S}".format(datetime.now())
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha[:10]
+    params['repeat'] = repeat
     params['sha'] = sha
     params['start-train-time'] = stamp
     params['batch_size'] = batch_size
@@ -144,7 +144,6 @@ def train_main(dataset_dir: pathlib.Path,
     model = UDNN(**params)
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', **wandb_kargs)
     ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
-    es_cb = pl.callbacks.EarlyStopping(monitor="val_loss", divergence_threshold=0.02, patience=10)
     hearbeat_callback = HeartbeatCallback(model.scenario)
     trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,
@@ -155,7 +154,7 @@ def train_main(dataset_dir: pathlib.Path,
                          check_val_every_n_epoch=1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
-                         gradient_clip_val=0.05)
+                         gradient_clip_val=0.001)
     wb_logger.watch(model)
     trainer.fit(model, data_module, ckpt_path=ckpt_path)
     wandb.finish()

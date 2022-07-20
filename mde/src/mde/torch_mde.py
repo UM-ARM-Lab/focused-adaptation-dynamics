@@ -173,9 +173,8 @@ class MDE(pl.LightningModule):
             voxel_grids_tf = tf.convert_to_tensor(voxel_grids.cpu().numpy())
             sdf_tf = voxel_grids.clone()
             for t in range(2):
-                for c in range(5):
-                    sdf_tf[:, t, c] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, c], res).numpy())
-
+                # 0 is the channel for the environment
+                sdf_tf[:, t, 0] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, 0], res).numpy())
             voxel_grids = sdf_tf
 
         states = {k: inputs[add_predicted_hack(k)] for k in self.hparams.state_keys}

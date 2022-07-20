@@ -59,6 +59,8 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
 
                 total = n_seq(steps_per_traj - 1) * len(dataset) / step
                 for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step), total=total):
+                    # NOTE: what if two modes have the example input example? can we check if we've already generated
+                    #  it an skip actually re-doing the conversion to MDE and just re-use the existing one?
                     result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
                     results.append(result)
 
