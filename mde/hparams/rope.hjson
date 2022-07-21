@@ -39,4 +39,5 @@
   use_batchnorm: true
   use_res3d: true
   use_sdf: true
+  env_only_sdf: false
 }
