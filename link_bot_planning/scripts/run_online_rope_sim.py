@@ -31,21 +31,6 @@ from state_space_dynamics import train_test_dynamics
 
 @ros_init.with_ros("save_as_test_scene")
 def main():
-    """
-    ./scripts/run_online_rope_sim.py results/sim_rope_adapted
-    // prompts you for:
-    //  - which method/baseline to run
-    //  - unadapted run-id
-    //  - number of iterations
-    // has default args:
-    //  - planner_configs/val_car/mde.hjson
-    // - test_scenes/car4_alt
-    // internally this will run these steps in a loop:
-    //  - planning_evaluation
-    //  - train_test_dynamics
-    //  - train_test_mde
-    """
-
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
     parser.add_argument("--on-exception", default='raise')
@@ -71,7 +56,7 @@ def main():
     unadapted_run_id = job_chunker.load_prompt('unadapted_run_id')
     seed = int(job_chunker.load_prompt('seed'))
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
-                                                               'planner_configs/val_car/mde.hjson')
+                                                               'planner_configs/val_car/mde_online_learning.hjson')
     planner_params = load_planner_params(planner_params_filename)
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))

@@ -38,6 +38,8 @@ def analyze_planning_results(args):
 
     boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))
 
+    boxplot(df, outdir, hue, 'combined_error', "Avg Model, Planning, and Task Error", figsize=(12, 8))
+
     barplot_with_values(df, 'any_solved', hue, outdir, figsize=(12, 8), title="Any Plans Found?")
 
     barplot_with_values(df, 'success', hue, outdir, figsize=(12, 8))

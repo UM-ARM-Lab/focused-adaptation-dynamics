@@ -181,9 +181,8 @@ def min_error_discrepancy(_: pathlib.Path, scenario: ExperimentScenario, __: Dic
 def combined_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
     min_final_execution_to_goal_error = min_task_error(_, scenario, __, trial_datum)
     min_final_plan_to_goal_error = min_planning_error(_, scenario, __, trial_datum)
-    combined_error_alpha = 0.5
-    return combined_error_alpha * min_final_plan_to_goal_error + \
-           (1 - combined_error_alpha) * abs(min_final_execution_to_goal_error - min_final_plan_to_goal_error)
+    nme = normalized_model_error(_, scenario, __, trial_datum)
+    return (min_final_plan_to_goal_error + min_final_execution_to_goal_error + nme) / 3
 
 
 @metrics_funcs

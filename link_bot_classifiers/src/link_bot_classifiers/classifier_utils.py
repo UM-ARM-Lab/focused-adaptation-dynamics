@@ -17,7 +17,12 @@ def is_torch_model(path):
 
 
 def strip_torch_model_prefix(path):
-    run_id = path.as_posix()[2:]
+    if isinstance(path, pathlib.Path):
+        run_id_with_prefix = path.as_posix()
+    else:
+        run_id_with_prefix = path
+
+    run_id = run_id_with_prefix[2:]
     if run_id.startswith("model-"):
         run_id = run_id[6:]
         run_id = run_id.split(":")[0]
