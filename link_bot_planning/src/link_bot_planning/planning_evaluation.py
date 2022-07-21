@@ -276,13 +276,12 @@ def evaluate_multiple_planning(outdir: pathlib.Path,
         sub_job_chunker = job_chunker.sub_chunker(method_name)
 
         rospy.loginfo(Fore.GREEN + f"Running method {method_name}")
-        comparison_root_dir = outdir / method_name
 
         evaluate_planning(planner_params=planner_params,
                           job_chunker=sub_job_chunker,
                           use_gt_rope=use_gt_rope,
                           trials=trials,
-                          outdir=comparison_root_dir,
+                          outdir=outdir,
                           verbose=verbose,
                           record=record,
                           no_execution=no_execution,
