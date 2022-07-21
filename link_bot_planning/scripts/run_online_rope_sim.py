@@ -62,6 +62,7 @@ def main():
 
     r = rospkg.RosPack()
     dynamics_pkg_dir = pathlib.Path(r.get_path('state_space_dynamics'))
+    mde_pkg_dir = pathlib.Path(r.get_path('mde'))
 
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
@@ -76,7 +77,7 @@ def main():
     iterations = int(job_chunker.load_prompt('iterations', 100))
 
     if method_name == 'adaptation':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft.hjson"
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
     elif method_name == 'all_data':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data.hjson"
     elif method_name == 'no_adaptation':
@@ -84,7 +85,7 @@ def main():
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
-    mde_params_filename = pathlib.Path("hparams/rope.hjson")
+    mde_params_filename = mde_pkg_dir / "hparams" / "rope.hjson"
 
     all_trial_indices = list(get_all_scene_indices(test_scenes_dir))
     trial_indices_generator = chunked(itertools.cycle(all_trial_indices), 1)
@@ -145,32 +146,38 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=10_000,
+                                                                     steps=1_000,
                                                                      epochs=-1,
                                                                      repeat=100,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab')
+                print(f'{dynamics_run_id=}')
                 sub_chunker_i.store_result(f"dynamics_run_id", dynamics_run_id)
 
-        mde_dataset_outdir = sub_chunker_i.get('mde_dataset_outdir')
-        if mde_dataset_outdir is None:
+        mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
+        if mde_dataset_name is None:
             # convert the most recent dynamics dataset to and MDE dataset
-            mde_dataset_outdir = root / 'mde_datasets' / f'iteration_{i}'
+            mde_dataset_name = f'{args.nickname}_dynamics_dataset_{i}'
+            mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
             mde_dataset_outdir.mkdir(parents=True, exist_ok=True)
-            make_mde_dataset(dataset_dir=fetch_udnn_dataset(args.dataset_dir),
+            make_mde_dataset(dataset_dir=fetch_udnn_dataset(dynamics_dataset_name),
                              checkpoint=dynamics_run_id,
                              outdir=mde_dataset_outdir,
                              step=999)
-            sub_chunker_i.store_result('mde_dataset_outdir', mde_dataset_outdir)
+            sub_chunker_i.store_result('mde_dataset_name', mde_dataset_name)
+        mde_dataset_dirs.append(mde_dataset_name)
 
         mde_run_id = sub_chunker_i.get('mde_run_id')
         if mde_run_id is None:
+            # NOTE: should we fine-tune or re-train here?
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
                                                    epochs=-1,
-                                                   steps=10_000,
+                                                   steps=i * 1_000,
+                                                   train_mode='all',
+                                                   val_mode='all',
                                                    seed=seed,
                                                    user='armlab',
                                                    nickname=f'{args.nickname}_mde_{i}')

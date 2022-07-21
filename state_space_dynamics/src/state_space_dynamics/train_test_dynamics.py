@@ -86,7 +86,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          gradient_clip_val=0.001)
     trainer.fit(model, data_module)
     wandb.finish()
-    eval_main(dataset_dir, run_id, mode='test', user=user, batch_size=batch_size)
+    # eval_main(dataset_dir, run_id, mode='test', user=user, batch_size=batch_size)
     return run_id
 
 

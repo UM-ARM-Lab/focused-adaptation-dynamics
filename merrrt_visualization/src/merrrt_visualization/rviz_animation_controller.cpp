@@ -47,6 +47,7 @@ RVizAnimationController::~RVizAnimationController() {
 void RVizAnimationController::TopicEdited(const QString &text) {
   auto const ns = text.toStdString();
 
+  ROS_ERROR_STREAM("TopicEdited: " << text.toStdString());
   command_pub_ = ros_node_.advertise<peter_msgs::AnimationControl>(ns + "/control", 10);
 
   auto get_state_bind = [this](peter_msgs::GetAnimControllerStateRequest &req,

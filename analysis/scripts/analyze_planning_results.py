@@ -33,7 +33,7 @@ def analyze_planning_results(args):
 
     _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
-    ax.set_ylim([0, 0.4])
+    ax.set_ylim([0, 0.7])
     plt.savefig(outdir / f'task_error.png')
 
     boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))

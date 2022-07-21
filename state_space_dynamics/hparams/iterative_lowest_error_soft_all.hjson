@@ -1,0 +1,27 @@
+{
+  use_mask_train: true
+  use_mask_val: false
+  iterative_lowest_error: true
+  soft_masking: true
+  soft_threshold_width: 0.01
+  iterative_lowest_error_skip_steps: 0
+  low_initial_error: false
+  mask_threshold: 0.08
+  train_mode: all
+  val_mode: all
+  state_metadata_keys: []
+  state_keys: [
+    rope
+    left_gripper
+    right_gripper
+  ]
+  action_keys: [
+    left_gripper_position
+    right_gripper_position
+  ]
+  fc_layer_sizes: [
+    1024
+    1024
+  ]
+  learning_rate: 0.001
+}

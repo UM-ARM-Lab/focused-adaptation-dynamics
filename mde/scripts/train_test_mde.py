@@ -47,7 +47,6 @@ def main():
     train_parser.add_argument('--skip', type=int)
     train_parser.add_argument('--epochs', type=int, default=100)
     train_parser.add_argument('--steps', type=int, default=-1)
-    train_parser.add_argument('--no-validate', action='store_true')
     train_parser.add_argument('--seed', type=int, default=None)
     train_parser.set_defaults(func=_train_main)
 

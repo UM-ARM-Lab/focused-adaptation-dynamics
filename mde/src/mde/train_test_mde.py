@@ -39,7 +39,8 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                take: Optional[int] = None,
                skip: Optional[int] = None,
                repeat: Optional[int] = None,
-               no_validate: bool = False,
+               train_mode='train',
+               val_mode='val',
                project=PROJECT,
                **kwargs):
     pl.seed_everything(seed, workers=True)
@@ -50,7 +51,9 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                                 batch_size=batch_size,
                                 take=take,
                                 skip=skip,
-                                repeat=repeat)
+                                repeat=repeat,
+                                train_mode=train_mode,
+                                val_mode=val_mode)
     data_module.add_dataset_params(params)
 
     # add some extra useful info here
