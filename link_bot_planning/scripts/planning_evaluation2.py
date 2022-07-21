@@ -83,7 +83,6 @@ def main():
                                trials=args.trials,
                                how_to_handle=args.on_exception,
                                verbose=args.verbose,
-                               timeout=args.timeout,
                                test_scenes_dir=args.test_scenes_dir,
                                seed=args.seed)
 
