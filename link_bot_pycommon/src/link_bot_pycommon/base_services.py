@@ -16,6 +16,7 @@ class BaseServices:
     def __init__(self):
         self.service_names = []
 
+        was_suspended = gazebo_utils.is_suspended()
         gazebo_utils.resume()
 
         self.world_control = self.add_required_service('arm_gazebo/world_control', WorldControl)
@@ -25,6 +26,9 @@ class BaseServices:
         # services we don't absolutly want to wait for on startup
         self.compute_occupancy = rospy.ServiceProxy('/occupancy', ComputeOccupancy)
         self.record = rospy.ServiceProxy('video_recorder', TriggerVideoRecording)
+
+        if was_suspended:
+            gazebo_utils.suspend()
 
     def wait_for_services(self):
         for service_name in self.service_names:

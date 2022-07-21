@@ -167,7 +167,10 @@ class MDE(pl.LightningModule):
             import tensorflow as tf
             from moonshine.gpu_config import limit_gpu_mem
             from moonshine.tfa_sdf import build_sdf_3d
-            limit_gpu_mem(None)
+            try:
+                limit_gpu_mem(None)
+            except RuntimeError:
+                pass
 
             res = tf.convert_to_tensor(inputs['res'].cpu().numpy())
             voxel_grids_tf = tf.convert_to_tensor(voxel_grids.cpu().numpy())

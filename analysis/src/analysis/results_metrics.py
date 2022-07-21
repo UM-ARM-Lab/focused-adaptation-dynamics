@@ -279,6 +279,20 @@ def max_planning_time(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_
 
 
 @metrics_funcs
+def extensions_per_second(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_datum: Dict):
+    attempted_extensions = []
+    for step in trial_datum['steps']:
+        attempted_extensions.append(step['planning_result'].attempted_extensions)
+    total_num_extensions = sum(attempted_extensions)
+    planning_times = []
+    for step in trial_datum['steps']:
+        planning_times.append(step['planning_result'].time)
+    total_planning_time = sum(planning_times)
+    avg_extensions_per_second = total_num_extensions / total_planning_time
+    return avg_extensions_per_second
+
+
+@metrics_funcs
 def mean_progagation_time(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_datum: Dict):
     progagation_times = []
     # average across all the planning results in the trial

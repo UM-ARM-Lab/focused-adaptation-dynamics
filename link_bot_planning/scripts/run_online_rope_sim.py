@@ -19,7 +19,7 @@ with warnings.catch_warnings():
 from colorama import Fore
 
 from arc_utilities import ros_init
-from link_bot_data.new_dataset_utils import fetch_udnn_dataset
+from link_bot_data.new_dataset_utils import fetch_udnn_dataset, fetch_mde_dataset
 from link_bot_data.wandb_datasets import wandb_save_dataset
 from link_bot_planning.planning_evaluation import evaluate_planning, load_planner_params
 from link_bot_planning.results_to_dynamics_dataset import ResultsToDynamicsDataset
@@ -49,6 +49,7 @@ def main():
     dynamics_pkg_dir = pathlib.Path(r.get_path('state_space_dynamics'))
     mde_pkg_dir = pathlib.Path(r.get_path('mde'))
 
+
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 
@@ -75,10 +76,13 @@ def main():
     all_trial_indices = list(get_all_scene_indices(test_scenes_dir))
     trial_indices_generator = chunked(itertools.cycle(all_trial_indices), 1)
 
+    gazebo_utils.suspend()  # most code runs faster if gazebo is suspended
+
     # initialize with unadapted model
     dynamics_dataset_dirs = []
     mde_dataset_dirs = []
     for i in range(iterations):
+
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
         planning_job_chunker = sub_chunker_i.sub_chunker("planning")
 
@@ -143,7 +147,7 @@ def main():
         mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
         if mde_dataset_name is None:
             # convert the most recent dynamics dataset to and MDE dataset
-            mde_dataset_name = f'{args.nickname}_dynamics_dataset_{i}'
+            mde_dataset_name = f'{args.nickname}_mde_dataset_{i}'
             mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
             mde_dataset_outdir.mkdir(parents=True, exist_ok=True)
             make_mde_dataset(dataset_dir=fetch_udnn_dataset(dynamics_dataset_name),
