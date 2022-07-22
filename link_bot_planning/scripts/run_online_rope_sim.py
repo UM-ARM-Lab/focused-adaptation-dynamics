@@ -49,7 +49,6 @@ def main():
     dynamics_pkg_dir = pathlib.Path(r.get_path('state_space_dynamics'))
     mde_pkg_dir = pathlib.Path(r.get_path('mde'))
 
-
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 

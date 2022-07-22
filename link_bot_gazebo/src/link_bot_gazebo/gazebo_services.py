@@ -11,6 +11,8 @@ import rospy
 from arm_gazebo_msgs.srv import SetLinkStates, SetLinkStatesRequest, GetWorldInitialSDFResponse, GetWorldInitialSDF
 from gazebo_msgs import msg as gz_msg
 from gazebo_msgs.srv import SetPhysicsPropertiesRequest, GetPhysicsPropertiesRequest
+
+from link_bot_gazebo import gazebo_utils
 from link_bot_pycommon.base_services import BaseServices
 from std_srvs.srv import EmptyRequest, Empty
 
@@ -83,6 +85,8 @@ class GazeboServices(BaseServices):
         self.gazebo_process.shutdown()
 
     def setup_env(self, verbose: int = 0, real_time_rate: float = 0, max_step_size: float = 0.01, play: bool = True):
+        gazebo_utils.resume()
+
         # set up physics
         get_physics_msg = GetPhysicsPropertiesRequest()
         current_physics = self.get_physics.call(get_physics_msg)
@@ -100,18 +104,21 @@ class GazeboServices(BaseServices):
             self.play()
 
     def play(self):
+        gazebo_utils.resume()
         try:
             self.play_srv(EmptyRequest())
         except rospy.ServiceException:
             pass
 
     def pause(self):
+        gazebo_utils.resume()
         try:
             self.pause_srv(EmptyRequest())
         except rospy.ServiceException:
             pass
 
     def get_world_initial_sdf(self):
+        gazebo_utils.resume()
         res: GetWorldInitialSDFResponse = self.get_world_initial_sdf_srv()
         sdf = res.world_initial_sdf
         sdf = sdf.replace("\n", "")
