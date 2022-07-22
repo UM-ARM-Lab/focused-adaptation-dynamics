@@ -48,15 +48,10 @@ def main():
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
-    parser.add_argument('--continue-from', type=pathlib.Path)
 
     args = parser.parse_args()
 
-    if args.continue_from is not None:
-        print(f"Ignoring nickname {args.outdir}")
-        outdir = args.continue_from
-    else:
-        outdir = make_unique_outdir(args.outdir)
+    outdir = args.outdir
 
     planner_params = load_planner_params(args.planner_params)
     planner_params['method_name'] = args.outdir.name
