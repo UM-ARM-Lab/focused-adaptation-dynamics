@@ -38,6 +38,6 @@
   prev_error_res: false
   use_batchnorm: true
   use_res3d: true
-  use_sdf: true
+  use_sdf: false
   env_only_sdf: false
 }
