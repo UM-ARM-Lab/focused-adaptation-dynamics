@@ -20,6 +20,7 @@ from link_bot_pycommon.moveit_planning_scene_mixin import MoveitPlanningSceneSce
 from link_bot_pycommon.moveit_utils import make_joint_state
 from moonshine.filepath_tools import load_params
 from moonshine.geometry_tf import transformation_jacobian, euler_angle_diff
+from moonshine.gpu_config import limit_gpu_mem
 from moonshine.numpify import numpify
 from moonshine.tensorflow_utils import to_list_of_strings
 from moonshine.torch_and_tf_utils import remove_batch, add_batch

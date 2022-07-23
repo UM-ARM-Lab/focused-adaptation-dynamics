@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from time import perf_counter
 import argparse
 import itertools
 import pathlib
@@ -10,6 +11,7 @@ from more_itertools import chunked
 from link_bot_gazebo import gazebo_utils
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.pycommon import pathify
+from moonshine.gpu_config import limit_gpu_mem
 from moonshine.magic import wandb_lightning_magic
 
 with warnings.catch_warnings():
@@ -19,7 +21,7 @@ with warnings.catch_warnings():
 from colorama import Fore
 
 from arc_utilities import ros_init
-from link_bot_data.new_dataset_utils import fetch_udnn_dataset, fetch_mde_dataset
+from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_data.wandb_datasets import wandb_save_dataset
 from link_bot_planning.planning_evaluation import evaluate_planning, load_planner_params
 from link_bot_planning.results_to_dynamics_dataset import ResultsToDynamicsDataset
@@ -28,12 +30,14 @@ from mde import train_test_mde
 from mde.make_mde_dataset import make_mde_dataset
 from state_space_dynamics import train_test_dynamics
 
+limit_gpu_mem(None)  # just in case TF is used somewhere
+
 
 @ros_init.with_ros("save_as_test_scene")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
-    parser.add_argument("--on-exception", default='raise')
+    parser.add_argument("--on-exception", default='retry')
 
     args = parser.parse_args()
 
@@ -81,6 +85,7 @@ def main():
     dynamics_dataset_dirs = []
     mde_dataset_dirs = []
     for i in range(iterations):
+        print(Fore.CYAN + f"Iteration {i}" + Fore.RESET)
 
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
         planning_job_chunker = sub_chunker_i.sub_chunker("planning")
@@ -96,6 +101,7 @@ def main():
 
         planning_outdir = pathify(planning_job_chunker.get('planning_outdir'))
         if planning_outdir is None:
+            t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
             planner_params["classifier_model_dir"] = classifiers
@@ -111,10 +117,13 @@ def main():
                               how_to_handle=args.on_exception)
             gazebo_utils.suspend()
             planning_job_chunker.store_result('planning_outdir', planning_outdir.as_posix())
+            dt = perf_counter() - t0
+            planning_job_chunker.store_result('planning_outdir_dt', dt)
 
         # convert the planning results to a dynamics dataset
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
         if dynamics_dataset_name is None:
+            t0 = perf_counter()
             r = ResultsToDynamicsDataset(results_dir=planning_outdir,
                                          outname=f'{args.nickname}_dynamics_dataset_{i}',
                                          root=outdir / 'dynamics_datasets',
@@ -124,17 +133,20 @@ def main():
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
             dynamics_dataset_name = dynamics_dataset_dir_i.name
             sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
+            dt = perf_counter() - t0
+            planning_job_chunker.store_result('dynamics_dataset_name_dt', dt)
 
         dynamics_dataset_dirs.append(dynamics_dataset_name)
 
         dynamics_run_id = sub_chunker_i.get(f"dynamics_run_id")
         if dynamics_run_id is None:
             if dynamics_params_filename is not None:
+                t0 = perf_counter()
                 dynamics_run_id = train_test_dynamics.fine_tune_main(dataset_dir=dynamics_dataset_dirs,
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=1_000,
+                                                                     steps=10_000,
                                                                      epochs=-1,
                                                                      repeat=100,
                                                                      seed=seed,
@@ -142,10 +154,12 @@ def main():
                                                                      user='armlab')
                 print(f'{dynamics_run_id=}')
                 sub_chunker_i.store_result(f"dynamics_run_id", dynamics_run_id)
+                dt = perf_counter() - t0
+                planning_job_chunker.store_result('fine_tune_dynamics_dt', dt)
 
         mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
         if mde_dataset_name is None:
-            # convert the most recent dynamics dataset to and MDE dataset
+            t0 = perf_counter()
             mde_dataset_name = f'{args.nickname}_mde_dataset_{i}'
             mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
             mde_dataset_outdir.mkdir(parents=True, exist_ok=True)
@@ -154,11 +168,13 @@ def main():
                              outdir=mde_dataset_outdir,
                              step=999)
             sub_chunker_i.store_result('mde_dataset_name', mde_dataset_name)
+            dt = perf_counter() - t0
+            planning_job_chunker.store_result('make_mde_dataset_dt', dt)
         mde_dataset_dirs.append(mde_dataset_name)
 
         mde_run_id = sub_chunker_i.get('mde_run_id')
         if mde_run_id is None:
-            # NOTE: should we fine-tune or re-train here?
+            t0 = perf_counter()
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
@@ -170,6 +186,8 @@ def main():
                                                    user='armlab',
                                                    nickname=f'{args.nickname}_mde_{i}')
             sub_chunker_i.store_result('mde_run_id', mde_run_id)
+            dt = perf_counter() - t0
+            planning_job_chunker.store_result('fine_tune_mde_dt', dt)
 
 
 if __name__ == '__main__':
