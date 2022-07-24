@@ -89,7 +89,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', **wandb_kargs)
     ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
-    max_steps = int(steps / batch_size) if steps != -1 else steps
+    max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
     print(f"{max_steps=}")
     trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,

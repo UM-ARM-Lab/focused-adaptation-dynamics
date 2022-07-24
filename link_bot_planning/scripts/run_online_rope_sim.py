@@ -179,7 +179,7 @@ def main():
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
                                                    epochs=-1,
-                                                   steps=i * 1_000,
+                                                   steps=i * 1_000 + 10_000,
                                                    train_mode='all',
                                                    val_mode='all',
                                                    seed=seed,

@@ -47,7 +47,7 @@ class UDNNDataModule(pl.LightningDataModule):
             self.dataset_hparams = load_params(self.fetched_dataset_dir)
 
     def setup(self, stage: Optional[str] = None):
-        transform = transforms.Compose([remove_keys("scene_msg", "env", "sdf", "sdf_grad")])
+        transform = transforms.Compose([remove_keys("scene_msg", "env", "sdf", "sdf_grad", "left_gripper_delta_position", "right_gripper_delta_position")])
 
         train_dataset = TorchDynamicsDataset(self.fetched_dataset_dir, mode=self.train_mode, transform=transform)
         train_dataset_take = dataset_take(train_dataset, self.take)

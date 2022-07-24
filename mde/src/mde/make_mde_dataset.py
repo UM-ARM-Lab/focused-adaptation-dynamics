@@ -90,6 +90,7 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
     state_keys = dataset.state_keys + dataset.state_metadata_keys
 
     for example in dataset:
+        print(example['example_idx'])
         from link_bot_data.tf_dataset_utils import deserialize_scene_msg
         deserialize_scene_msg(example)
         if 'time_mask' in example:
