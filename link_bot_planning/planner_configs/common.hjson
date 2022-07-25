@@ -15,7 +15,7 @@
     max_planning_attempts: 1
   }
   recovery: {
-    recovery_model_dir: /media/shared/recovery_trials/random/none
+    recovery_model_dir: recovery_trials/random/none
     use_recovery: true
   }
   action_params: {

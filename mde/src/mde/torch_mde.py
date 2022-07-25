@@ -19,7 +19,7 @@ from link_bot_data.local_env_helper import LocalEnvHelper
 from link_bot_data.visualization import DebuggingViz
 from link_bot_pycommon.get_scenario import get_scenario
 from link_bot_pycommon.grid_utils_np import environment_to_vg_msg
-from link_bot_pycommon.load_wandb_model import load_model_artifact, load_gp_mde_from_cfg
+from link_bot_pycommon.load_wandb_model import load_model_artifact
 from moonshine import get_local_environment_torch
 from moonshine.make_voxelgrid_inputs_torch import VoxelgridInfo
 from moonshine.res3d import Res3D
@@ -99,18 +99,18 @@ class MDE(pl.LightningModule):
                 fc_layers.append(nn.Dropout(p=self.hparams.get('dropout_p', 0.0)))
             in_size = hidden_size
 
-        final_hidden_dim = self.hparams['fc_layer_sizes'][-1]
+        self._final_hidden_dim = self.hparams['fc_layer_sizes'][-1]
         self.no_lstm = self.hparams.get('no_lstm', False)
         if not self.no_lstm:
-            fc_layers.append(nn.LSTM(final_hidden_dim, self.hparams['rnn_size'], 1))
+            fc_layers.append(nn.LSTM(self._final_hidden_dim, self.hparams['rnn_size'], 1))
 
         self.conv_encoder = torch.nn.Sequential(*conv_layers)
         self.fc = torch.nn.Sequential(*fc_layers)
 
         if self.no_lstm:
-            self.output_layer = nn.Linear(2 * final_hidden_dim, 1)
+            self.output_layer = nn.Linear(2 * self._final_hidden_dim, 1)
         else:
-            self.output_layer = nn.Linear(final_hidden_dim, 1)
+            self.output_layer = nn.Linear(self._final_hidden_dim, 1)
 
         self.debug = DebuggingViz(self.scenario, self.hparams.state_keys, self.hparams.action_keys)
         self.local_env_helper = LocalEnvHelper(h=self.local_env_h_rows, w=self.local_env_w_cols,
@@ -133,28 +133,21 @@ class MDE(pl.LightningModule):
         self.test_accuracy = torchmetrics.Accuracy()
         self.val_stat_scores = torchmetrics.StatScores()
 
-    def forward(self, inputs: Dict[str, torch.Tensor]):
-        if not self.has_checked_training_mode:
-            self.has_checked_training_mode = True
-            print(f"Training Mode? {self.training}")
-
+    def _input_dict_to_conv_and_fc_layer(self, inputs):
         if self.local_env_helper.device != self.device:
             self.local_env_helper.to(self.device)
-
         local_env, local_origin_point = self.get_local_env(inputs)
-
         batch_size, time = inputs['time_idx'].shape[0:2]
         voxel_grids = self.vg_info.make_voxelgrid_inputs(inputs, local_env, local_origin_point, batch_size, time,
                                                          viz=debug_vgs())
-
         if debug_vgs():
             b = 0
             for t in range(voxel_grids.shape[1]):
                 self.debug.plot_pred_state_rviz(inputs, b, t, 'pred_inputs')
                 for i in range(voxel_grids.shape[2]):
                     raster_dict = {
-                        'env':          voxel_grids[b, t, i].cpu().numpy(),
-                        'res':          inputs['res'][b].cpu().numpy(),
+                        'env': voxel_grids[b, t, i].cpu().numpy(),
+                        'res': inputs['res'][b].cpu().numpy(),
                         'origin_point': local_origin_point[b].cpu().numpy(),
                     }
 
@@ -167,21 +160,15 @@ class MDE(pl.LightningModule):
             import tensorflow as tf
             from moonshine.gpu_config import limit_gpu_mem
             from moonshine.tfa_sdf import build_sdf_3d
-            try:
-                limit_gpu_mem(None)
-            except RuntimeError:
-                pass
+            #limit_gpu_mem(None)
 
             res = tf.convert_to_tensor(inputs['res'].cpu().numpy())
             voxel_grids_tf = tf.convert_to_tensor(voxel_grids.cpu().numpy())
             sdf_tf = voxel_grids.clone()
             for t in range(2):
-                if self.hparams.get('env_only_sdf', False):
-                    # 0 is the channel for the environment
-                    sdf_tf[:, t, 0] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, 0], res).numpy())
-                else:
-                    for c in range(5):
-                        sdf_tf[:, t, c] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, c], res).numpy())
+                for c in range(5):
+                    sdf_tf[:, t, c] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, c], res).numpy())
+
             voxel_grids = sdf_tf
 
         states = {k: inputs[add_predicted_hack(k)] for k in self.hparams.state_keys}
@@ -191,24 +178,30 @@ class MDE(pl.LightningModule):
         all_but_last_states = {k: v[:, :-1] for k, v in states.items()}
         actions = self.scenario.put_action_local_frame(all_but_last_states, actions)
         padded_actions = [F.pad(v, [0, 0, 0, 1, 0, 0]) for v in actions.values()]
-
         states_robot_frame = self.scenario.put_state_robot_frame(states)
         states_robot_frame_list = list(states_robot_frame.values())
-
         flat_voxel_grids = voxel_grids.reshape(
             [-1, 5, self.local_env_h_rows, self.local_env_w_cols, self.local_env_c_channels])
         flat_conv_h = self.conv_encoder(flat_voxel_grids)
         conv_h = flat_conv_h.reshape(batch_size, time, -1)
         # NOTE: maybe we should be using the previous predicted error?
-        prev_pred_error = inputs['error'][:, 0]  # [b]
-        prev_pred_error_time = prev_pred_error.unsqueeze(-1).unsqueeze(-1)
-        padded_prev_pred_error = F.pad(prev_pred_error_time, [0, 0, 0, 1, 0, 0])
+        prev_pred_error = inputs['error'][:, 0].unsqueeze(-1).unsqueeze(-1)
+        padded_prev_pred_error = F.pad(prev_pred_error, [0, 0, 0, 1, 0, 0])
         if self.hparams.get("use_prev_error", True):
             cat_args = [conv_h,
                         padded_prev_pred_error] + states_robot_frame_list + states_local_frame_list + padded_actions
         else:
             cat_args = [conv_h] + states_robot_frame_list + states_local_frame_list + padded_actions
         fc_in = torch.cat(cat_args, -1)
+        return batch_size, fc_in
+
+
+    def forward(self, inputs: Dict[str, torch.Tensor]):
+        if not self.has_checked_training_mode:
+            self.has_checked_training_mode = True
+            print(f"Training Mode? {self.training}")
+
+        batch_size, fc_in = self._input_dict_to_conv_and_fc_layer(inputs)
 
         if self.no_lstm:
             fc_out_h = self.fc(fc_in)
@@ -401,47 +394,6 @@ class MDEConstraintChecker:
             inputs['error'] = states_dict['error'][:, 0]
         inputs['time_idx'] = torch.arange(2, dtype=torch.float32)
         return inputs
-
-
-class GPMDEConstraintChecker:
-    def __init__(self, config_path: pathlib.Path):
-        self.cfg = YamlConfig(config_path)
-        self.model, self.state_and_parameter_scaler, self.deviation_scaler = load_gp_mde_from_cfg(self.cfg, GPRMDE)
-        self.model.eval()
-        self.horizon = 2
-        self.name = 'MDE'
-
-    def states_and_actions_to_torch_inputs(self, states_sequence, action_sequence, _):
-        state_keys = ['rope', 'right_gripper', 'left_gripper'] + ["joint_positions"]
-        action_keys = ["left_gripper_position", "right_gripper_position"]
-        states = []
-        actions = []
-        for state_data, action_data in zip(states_sequence, action_sequence):
-            flattened_state = []
-            for state_key in state_keys:
-                data_pt = state_data[state_key]
-                flattened_state.extend(data_pt.flatten())
-            flattened_actions = []
-            for action_key in action_keys:
-                flattened_actions.extend(action_data[action_key].flatten())
-            states.append(flattened_state)
-            actions.append(flattened_actions)
-        np_unscaled = np.hstack([np.vstack(states), np.vstack(actions)])[:, self.model.nonzero_std_dims]
-        np_scaled = self.state_and_parameter_scaler.transform(np_unscaled).astype(np.float32)
-        inputs = torch.from_numpy(np_scaled).cuda()
-        return inputs
-
-    def check_constraint(self, environment: Dict, states_sequence: List[Dict], actions: List[Dict]):
-        inputs = self.states_and_actions_to_torch_inputs(states_sequence, actions, environment)
-
-        pred = self.model.predict(inputs)
-
-        pred_error_scaled, std_pred_scaled = pred.mean.detach().cpu().numpy(), np.sqrt(
-            pred.variance.detach().cpu().numpy())
-        pred_error_std_unscaled = ((
-                                           std_pred_scaled ** 2) * self.deviation_scaler.var_) ** 0.5  # not used now but for reference
-        d_hat = self.deviation_scaler.inverse_transform(pred_error_scaled)
-        return d_hat[0]
 
 
 if __name__ == '__main__':
