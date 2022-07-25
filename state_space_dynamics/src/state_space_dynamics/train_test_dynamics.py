@@ -83,7 +83,8 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          check_val_every_n_epoch=1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
-                         gradient_clip_val=0.001)
+                         terminate_on_nan=True,
+                         gradient_clip_val=0.01)
     trainer.fit(model, data_module)
     wandb.finish()
     # eval_main(dataset_dir, run_id, mode='test', user=user, batch_size=batch_size)
@@ -154,7 +155,7 @@ def train_main(dataset_dir: pathlib.Path,
                          check_val_every_n_epoch=1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
-                         gradient_clip_val=0.001)
+                         gradient_clip_val=0.01)
     wb_logger.watch(model)
     trainer.fit(model, data_module, ckpt_path=ckpt_path)
     wandb.finish()

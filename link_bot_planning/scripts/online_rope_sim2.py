@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-from time import perf_counter, sleep
 import argparse
 import itertools
 import pathlib
 import warnings
+from time import perf_counter
 
 import rospkg
 from more_itertools import chunked
 
+from link_bot_data.base_collect_dynamics_data import collect_dynamics_data
 from link_bot_gazebo import gazebo_utils
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.pycommon import pathify
@@ -51,6 +52,7 @@ def main():
 
     r = rospkg.RosPack()
     dynamics_pkg_dir = pathlib.Path(r.get_path('state_space_dynamics'))
+    data_pkg_dir = pathlib.Path(r.get_path('link_bot_data'))
     mde_pkg_dir = pathlib.Path(r.get_path('mde'))
 
     logfile_name = root / args.nickname / 'logfile.hjson'
@@ -59,6 +61,9 @@ def main():
     method_name = job_chunker.load_prompt('method_name')
     unadapted_run_id = job_chunker.load_prompt('unadapted_run_id')
     seed = int(job_chunker.load_prompt('seed'))
+    collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
+                                                                    'collect_dynamics_params/floating_rope_100.hjson')
+    collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/val_car/mde_online_learning.hjson')
     planner_params = load_planner_params(planner_params_filename)
@@ -109,14 +114,24 @@ def main():
             planner_params['fwd_model_dir'] = f'p:{prev_dynamics_run_id}'
             trials = next(trial_indices_generator)
             gazebo_utils.resume()
-            sleep(5)
-            evaluate_planning(planner_params=planner_params,
-                              job_chunker=planning_job_chunker,
-                              outdir=planning_outdir,
-                              test_scenes_dir=test_scenes_dir,
-                              trials=trials,
-                              seed=seed,
-                              how_to_handle=args.on_exception)
+            if i == 0:
+                dynamics_dataset_dir_i = None
+                for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
+                                                                       n_trajs=64,
+                                                                       nickname=f'{args.nickname}_dynamics_dataset_{i}',
+                                                                       seed=seed):
+                    pass
+                wandb_save_dataset(dynamics_dataset_dir_i, 'udnn', entity='armlab')
+                dynamics_dataset_name = dynamics_dataset_dir_i.name
+                sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
+            else:
+                evaluate_planning(planner_params=planner_params,
+                                  job_chunker=planning_job_chunker,
+                                  outdir=planning_outdir,
+                                  test_scenes_dir=test_scenes_dir,
+                                  trials=trials,
+                                  seed=seed,
+                                  how_to_handle=args.on_exception)
             gazebo_utils.suspend()
             planning_job_chunker.store_result('planning_outdir', planning_outdir.as_posix())
             dt = perf_counter() - t0
