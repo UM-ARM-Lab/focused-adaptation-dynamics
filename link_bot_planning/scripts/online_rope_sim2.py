@@ -106,13 +106,13 @@ def main():
             prev_dynamics_run_id = unadapted_run_id
 
         planning_outdir = pathify(planning_job_chunker.get('planning_outdir'))
+        planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
         if planning_outdir is None:
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
             planner_params["classifier_model_dir"] = classifiers
             planner_params['fwd_model_dir'] = f'p:{prev_dynamics_run_id}'
-            trials = next(trial_indices_generator)
             gazebo_utils.resume()
             if i == 0:
                 dynamics_dataset_dir_i = None
