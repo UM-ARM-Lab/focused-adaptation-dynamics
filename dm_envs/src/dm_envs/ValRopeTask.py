@@ -1,8 +1,17 @@
-from dm_control import composer, viewer
+import multiprocessing
+from multiprocessing.managers import BaseManager
+from time import sleep
+
+import dm_control
+import numpy as np
+from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
 from dm_control.utils import inverse_kinematics
+from transformations import quaternion_from_euler
+
+from dm_envs.myviewer import application
 
 seed = 0
 
@@ -46,7 +55,7 @@ class RopeEntity(composer.Entity):
 
 
 class RopeManipulation(composer.Task):
-    NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
+    NUM_SUBSTEPS = 100  # The number of physics substeps per control timestep.
 
     def __init__(self, rope_length=25, seconds_per_substep=0.001):
         # root entity
@@ -62,6 +71,8 @@ class RopeManipulation(composer.Task):
         self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
         self._arena.mjcf_model.option.integrator = 'Euler'
         self._arena.mjcf_model.option.timestep = seconds_per_substep
+        self._arena.mjcf_model.size.nconmax = 10000
+        self._arena.mjcf_model.size.njmax = 10000
 
         # other entities
         self._val = ValEntity()
@@ -69,8 +80,8 @@ class RopeManipulation(composer.Task):
 
         self._arena.add_free_entity(self._rope)
         # self._arena.add_free_entity(self._val)
-        val_site = self._arena.attach(self._val) # if you want val to be fixed to the world
-        val_site.pos = [-1, 0, 0.15]
+        val_site = self._arena.attach(self._val)  # if you want val to be fixed to the world
+        val_site.pos = [0, 0, 0.15]
 
         # constraint
         # self._arena.mjcf_model.equality.add('connect', body1='val/right_tool', body2='rope/rB0', anchor=[0, 0, 0])
@@ -122,7 +133,10 @@ class RopeManipulation(composer.Task):
 
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
-            self._val.set_pose(physics, position=[-1, 0, 0.15])
+            # this will overrite the pose set when val is 'attach'ed to the arena
+            self._val.set_pose(physics,
+                               position=[-0.8, 0, 0.15],
+                               quaternion=quaternion_from_euler(0, 0, 0))
             for i in range(self._rope.length - 1):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
 
@@ -131,6 +145,42 @@ class RopeManipulation(composer.Task):
 
     def get_reward(self, physics):
         return 0
+
+    def solve_ik(self, target_pos, target_quat):
+        # store the initial qpos to restore later
+        initial_qpos = env.physics.bind(task.actuated_joints).qpos.copy()
+        result = inverse_kinematics.qpos_from_site_pose(
+            physics=env.physics,
+            site_name=f'val/left_tool',
+            target_pos=target_pos,
+            target_quat=target_quat,
+            joint_names=task.actuated_joint_names,
+            # rot_weight=2,  # more rotation weight than the default
+            inplace=True,
+        )
+        qdes = env.physics.named.data.qpos[task.actuated_joint_names]
+        # reset the arm joints to their original positions, because the above functions actually modify physics state
+        env.physics.bind(task.actuated_joints).qpos = initial_qpos
+        return result.success, qdes
+
+
+def _launch(physics):
+    app = application.Application(title='viewer', width=1024, height=768, physics=physics)
+
+    def tick():
+        app._viewport.set_size(*app._window.shape)
+        app._tick()
+        return app._renderer.pixels
+
+    app._window.event_loop(tick_func=tick)
+    app._window.close()
+
+
+def launch_my_viewer(physics):
+    p = multiprocessing.get_context('spawn').Process(target=_launch, args=(physics,))
+    p.start()
+    p.join()
+    print("viewer process ended...")
 
 
 if __name__ == "__main__":
@@ -141,33 +191,25 @@ if __name__ == "__main__":
 
     i = 0
 
-    # solve IK
-    initial_qpos = env.physics.bind(task.actuated_joints).qpos.copy()
+    type(env._physics)
 
-    result = inverse_kinematics.qpos_from_site_pose(
-        physics=env.physics,
-        site_name=f'val/left_tool',
-        target_pos=[0, 0, 0.5],
-        target_quat=[0, 0, 0, 1],
-        joint_names=task.actuated_joint_names,
-        # rot_weight=2,  # more rotation weight than the default
-        inplace=True,
-    )
+    BaseManager.register('Physics', dm_control.mjcf.physics.Physics)
+    manager = BaseManager()
+    manager.start()
+    shared_physics = manager.Physics(env.physics.data)
 
-    qdes = env.physics.named.data.qpos[task.actuated_joint_names]
+    launch_my_viewer(shared_physics)
 
-    # reset the arm joints to their original positions, because the above functions actually modify physics state
-    env.physics.bind(task.actuated_joints).qpos = initial_qpos
+    for i in range(10):
+        success, action = task.solve_ik(
+            target_pos=[0, 0, 0.02],
+            target_quat=quaternion_from_euler(np.pi, 0, -np.pi / 2),
+        )
+        time_step = env.step(action)
+        print("doing lots of work...")
+        sleep(2)
+    print("done...")
 
-    print('ik success?', result.success)
-
-
-    def random_policy(time_step):
-        # return qdes
-        return [0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-
-    viewer.launch(env, policy=random_policy)
     # steps_per_second = int(1 / task.control_timestep)
     # action = [0.8, 0, 1, 0, 0, 1]
     #
