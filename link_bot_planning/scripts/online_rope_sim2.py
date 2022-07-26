@@ -107,9 +107,9 @@ def main():
 
         planning_outdir = pathify(planning_job_chunker.get('planning_outdir'))
         if i == 0:
-            planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
-        else:
             planning_trials = None
+        else:
+            planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
         if planning_outdir is None:
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'

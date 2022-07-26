@@ -164,7 +164,8 @@ class RopeManipulation(composer.Task):
         return result.success, qdes
 
 
-def _launch(physics):
+def _launch(physics_proxy):
+    physics = physics_proxy._getvalue()  # not sure why but properties are not available
     app = application.Application(title='viewer', width=1024, height=768, physics=physics)
 
     def tick():
@@ -177,10 +178,8 @@ def _launch(physics):
 
 
 def launch_my_viewer(physics):
-    p = multiprocessing.get_context('spawn').Process(target=_launch, args=(physics,))
+    p = multiprocessing.Process(target=_launch, args=(physics,))
     p.start()
-    p.join()
-    print("viewer process ended...")
 
 
 if __name__ == "__main__":
@@ -196,11 +195,11 @@ if __name__ == "__main__":
     BaseManager.register('Physics', dm_control.mjcf.physics.Physics)
     manager = BaseManager()
     manager.start()
-    shared_physics = manager.Physics(env.physics.data)
+    physics_proxy = manager.Physics(env.physics.data)
 
-    launch_my_viewer(shared_physics)
+    launch_my_viewer(physics_proxy)
 
-    for i in range(10):
+    for i in range(50):
         success, action = task.solve_ik(
             target_pos=[0, 0, 0.02],
             target_quat=quaternion_from_euler(np.pi, 0, -np.pi / 2),
