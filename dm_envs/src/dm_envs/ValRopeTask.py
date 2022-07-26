@@ -1,11 +1,27 @@
-import numpy as np
-from dm_control import composer
+from dm_control import composer, viewer
 from dm_control import mjcf
-from dm_control import viewer
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
+from dm_control.utils import inverse_kinematics
 
 seed = 0
+
+
+class ValEntity(composer.Entity):
+    def _build(self):
+        self._model = mjcf.from_path('val_husky_no_gripper_collisions.xml')
+
+    @property
+    def mjcf_model(self):
+        return self._model
+
+    @property
+    def joints(self):
+        return self.mjcf_model.find_all('joint')
+
+    @property
+    def joint_names(self):
+        return [j.name for j in self.joints]
 
 
 class RopeEntity(composer.Entity):
@@ -29,24 +45,10 @@ class RopeEntity(composer.Entity):
         return self._model
 
 
-class GripperEntity(composer.Entity):
-    def _build(self, name=None, rgba=(0, 1, 1, 1), mass=0.01):
-        self._model = mjcf.RootElement(name)
-        body = self._model.worldbody.add('body', name='dummy')
-        body.add('geom', size=[0.01, 0.01, 0.01], mass=mass, rgba=rgba, type='box', contype=2, conaffinity=2, group=1)
-        body.add('joint', axis=[1, 0, 0], type='slide', name='x', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 1, 0], type='slide', name='y', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 0, 1], type='slide', name='z', pos=[0, 0, 0], limited=False)
-
-    @property
-    def mjcf_model(self):
-        return self._model
-
-
 class RopeManipulation(composer.Task):
     NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
 
-    def __init__(self, rope_length=25, seconds_per_substep=0.01):
+    def __init__(self, rope_length=25, seconds_per_substep=0.001):
         # root entity
         self._arena = floors.Floor()
 
@@ -60,46 +62,31 @@ class RopeManipulation(composer.Task):
         self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
         self._arena.mjcf_model.option.integrator = 'Euler'
         self._arena.mjcf_model.option.timestep = seconds_per_substep
-        # self._arena.mjcf_model.size.nstack = 30000
 
         # other entities
+        self._val = ValEntity()
         self._rope = RopeEntity(length=rope_length)
-        self._gripper1 = GripperEntity(name='gripper1', rgba=(0, 1, 1, 1), mass=0.01)
-        self._gripper2 = GripperEntity(name='gripper2', rgba=(0.5, 0, 0.5, 1), mass=0.1)
 
         self._arena.add_free_entity(self._rope)
-        gripper1_site = self._arena.attach(self._gripper1)
-        gripper1_site.pos = [-self._rope.half_capsule_length, 0, 0]
-        gripper2_site = self._arena.attach(self._gripper2)
-        gripper2_site.pos = [1 - self._rope.half_capsule_length, 0, 0]
+        # self._arena.add_free_entity(self._val)
+        val_site = self._arena.attach(self._val) # if you want val to be fixed to the world
+        val_site.pos = [-1, 0, 0.15]
 
         # constraint
-        self._arena.mjcf_model.equality.add('connect', body1='gripper1/dummy', body2='rope/rB0', anchor=[0, 0, 0])
-        self._arena.mjcf_model.equality.add('connect', body1='gripper2/dummy', body2=f'rope/rB{self._rope.length - 1}',
-                                            anchor=[0, 0, 0])
-
-        # actuators
-        def _make_actuator(joint, name):
-            joint.damping = 10
-            self._arena.mjcf_model.actuator.add('position',
-                                                name=name,
-                                                joint=joint,
-                                                forcelimited=True,
-                                                forcerange=[-100, 100],
-                                                ctrllimited=False,
-                                                kp=50)
-
-        _make_actuator(self._gripper1.mjcf_model.find_all('joint')[0], 'gripper1_x')
-        _make_actuator(self._gripper1.mjcf_model.find_all('joint')[1], 'gripper1_y')
-        _make_actuator(self._gripper1.mjcf_model.find_all('joint')[2], 'gripper1_z')
-        _make_actuator(self._gripper2.mjcf_model.find_all('joint')[0], 'gripper2_x')
-        _make_actuator(self._gripper2.mjcf_model.find_all('joint')[1], 'gripper2_y')
-        _make_actuator(self._gripper2.mjcf_model.find_all('joint')[2], 'gripper2_z')
+        # self._arena.mjcf_model.equality.add('connect', body1='val/right_tool', body2='rope/rB0', anchor=[0, 0, 0])
+        # self._arena.mjcf_model.equality.add('connect', body1='val/right_tool',
+        #                                     body2=f'rope/rB{self._rope.length - 1}',
+        #                                     anchor=[0, 0, 0])
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables = {
-            'rope_pos': observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
+            'rope_pos':   observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
+            'left_tool':  observable.MujocoFeature('site_xpos', 'val/left_tool'),
+            'right_tool': observable.MujocoFeature('site_xpos', 'val/right_tool'),
+            # 'joint_positions': observable.MujocoFeature('qpos', 'val'),
         }
+        for a in self._actuators:
+            self._task_observables[a.joint.name] = observable.MujocoFeature('qpos', f'val/{a.joint.name}')
 
         for obs_ in self._task_observables.values():
             obs_.enabled = True
@@ -111,6 +98,22 @@ class RopeManipulation(composer.Task):
         return self._arena
 
     @property
+    def joints(self):
+        return self._val.joints
+
+    @property
+    def actuated_joints(self):
+        return [a.joint for a in self._actuators]
+
+    @property
+    def joint_names(self):
+        return [f'val/{n}' for n in self._val.joint_names]
+
+    @property
+    def actuated_joint_names(self):
+        return [f'val/{a.joint.name}' for a in self._actuators]
+
+    @property
     def task_observables(self):
         return self._task_observables
 
@@ -118,16 +121,10 @@ class RopeManipulation(composer.Task):
         pass
 
     def initialize_episode(self, physics, random_state):
-        x = 0
-        y = 0
-        z = 0
-        joints = np.zeros(10)
         with physics.reset_context():
-            self._rope.set_pose(physics, position=(x + self._rope.half_capsule_length, y, z))
-            self._gripper1.set_pose(physics, position=(x, y, z))
-            self._gripper2.set_pose(physics, position=(x + self._rope.length_m, y, z))
-            for i in range(10):
-                physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = joints[i]
+            self._val.set_pose(physics, position=[-1, 0, 0.15])
+            for i in range(self._rope.length - 1):
+                physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
 
     def before_step(self, physics, action, random_state):
         physics.set_control(action)
@@ -142,13 +139,35 @@ if __name__ == "__main__":
     env = composer.Environment(task, random_state=seed)
     obs = env.reset()
 
+    i = 0
 
-    def random_policy(_):
-        return [0, 0, 0.5, -0.5, 0, 0.5]
+    # solve IK
+    initial_qpos = env.physics.bind(task.actuated_joints).qpos.copy()
+
+    result = inverse_kinematics.qpos_from_site_pose(
+        physics=env.physics,
+        site_name=f'val/left_tool',
+        target_pos=[0, 0, 0.5],
+        target_quat=[0, 0, 0, 1],
+        joint_names=task.actuated_joint_names,
+        # rot_weight=2,  # more rotation weight than the default
+        inplace=True,
+    )
+
+    qdes = env.physics.named.data.qpos[task.actuated_joint_names]
+
+    # reset the arm joints to their original positions, because the above functions actually modify physics state
+    env.physics.bind(task.actuated_joints).qpos = initial_qpos
+
+    print('ik success?', result.success)
+
+
+    def random_policy(time_step):
+        # return qdes
+        return [0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
     viewer.launch(env, policy=random_policy)
-
     # steps_per_second = int(1 / task.control_timestep)
     # action = [0.8, 0, 1, 0, 0, 1]
     #

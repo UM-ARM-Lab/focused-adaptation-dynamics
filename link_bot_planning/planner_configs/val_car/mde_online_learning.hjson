@@ -13,4 +13,14 @@
     attempted_extensions_threshold: 128
   }
   dmax: 0.04
+  # extent should match the extent in alt_rope_100.hjson (the file used for getting random data at iter0)
+  # otherwise the VGs sizes will not match
+  extent: [
+    0.3
+    1.3
+    -0.6
+    0.6
+    -0.1
+    1.1
+  ]
 }
