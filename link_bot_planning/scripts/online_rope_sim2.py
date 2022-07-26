@@ -106,7 +106,10 @@ def main():
             prev_dynamics_run_id = unadapted_run_id
 
         planning_outdir = pathify(planning_job_chunker.get('planning_outdir'))
-        planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
+        if i == 0:
+            planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
+        else:
+            planning_trials = None
         if planning_outdir is None:
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
