@@ -130,7 +130,7 @@ def main():
                                   job_chunker=planning_job_chunker,
                                   outdir=planning_outdir,
                                   test_scenes_dir=test_scenes_dir,
-                                  trials=trials,
+                                  trials=planning_trials,
                                   seed=seed,
                                   how_to_handle=args.on_exception)
             gazebo_utils.suspend()
