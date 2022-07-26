@@ -58,9 +58,9 @@ def main():
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 
-    method_name = job_chunker.load_prompt('method_name')
-    unadapted_run_id = job_chunker.load_prompt('unadapted_run_id')
-    seed = int(job_chunker.load_prompt('seed'))
+    method_name = job_chunker.load_prompt('method_name', 'adaptation')
+    unadapted_run_id = job_chunker.load_prompt('unadapted_run_id', 'sim_rope_unadapted-dme7l')
+    seed = int(job_chunker.load_prompt('seed', 0))
     collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
                                                                     'collect_dynamics_params/floating_rope_100.hjson')
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
@@ -69,7 +69,7 @@ def main():
     planner_params = load_planner_params(planner_params_filename)
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))
-    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 5))
+    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
@@ -117,7 +117,8 @@ def main():
             if i == 0:
                 dynamics_dataset_dir_i = None
                 for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
-                                                                       n_trajs=64,
+                                                                       n_trajs=10,
+                                                                       root=outdir,
                                                                        nickname=f'{args.nickname}_dynamics_dataset_{i}',
                                                                        seed=seed):
                     pass

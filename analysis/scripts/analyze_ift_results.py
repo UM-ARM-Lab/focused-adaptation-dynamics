@@ -17,7 +17,7 @@ limit_gpu_mem(0.1)
 
 
 def metrics_main(args):
-    outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate, args.latex)
+    outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
 
     w = 10
     max_iter = 100
@@ -104,11 +104,11 @@ def metrics_main(args):
     # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
     # ax.set_xlim(-0.01, x_max)
 
-    # fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='used_augmentation', ci=ci)
-    # ax.set_xlim(-0.01, x_max)
-    # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
-    # ax.legend()
-    # plt.savefig(outdir / f'task_error_rolling.png')
+    fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='used_augmentation', ci=ci)
+    ax.set_xlim(-0.01, x_max)
+    ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
+    ax.legend()
+    plt.savefig(outdir / f'task_error_rolling.png')
     #
     # fig, ax = lineplot(df_r, iter_key, 'combined_error', f'Combined Score (rolling={w})', hue='used_augmentation')
     # ax.set_xlim(-0.01, x_max)
@@ -169,10 +169,6 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('results_dirs', help='results directory', type=pathlib.Path, nargs='+')
-    parser.add_argument('--tables-config', type=pathlib.Path,
-                        default=pathlib.Path("tables_configs/planning_evaluation.hjson"))
-    parser.add_argument('--analysis-params', type=pathlib.Path,
-                        default=pathlib.Path("analysis_params/env_across_methods.json"))
     parser.add_argument('--no-plot', action='store_true')
     parser.add_argument('--latex', action='store_true')
     parser.add_argument('--order', action='store_true')

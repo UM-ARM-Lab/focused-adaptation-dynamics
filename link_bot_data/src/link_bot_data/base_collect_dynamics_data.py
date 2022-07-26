@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from time import perf_counter
 import pathlib
 from typing import Dict, Optional
 
@@ -302,6 +303,7 @@ def collect_dynamics_data(collect_dynamics_params: pathlib.Path,
                           save_format: str = 'pkl',
                           seed: Optional[int] = None,
                           states_and_actions: Optional = None,
+                          root: Optional[pathlib.Path] = None,
                           **kwargs):
     with collect_dynamics_params.open("r") as f:
         collect_dynamics_params = hjson.load(f)
@@ -314,6 +316,7 @@ def collect_dynamics_data(collect_dynamics_params: pathlib.Path,
     n_trajs_done = None
     for dataset_dir, n_trajs_done in data_collector.collect_data(n_trajs=n_trajs,
                                                                  states_and_actions=states_and_actions,
+                                                                 root=root,
                                                                  nickname=nickname):
         if dataset_dir is not None:
             break

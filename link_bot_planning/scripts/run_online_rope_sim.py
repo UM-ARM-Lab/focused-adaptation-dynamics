@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-from time import perf_counter, sleep
 import argparse
 import itertools
 import pathlib
 import warnings
+from time import perf_counter, sleep
 
 import rospkg
 from more_itertools import chunked

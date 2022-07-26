@@ -9,6 +9,7 @@ from typing import Union, List, Callable, Optional, Tuple, Iterable, Dict
 
 import numpy as np
 import tensorflow as tf
+from natsort import natsorted
 
 import genpy
 
@@ -203,6 +204,7 @@ def make_dict_float32(d):
     for k, s_k in d.items():
         out_d[k] = s_k.astype(np.float32)
     return out_d
+
 
 def longest_reconverging_subsequence(x):
     max_start_idx = 0
@@ -497,3 +499,7 @@ def int_frac_to_range(i, n, low, high):
 
 def empty_callable(*args, **kwargs):
     pass
+
+
+def sorted_paths(paths):
+    return [pathlib.Path(p) for p in natsorted([p.as_posix() for p in paths])]

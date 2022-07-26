@@ -9,6 +9,7 @@ from analysis import results_utils
 from analysis.results_utils import classifier_params_from_planner_params, plot_steps
 from arc_utilities import ros_init
 from link_bot_planning.trial_result import TrialStatus
+from link_bot_pycommon.pycommon import sorted_paths
 from link_bot_pycommon.screen_recorder import ScreenRecorder
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.gpu_config import limit_gpu_mem
@@ -41,7 +42,7 @@ def main():
     colorama.init(autoreset=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("ift_dir", type=pathlib.Path)
-    parser.add_argument("--threshold", type=float)
+    parser.add_argument("--threshold", type=float, default=0.05)
     parser.add_argument("--full-plan", action='store_true')
     parser.add_argument("--record", action='store_true')
     parser.add_argument("--only-timeouts", action='store_true')
@@ -51,7 +52,7 @@ def main():
 
     planning_results_dir = args.ift_dir / 'planning_results'
 
-    planning_results_dirs = sorted(planning_results_dir.iterdir())
+    planning_results_dirs = sorted_paths(planning_results_dir.iterdir())
 
     g = list(trials_gen(planning_results_dirs, args))
     anim = RvizAnimationController(n_time_steps=len(g), ns='trajs')

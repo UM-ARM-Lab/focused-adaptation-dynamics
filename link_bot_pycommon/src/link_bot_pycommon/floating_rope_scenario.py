@@ -37,10 +37,10 @@ from link_bot_pycommon.pycommon import default_if_none
 from link_bot_pycommon.ros_pycommon import publish_color_image, publish_depth_image, get_camera_params
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 from moonshine.base_learned_dynamics_model import dynamics_loss_function, dynamics_points_metrics_function
+from moonshine.geometry_np import homogeneous
 from moonshine.geometry_tf import xyzrpy_to_matrices, transform_points_3d, densify_points
 from moonshine.grid_utils_tf import batch_center_res_shape_to_origin_point, dist_to_bbox
 from moonshine.numpify import numpify
-from moonshine.geometry_np import homogeneous
 from moonshine.torch_and_tf_utils import remove_batch, add_batch
 from peter_msgs.srv import *
 from rosgraph.names import ns_join
@@ -141,13 +141,17 @@ class FloatingRopeScenario(ScenarioWithVisualization, MoveitPlanningSceneScenari
 
         self.gz = GazeboServices()
 
-        left_gripper_position = np.array([0.6, 0.25, 0.6])
-        right_gripper_position = np.array([0.6, -0.25, 0.6])
+        extent = np.array(params['extent']).reshape([3, 2])
+        cx = extent[0].mean()
+        cy = extent[1].mean()
+        min_z = extent[2, 0]
+        left_gripper_position = np.array([cx, cy + 0.25, min_z + 0.6])
+        right_gripper_position = np.array([cx, cy - 0.25, min_z + 0.6])
         init_action = {
             'left_gripper_position':  left_gripper_position,
             'right_gripper_position': right_gripper_position,
         }
-        self.execute_action(None, None, init_action)
+        self.execute_action(None, None, init_action, wait=True)
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
         speed_mps = action.get('speed', 0.1)

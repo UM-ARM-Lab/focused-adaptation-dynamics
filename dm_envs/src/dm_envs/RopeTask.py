@@ -10,17 +10,17 @@ seed = 0
 
 class RopeEntity(composer.Entity):
     def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.01):
-        self._length = length
-        self._length_m = length_m
+        self.length = length
+        self.length_m = length_m
         self._thickness = thickness
-        self._spacing = length_m / (length)
-        self._half_capsule_length = length_m / (length * 2)
+        self._spacing = length_m / length
+        self.half_capsule_length = length_m / (length * 2)
         self._model = mjcf.RootElement('rope')
         self._model.compiler.angle = 'radian'
         body = self._model.worldbody.add('body', name='rB0')
         self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
         self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
-        self._composite.geom.set_attributes(type='capsule', size=[self._thickness, self._half_capsule_length],
+        self._composite.geom.set_attributes(type='capsule', size=[self._thickness, self.half_capsule_length],
                                             rgba=rgba, mass=0.005, contype=1, conaffinity=1, priority=1,
                                             friction=[0.1, 5e-3, 1e-4])
 
@@ -46,7 +46,7 @@ class GripperEntity(composer.Entity):
 class RopeManipulation(composer.Task):
     NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
 
-    def __init__(self, rope_length=25, seconds_per_substep=0.005):
+    def __init__(self, rope_length=25, seconds_per_substep=0.01):
         # root entity
         self._arena = floors.Floor()
 
@@ -67,15 +67,15 @@ class RopeManipulation(composer.Task):
         self._gripper1 = GripperEntity(name='gripper1', rgba=(0, 1, 1, 1), mass=0.01)
         self._gripper2 = GripperEntity(name='gripper2', rgba=(0.5, 0, 0.5, 1), mass=0.1)
 
-        rope_site = self._arena.add_free_entity(self._rope)
+        self._arena.add_free_entity(self._rope)
         gripper1_site = self._arena.attach(self._gripper1)
-        gripper1_site.pos = [-self._rope._half_capsule_length, 0, 0]
+        gripper1_site.pos = [-self._rope.half_capsule_length, 0, 0]
         gripper2_site = self._arena.attach(self._gripper2)
-        gripper2_site.pos = [1 - self._rope._half_capsule_length, 0, 0]
+        gripper2_site.pos = [1 - self._rope.half_capsule_length, 0, 0]
 
         # constraint
         self._arena.mjcf_model.equality.add('connect', body1='gripper1/dummy', body2='rope/rB0', anchor=[0, 0, 0])
-        self._arena.mjcf_model.equality.add('connect', body1='gripper2/dummy', body2=f'rope/rB{self._rope._length - 1}',
+        self._arena.mjcf_model.equality.add('connect', body1='gripper2/dummy', body2=f'rope/rB{self._rope.length - 1}',
                                             anchor=[0, 0, 0])
 
         # actuators
@@ -101,8 +101,8 @@ class RopeManipulation(composer.Task):
             'rope_pos': observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
         }
 
-        for obs in self._task_observables.values():
-            obs.enabled = True
+        for obs_ in self._task_observables.values():
+            obs_.enabled = True
 
         self.control_timestep = self.NUM_SUBSTEPS * self.physics_timestep
 
@@ -123,9 +123,9 @@ class RopeManipulation(composer.Task):
         z = 0
         joints = np.zeros(10)
         with physics.reset_context():
-            self._rope.set_pose(physics, position=(x + self._rope._half_capsule_length, y, z))
+            self._rope.set_pose(physics, position=(x + self._rope.half_capsule_length, y, z))
             self._gripper1.set_pose(physics, position=(x, y, z))
-            self._gripper2.set_pose(physics, position=(x + self._rope._length_m, y, z))
+            self._gripper2.set_pose(physics, position=(x + self._rope.length_m, y, z))
             for i in range(10):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = joints[i]
 
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     obs = env.reset()
 
 
-    def random_policy(time_step):
+    def random_policy(_):
         return [0, 0, 0.5, -0.5, 0, 0.5]
 
 

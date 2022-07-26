@@ -59,7 +59,7 @@ def get_gazebo_processes():
 
 def is_suspended():
     gazebo_processes = get_gazebo_processes()
-    suspended = any([p.status() in ['sleeping', 'stopped'] for p in gazebo_processes])
+    suspended = any([p.status() in ['stopped'] for p in gazebo_processes])
     return suspended
 
 
