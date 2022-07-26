@@ -8,6 +8,18 @@ from dm_control.locomotion.arenas import floors
 seed = 0
 
 
+class ValEntity(composer.Entity):
+    def _build(self):
+        self._model = mjcf.from_path('val_husky_no_gripper_collisions.xml')
+        # self._model = mjcf.RootElement('val')
+        # self._robot = mjcf.from_path('val_husky_no_gripper_collisions.xml')
+        # self._robot.add('joint', type='free', name='root_free_joint', pos=[0, 0, 0], limited=False)
+
+    @property
+    def mjcf_model(self):
+        return self._model
+
+
 class RopeEntity(composer.Entity):
     def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.01):
         self.length = length
@@ -63,15 +75,19 @@ class RopeManipulation(composer.Task):
         # self._arena.mjcf_model.size.nstack = 30000
 
         # other entities
+        self._val = ValEntity()
         self._rope = RopeEntity(length=rope_length)
         self._gripper1 = GripperEntity(name='gripper1', rgba=(0, 1, 1, 1), mass=0.01)
         self._gripper2 = GripperEntity(name='gripper2', rgba=(0.5, 0, 0.5, 1), mass=0.1)
 
+        # self._arena.add_free_entity(self._val)
         self._arena.add_free_entity(self._rope)
         gripper1_site = self._arena.attach(self._gripper1)
         gripper1_site.pos = [-self._rope.half_capsule_length, 0, 0]
         gripper2_site = self._arena.attach(self._gripper2)
         gripper2_site.pos = [1 - self._rope.half_capsule_length, 0, 0]
+        val_site = self._arena.attach(self._val)
+        val_site.pos = [-1, 0, 0.15]
 
         # constraint
         self._arena.mjcf_model.equality.add('connect', body1='gripper1/dummy', body2='rope/rB0', anchor=[0, 0, 0])
@@ -144,7 +160,7 @@ if __name__ == "__main__":
 
 
     def random_policy(_):
-        return [0, 0, 0.5, -0.5, 0, 0.5]
+        return [0, 0, 0.5, -0.5, 0, 0.5] + ([0]*16)
 
 
     viewer.launch(env, policy=random_policy)

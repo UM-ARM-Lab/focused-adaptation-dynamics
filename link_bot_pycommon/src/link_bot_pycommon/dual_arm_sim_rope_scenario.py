@@ -53,8 +53,8 @@ class SimDualArmRopeScenario(BaseDualArmRopeScenario):
         self.grasp_rope_endpoints()
 
         # randomize the object configurations
-        environment_randomization = params['environment_randomization']
-        if 'typ' in environment_randomization:
+        environment_randomization = params.get('environment_randomization', None)
+        if environment_randomization is not None and 'typ' in environment_randomization:
             er_type = environment_randomization['type']
             if er_type == 'random':
                 valid = False

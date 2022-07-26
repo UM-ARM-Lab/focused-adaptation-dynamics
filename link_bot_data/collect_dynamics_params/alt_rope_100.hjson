@@ -41,8 +41,10 @@
     left_gripper: 3
     right_gripper: 3
     rope: 75
+    joint_positions: 18
   }
   state_metadata_description: {
+    joint_names: null
   }
   action_description: {
     left_gripper_position: 3
@@ -73,4 +75,5 @@
       joint6: 1.3154287338256836
       joint7: -0.01706605777144432
  }
+ environment_randomization: { }
 }
