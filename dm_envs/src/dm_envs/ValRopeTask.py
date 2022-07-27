@@ -1,10 +1,7 @@
-import multiprocessing
-import queue
-
-import glfw
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
+from dm_control import viewer
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
 from dm_control.utils import inverse_kinematics
@@ -88,13 +85,11 @@ class RopeManipulation(composer.Task):
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables = {
-            'rope_pos':   observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
-            'left_tool':  observable.MujocoFeature('site_xpos', 'val/left_tool'),
-            'right_tool': observable.MujocoFeature('site_xpos', 'val/right_tool'),
-            # 'joint_positions': observable.MujocoFeature('qpos', 'val'),
+            'rope_pos':        observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
+            'left_tool':       observable.MujocoFeature('site_xpos', 'val/left_tool'),
+            'right_tool':      observable.MujocoFeature('site_xpos', 'val/right_tool'),
+            'joint_positions': observable.MJCFFeature('qpos', self.actuated_joints),
         }
-        for a in self._actuators:
-            self._task_observables[a.joint.name] = observable.MujocoFeature('qpos', f'val/{a.joint.name}')
 
         for obs_ in self._task_observables.values():
             obs_.enabled = True
@@ -161,95 +156,21 @@ class RopeManipulation(composer.Task):
         return result.success, qdes
 
 
-# def _launch(physics_proxy):
-#     physics = physics_proxy._getvalue()  # not sure why but properties are not available
-#     app = application.Application(title='viewer', width=1024, height=768, physics=physics)
-#
-#     def tick():
-#         print('in viz', physics.named.data.qpos['val/joint56'])
-#         app._viewport.set_size(*app._window.shape)
-#         app._tick()
-#         return app._renderer.pixels
-#
-#     app._window.event_loop(tick_func=tick)
-#     app._window.close()
-
-
-def _launch(q: multiprocessing.Queue):
-    task = RopeManipulation()
-    env = composer.Environment(task)
-    app = application.Application(title='viewer', width=1024, height=768, physics=env.physics)
-
-    def tick():
-        new_data = None
-        try:
-            from time import perf_counter
-            t0 = perf_counter()
-            new_data = q.get(block=False)
-            print(perf_counter() - t0)
-            if new_data == 'DONE':
-                glfw.set_window_should_close(app.window, True)
-            # print("new data!", new_data.qpos[59])
-        except queue.Empty:
-            pass
-        app._viewport.set_size(*app._window.shape)
-        app._tick(new_data)
-        return app._renderer.pixels
-
-    app._window.event_loop(tick_func=tick)
-    app._window.close()
-
-
-def launch_my_viewer(q):
-    p = multiprocessing.Process(target=_launch, args=(q,))
-    p.start()
-
-
 if __name__ == "__main__":
+    np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = RopeManipulation()
     env = composer.Environment(task)
 
-    i = 0
+    actions = np.random.uniform(low=env.action_spec().minimum, high=env.action_spec().maximum, size=[10, 20])
 
-    actions = np.random.uniform(low=env.action_spec().minimum(), high=env.action_spec().maximum(), size=10)
 
     def controller_gen():
         for a in actions:
+            obs = env._observation_updater.get_observation()
+            print(obs['joint_positions'])
             yield a
 
 
     c = controller_gen()
 
-
-    def controller(time_step):
-        return next(c)
-
-    viewer
-
-
-    # q = multiprocessing.Queue()
-    # launch_my_viewer(q)
-    #
-    # env.reset()
-    # for i in range(60):
-    #     success, action = task.solve_ik(
-    #         target_pos=[0, 0, 0.02],
-    #         target_quat=quaternion_from_euler(np.pi, 0, -np.pi / 2),
-    #     )
-    #     time_step = env.step(action)
-    #     # print('in control', env.physics.named.data.qpos['val/joint56'])
-    #     q.put(env.physics.data)
-    # print("done...")
-    # q.put("DONE")
-    #
-    # steps_per_second = int(1 / task.control_timestep)
-    # action = [0.8, 0, 1, 0, 0, 1]
-    #
-    # from time import perf_counter
-    #
-    # t0 = perf_counter()
-    # sim_seconds = 10
-    # for i in range(steps_per_second * sim_seconds):
-    #     time_step = env.step(action)
-    # real_seconds = perf_counter() - t0
-    # print(sim_seconds / real_seconds)
+    viewer.launch(env, policy=lambda _: next(c))
