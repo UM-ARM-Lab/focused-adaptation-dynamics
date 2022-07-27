@@ -70,7 +70,7 @@ def make_row(datum: Dict, data_filename: pathlib.Path, metadata: Dict, scenario:
 
     ift_iteration = metadata.get('ift_iteration', None)
     try:
-        m = re.fullmatch(r'iteration_([0-9]+)', results_folder_name)
+        m = re.fullmatch(r'.*iteration_([0-9]+)', results_folder_name)
         if m:
             ift_iteration = int(m.group(1))
     except ValueError:

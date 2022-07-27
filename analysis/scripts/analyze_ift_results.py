@@ -19,7 +19,7 @@ limit_gpu_mem(0.1)
 def metrics_main(args):
     outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
 
-    w = 10
+    w = 1
     max_iter = 100
     x_max = max_iter + 0.01
     ci = 95
@@ -35,16 +35,17 @@ def metrics_main(args):
     # compute rolling average per run
 
     method_name_map = {
-        '/media/shared/ift/small-hooks-diverse-aug':     'Augmentation (full method)',
-        '/media/shared/ift/small-hooks-diverse-no-aug':  'No Augmentation (baseline)',
-        '/media/shared/ift_ablations/no_occupancy':      'Augmentation (No occupancy)',
-        '/media/shared/ift_ablations/no_invariance':     'Augmentation (No transf. Val.)',
-        '/media/shared/ift_ablations/no_delta_min_dist': 'Augmentation (No delta min dist)',
-        '/media/shared/ift_ablations/no_min_delta_dist': 'Augmentation (No delta min dist)',
-        '/media/shared/ift_ablations/noise':             'Gaussian Noise (baseline)',
-        '../link_bot_planning/real_val_ift/aug':         'Augmentation (full method)',
-        'results/ift/debugging_vae-2/':                  'VAE (baseline)',
-        '/media/shared/ift_ablations/vae': 'VAE (baseline)',
+        '/media/shared/ift/small-hooks-diverse-aug':      'Augmentation (full method)',
+        '/media/shared/ift/small-hooks-diverse-no-aug':   'No Augmentation (baseline)',
+        '/media/shared/ift_ablations/no_occupancy':       'Augmentation (No occupancy)',
+        '/media/shared/ift_ablations/no_invariance':      'Augmentation (No transf. Val.)',
+        '/media/shared/ift_ablations/no_delta_min_dist':  'Augmentation (No delta min dist)',
+        '/media/shared/ift_ablations/no_min_delta_dist':  'Augmentation (No delta min dist)',
+        '/media/shared/ift_ablations/noise':              'Gaussian Noise (baseline)',
+        '../link_bot_planning/real_val_ift/aug':          'Augmentation (full method)',
+        '../link_bot_planning/results/online_adaptation': 'Adaptation (full method)',
+        'results/ift/debugging_vae-2/':                   'VAE (baseline)',
+        '/media/shared/ift_ablations/vae':                'VAE (baseline)',
     }
 
     for i, k in enumerate(method_name_map.keys()):

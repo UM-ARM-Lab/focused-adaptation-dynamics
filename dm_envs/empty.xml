@@ -1,0 +1,6 @@
+<mujoco model="static_env">
+  <compiler angle="radian" />
+  <default/>
+  <worldbody>
+  </worldbody>
+</mujoco>

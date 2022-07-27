@@ -10,10 +10,9 @@ from visualization_msgs.msg import MarkerArray
 
 class MujocoVisualizer:
 
-    def __init__(self, task):
+    def __init__(self):
         self.geoms_markers_pub = rospy.Publisher("mj_geoms", MarkerArray, queue_size=10)
         self.camera_img_pub = rospy.Publisher("mj_camera", Image, queue_size=10)
-        self.task = task
 
     def viz(self, physics: Physics):
         geoms_marker_msg = MarkerArray()

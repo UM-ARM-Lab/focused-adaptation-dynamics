@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
@@ -6,10 +8,21 @@ from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
 
 import rospy
+from dm_envs.mujoco_services import my_step
 from dm_envs.mujoco_visualizer import MujocoVisualizer
 from dm_envs.rope_task import BaseRopeManipulation
 
 seed = 0
+
+
+class StaticEnvEntity(composer.Entity):
+    def _build(self, path: str):
+        print(f"Loading {path}")
+        self._model = mjcf.from_path(path)
+
+    @property
+    def mjcf_model(self):
+        return self._model
 
 
 class ValEntity(composer.Entity):
@@ -51,17 +64,19 @@ class RopeEntity(composer.Entity):
 
 
 class ValRopeManipulation(BaseRopeManipulation):
-    NUM_SUBSTEPS = 100  # The number of physics substeps per control timestep.
 
-    def __init__(self, rope_length=25, seconds_per_substep=0.001):
-        super().__init__(rope_length, seconds_per_substep)
+    def __init__(self, params: Dict):
+        super().__init__(params)
 
         # other entities
         self._val = ValEntity()
+        self._static_env = StaticEnvEntity(params.get('static_env_filename', 'empty.xml'))
 
-        # self._arena.add_free_entity(self._val)
-        val_site = self._arena.attach(self._val)  # if you want val to be fixed to the world
+        val_site = self._arena.attach(self._val)
         val_site.pos = [0, 0, 0.15]
+        static_env_site = self._arena.attach(self._static_env)
+        static_env_site.pos = [1.22, -0.14, 0.1]
+        static_env_site.quat = quaternion_from_euler(0, 0, -1.5707)
 
         self._arena.mjcf_model.equality.add('distance', name='left_grasp', geom1='val/left_tool_geom', geom2='rope/rG0',
                                             distance=0, active='false', solref="0.02 2")
@@ -98,10 +113,13 @@ class ValRopeManipulation(BaseRopeManipulation):
 
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
-            # this will overrite the pose set when val is 'attach'ed to the arena
+            # this will overwrite the pose set when val is 'attach'ed to the arena
             self._val.set_pose(physics,
-                               position=[-0.8, 0, 0.15],
+                               position=[0, 0, 0.15],
                                quaternion=quaternion_from_euler(0, 0, 0))
+            self.rope.set_pose(physics,
+                               position=[0.5, -self.rope.length_m / 2, 0.5],
+                               quaternion=quaternion_from_euler(0, 0, 1.5707))
             for i in range(self.rope.length - 1):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
 
@@ -132,38 +150,36 @@ class ValRopeManipulation(BaseRopeManipulation):
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
-    task = ValRopeManipulation()
-    env = composer.Environment(task)
+    task = ValRopeManipulation({
+        'seconds_per_substep': 0.001,
+        'static_env_filename': 'car1.xml',
+    })
+    env = composer.Environment(task, random_state=0)
+    viz = MujocoVisualizer()
+
+    # from dm_control import viewer
+    # viewer.launch(env)
 
     rospy.init_node("val_rope_task")
-    viz = MujocoVisualizer(task)
 
-    obs = env.reset()
+    env.reset()
 
-
-    def step(env, action, n_steps=1):
-        for i in range(n_steps):
-            viz.viz(env.physics)
-            time_step = env.step(action)
-        return time_step.observation
-
-
-    # move to grasp
-    _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
-                            target_quat=quaternion_from_euler(0, -np.pi, 0),
-                            site_name='val/left_tool')
-    step(env, qdes, 20)
+    # # move to grasp
+    # _, qdes = task.solve_ik(target_pos=[0, task.rope.length_m / 2, 0.05],
+    #                         target_quat=quaternion_from_euler(0, -np.pi, 0),
+    #                         site_name='val/left_tool')
+    # my_step(viz, env, qdes, 20)
 
     # grasp!
     task.grasp_rope(env.physics)
-    step(env, qdes, 20)
+    my_step(viz, env, [0] * 20, 20)
 
-    # lift up
-    _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
-                            target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
-                            site_name='val/left_tool')
-    step(env, [0] * 20, 20)
+    # # lift up
+    # _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
+    #                         target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
+    #                         site_name='val/left_tool')
+    # my_step(viz, env, [0] * 20, 20)
 
     # release
     task.release_rope(env.physics)
-    step(env, [0] * 20, 20)
+    my_step(viz, env, [0] * 20, 20)

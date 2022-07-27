@@ -34,7 +34,7 @@ def main():
         print(Fore.RED + "Aborting" + Fore.RESET)
         return
 
-    rospy.loginfo(Fore.GREEN + f"Writing MERP dataset to {outdir}")
+    rospy.loginfo(Fore.GREEN + f"Writing MDE dataset to {outdir}")
     dataset_dir = fetch_udnn_dataset(args.dataset_dir)
     make_mde_dataset(dataset_dir=dataset_dir,
                      checkpoint=args.checkpoint,

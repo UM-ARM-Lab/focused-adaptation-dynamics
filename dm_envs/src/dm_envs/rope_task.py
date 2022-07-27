@@ -1,9 +1,14 @@
+from typing import Dict
+
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
-from dm_control import viewer
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
+
+import rospy
+from dm_envs.mujoco_services import my_step
+from dm_envs.mujoco_visualizer import MujocoVisualizer
 
 seed = 0
 
@@ -44,9 +49,11 @@ class GripperEntity(composer.Entity):
 
 
 class BaseRopeManipulation(composer.Task):
-    NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
+    NUM_SUBSTEPS = 100  # The number of physics substeps per control timestep.
 
-    def __init__(self, rope_length=25, seconds_per_substep=0.01):
+    def __init__(self, params: Dict):
+        rope_length = params.get('rope_length', 25)
+        seconds_per_substep = params.get('seconds_per_substep', 0.01)
         # root entity
         self._arena = floors.Floor()
 
@@ -60,6 +67,7 @@ class BaseRopeManipulation(composer.Task):
         self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
         self._arena.mjcf_model.option.integrator = 'Euler'
         self._arena.mjcf_model.option.timestep = seconds_per_substep
+        self._arena.mjcf_model.size.nconmax = 1_000
         self.control_timestep = self.NUM_SUBSTEPS * self.physics_timestep
 
         # other entities
@@ -91,8 +99,8 @@ class BaseRopeManipulation(composer.Task):
 
 class RopeManipulation(BaseRopeManipulation):
 
-    def __init__(self, rope_length=25, seconds_per_substep=0.01):
-        super().__init__(rope_length, seconds_per_substep)
+    def __init__(self, params: Dict):
+        super().__init__(params)
 
         self._gripper1 = GripperEntity(name='gripper1', rgba=(0, 1, 1, 1), mass=0.01)
         self._gripper2 = GripperEntity(name='gripper2', rgba=(0.5, 0, 0.5, 1), mass=0.1)
@@ -130,24 +138,22 @@ class RopeManipulation(BaseRopeManipulation):
         x = 0
         y = 0
         z = 0
-        joints = np.zeros(10)
         with physics.reset_context():
             self.rope.set_pose(physics, position=(x + self.rope.half_capsule_length, y, z))
             self._gripper1.set_pose(physics, position=(x, y, z))
             self._gripper2.set_pose(physics, position=(x + self.rope.length_m, y, z))
             for i in range(10):
-                physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = joints[i]
+                physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
 
 
 if __name__ == "__main__":
-    task = RopeManipulation()
-    seed = None
-    env = composer.Environment(task, random_state=seed)
-    obs = env.reset()
+    np.set_printoptions(suppress=True, precision=4, linewidth=250)
+    task = RopeManipulation({})
+    env = composer.Environment(task)
+    viz = MujocoVisualizer()
 
+    rospy.init_node("rope_task")
 
-    def random_policy(_):
-        return [0, 0, 0.5, -0.5, 0, 0.5]
+    my_step(viz, env, [0] * 6, 200)
 
-
-    viewer.launch(env, policy=random_policy)
+    my_step(viz, env, [0, 0, 0.3, -0.5, 0, 0.3], 200)
