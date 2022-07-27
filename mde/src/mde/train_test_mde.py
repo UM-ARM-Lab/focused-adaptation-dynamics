@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, Union, List
 
 import git
+import os
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning.loggers import WandbLogger
@@ -16,6 +17,7 @@ from link_bot_data.wandb_datasets import get_dataset_with_version
 from link_bot_pycommon.load_wandb_model import load_model_artifact, model_artifact_path
 from mde.mde_data_module import MDEDataModule
 from mde.torch_mde import MDE
+from mde.gp_mde import GPRMDE
 from mde.torch_mde_dataset import TorchMDEDataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.filepath_tools import load_hjson
@@ -23,6 +25,7 @@ from moonshine.my_pl_callbacks import HeartbeatCallback
 from moonshine.torch_and_tf_utils import add_batch, remove_batch
 from moonshine.torch_datasets_utils import dataset_skip
 from moonshine.torchify import torchify
+from moonshine.gpytorch_tools import TrainingDataSaveCB
 
 PROJECT = 'mde'
 
@@ -34,6 +37,8 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                seed: int,
                user: str,
                steps: int = -1,
+               dryrun: bool = False,
+               is_nn_mde: Optional[bool] = True,
                nickname: Optional[str] = None,
                checkpoint: Optional = None,
                take: Optional[int] = None,
@@ -44,6 +49,8 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                project=PROJECT,
                **kwargs):
     pl.seed_everything(seed, workers=True)
+    if dryrun:
+        os.environ['WANDB_MODE'] = "offline"
 
     params = load_hjson(params_filename)
     params.update(kwargs)
@@ -56,6 +63,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                                 train_mode=train_mode,
                                 val_mode=val_mode)
     data_module.add_dataset_params(params)
+    data_module.setup()
 
     # add some extra useful info here
     stamp = "{:%B_%d_%H-%M-%S}".format(datetime.now())
@@ -82,14 +90,20 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
             'entity': user,
             'resume': True,
         }
+    callbacks = []
+    if is_nn_mde:
+        model = MDE(**params)
+    else:
+        model = GPRMDE(data_module.train_dataset, **params)
+        callbacks.append(TrainingDataSaveCB(model))
 
-    model = MDE(**params)
     num_params = sum(p.numel() for p in model.parameters())
     print(f"# params: {num_params}")
 
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', **wandb_kargs)
     ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
+    callbacks.extend([ckpt_cb, hearbeat_callback])
     max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
     print(f"{max_steps=}")
     trainer = pl.Trainer(gpus=1,
@@ -100,7 +114,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          max_steps=max_steps,
                          log_every_n_steps=1,
                          check_val_every_n_epoch=1,
-                         callbacks=[ckpt_cb, hearbeat_callback],
+                         callbacks=callbacks,
                          default_root_dir='wandb')
     wb_logger.watch(model)
     trainer.fit(model, data_module, ckpt_path=ckpt_path)
@@ -123,11 +137,22 @@ def eval_main(dataset_dir: pathlib.Path,
               mode: str,
               batch_size: int,
               user: str,
+              beta: Optional[float] = 2,
+              is_nn_mde: Optional[int] = 1,
               take: Optional[int] = None,
               skip: Optional[int] = None,
+              dryrun: Optional[bool] = False,
               project=PROJECT,
               **kwargs):
-    model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
+    if dryrun:
+        os.environ['WANDB_MODE'] = "offline"
+
+    if is_nn_mde:
+        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
+    else:
+        model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)
+        model.beta = beta
+
     model.eval()
     num_params = sum(p.numel() for p in model.parameters())
 

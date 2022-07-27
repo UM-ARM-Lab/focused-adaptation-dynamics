@@ -1,0 +1,47 @@
+{
+  loss_type: MAE 
+  point_state_keys: [
+    rope
+    left_gripper
+    right_gripper
+  ]
+  state_keys: [
+    rope
+    left_gripper
+    right_gripper
+  ]
+  state_metadata_keys: [
+    joint_names
+  ]
+  action_keys: [
+    left_gripper_position
+    right_gripper_position
+  ]
+  learning_rate:  0.004
+  rnn_size: 128 
+  fc_layer_sizes: [ 128, 128 ]
+  pooling: [ 2, 2, 2 ]
+  conv_filters: [
+    [ 32, [ 3, 3, 3 ] ]
+    [ 32, [ 3, 3, 3 ] ]
+    [ 32, [ 3, 3, 3 ] ]
+  ]
+  conv_out_size: 4000
+  local_env_h_rows: 44
+  local_env_w_cols: 44
+  local_env_c_channels: 44
+  error_threshold: 0.08
+  weight_decay: 0 #1e-6 #1e-5
+  dropout_p: 0.0
+  no_lstm: true
+  use_prev_error: true
+  use_batchnorm: false
+  use_res3d: true
+  grid_size: 3
+  beta: 2
+  num_gp_training_points: 80 #should be higher if the GPU can handle it
+  is_heteroskedastic: 0
+  gp_input_dim: 16
+  use_prev_error: true
+  use_sdf: false
+}

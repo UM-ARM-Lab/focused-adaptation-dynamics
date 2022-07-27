@@ -115,10 +115,7 @@ class DeepExactGP(DictExactGP):
         self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(-1., 1.)
 
     def forward(self, x):
-        if True or not x.dtype == torch.float32:
-            projected_x = self.feature_extractor(x)
-        else:
-            projected_x = x.cuda()
+        projected_x = self.feature_extractor(x)
         projected_x = self.scale_to_bounds(projected_x)  # Make the NN values "nice"
         mean_x = self.mean_module(projected_x)
         covar_x = self.covar_module(projected_x)

@@ -14,7 +14,13 @@ def custom_combine_batches(batches):
         batch["env"] = _fix_env2(batch["env"])
     for key_name in ref_batch.keys():
         if isinstance(batches[0][key_name], torch.Tensor):
-            new_batch[key_name] = torch.cat([batch[key_name] for batch in batches if key_name in batch.keys()], dim=0)
+            if key_name == "error":
+                new_batch[key_name] = torch.cat(
+                    [batch[key_name][:, 0] for batch in batches if key_name in batch.keys()], dim=0)
+                new_batch[key_name] = new_batch[key_name].reshape(-1, 1)
+            else:
+                new_batch[key_name] = torch.cat([batch[key_name] for batch in batches if key_name in batch.keys()],
+                                                dim=0)
         if isinstance(batches[0][key_name], np.ndarray):
             new_batch[key_name] = np.vstack([batch[key_name] for batch in batches if key_name in batch.keys()])
     return new_batch
@@ -43,9 +49,6 @@ class TrainingDataSaveCB(pl.callbacks.Callback):
         self.model = gpr_model
 
     def on_sanity_check_start(self, trainer, pl_module):
-        train_inputs = self.model.model.train_inputs
-        train_targets = self.model.model.train_targets
-        error_scaler = self.model.error_scaler
         artifact_name = f"{trainer.logger.experiment.name}_training_data"
         artifact = wandb.Artifact(artifact_name, type="dataset")
         add_wandb_file_to_artifact(trainer.logger.experiment, "train_inputs.npy", self.model.model.train_inputs,
@@ -56,23 +59,12 @@ class TrainingDataSaveCB(pl.callbacks.Callback):
         trainer.logger.experiment.log_artifact(artifact)
 
 
-def _fix_env1(voxel_grid):
-    old_device = voxel_grid.device
-    if voxel_grid.shape[1:] != (60, 50, 60):
-        voxel_grid = voxel_grid.cpu()
-        voxel_grid = voxel_grid[:, 5:-5, :, :]
-        voxel_grid = np.concatenate([np.zeros_like(voxel_grid[:, :, 0:5, :]), voxel_grid[:, :, :-2, :]], axis=2)
-        voxel_grid = voxel_grid[:, :, :, 2:-5]
-        assert voxel_grid[0].shape == (60, 50, 60)
-        voxel_grid = torch.from_numpy(voxel_grid).to(old_device)
-    return voxel_grid
-
-
-def _fix_env2(voxel_grid):
+def _fix_env2(voxel_grid): #Fixes the fact that known_bad and mde_nog_plus_c7aun_planning2 have slightly different sizes
     if voxel_grid.shape[1:] == (70, 50, 67):
         voxel_grid = voxel_grid[:, :, 1:-2, :]
         assert voxel_grid[0].shape == (70, 47, 67)
     return voxel_grid
+
 
 class TFStandardScaler(SKStandardScaler):
     def fit(self, X, y=None, sample_weight=None):
@@ -81,7 +73,7 @@ class TFStandardScaler(SKStandardScaler):
         return self
 
     def inverse_transform(self, X, copy=None):
-        return (X*self.std) + self.mean
+        return (X * self.std) + self.mean
 
     def transform(self, X, copy=None):
-        return (1./self.std)*(X - self.mean)
+        return (1. / self.std) * (X - self.mean)
