@@ -31,7 +31,7 @@ class RopeEntity(composer.Entity):
     def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.01):
         self.length = length
         self.length_m = length_m
-        self._thickness = thickness
+        self.thickness = thickness
         self._spacing = length_m / length
         self.half_capsule_length = length_m / (length * 2)
         self._model = mjcf.RootElement('rope')
@@ -39,7 +39,7 @@ class RopeEntity(composer.Entity):
         body = self._model.worldbody.add('body', name='rB0')
         self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
         self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
-        self._composite.geom.set_attributes(type='capsule', size=[self._thickness, self.half_capsule_length],
+        self._composite.geom.set_attributes(type='capsule', size=[self.thickness, self.half_capsule_length],
                                             rgba=rgba, mass=0.005, contype=1, conaffinity=1, priority=1,
                                             friction=[0.1, 5e-3, 1e-4])
 
@@ -70,18 +70,19 @@ class RopeManipulation(composer.Task):
 
         # other entities
         self._val = ValEntity()
-        self._rope = RopeEntity(length=rope_length)
+        self.rope = RopeEntity(length=rope_length)
 
-        self._arena.add_free_entity(self._rope)
+        self._arena.add_free_entity(self.rope)
         # self._arena.add_free_entity(self._val)
         val_site = self._arena.attach(self._val)  # if you want val to be fixed to the world
         val_site.pos = [0, 0, 0.15]
 
-        # constraint
-        # self._arena.mjcf_model.equality.add('connect', body1='val/right_tool', body2='rope/rB0', anchor=[0, 0, 0])
-        # self._arena.mjcf_model.equality.add('connect', body1='val/right_tool',
-        #                                     body2=f'rope/rB{self._rope.length - 1}',
-        #                                     anchor=[0, 0, 0])
+        self._arena.mjcf_model.equality.add('distance', name='left_grasp', geom1='val/left_tool_geom', geom2='rope/rG0',
+                                            distance=0, active='false', solref="0.02 2")
+        self._arena.mjcf_model.equality.add('distance', name='right_grasp', geom1='val/right_tool_geom',
+                                            geom2=f'rope/rG{self.rope.length - 1}', distance=0, active='false',
+                                            solref="0.02 2")
+
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables = {
@@ -120,16 +121,13 @@ class RopeManipulation(composer.Task):
     def task_observables(self):
         return self._task_observables
 
-    def initialize_episode_mjcf(self, random_state):
-        pass
-
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
             # this will overrite the pose set when val is 'attach'ed to the arena
             self._val.set_pose(physics,
                                position=[-0.8, 0, 0.15],
                                quaternion=quaternion_from_euler(0, 0, 0))
-            for i in range(self._rope.length - 1):
+            for i in range(self.rope.length - 1):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
 
     def before_step(self, physics, action, random_state):
@@ -138,16 +136,17 @@ class RopeManipulation(composer.Task):
     def get_reward(self, physics):
         return 0
 
-    def solve_ik(self, target_pos, target_quat):
+    def solve_ik(self, target_pos, target_quat, site_name):
         # store the initial qpos to restore later
         initial_qpos = env.physics.bind(task.actuated_joints).qpos.copy()
         result = inverse_kinematics.qpos_from_site_pose(
             physics=env.physics,
-            site_name=f'val/left_tool',
+            site_name=site_name,
             target_pos=target_pos,
             target_quat=target_quat,
             joint_names=task.actuated_joint_names,
-            # rot_weight=2,  # more rotation weight than the default
+            rot_weight=2,  # more rotation weight than the default
+            # max_steps=10000,
             inplace=True,
         )
         qdes = env.physics.named.data.qpos[task.actuated_joint_names]
@@ -155,20 +154,47 @@ class RopeManipulation(composer.Task):
         env.physics.bind(task.actuated_joints).qpos = initial_qpos
         return result.success, qdes
 
+    def release_rope(self, physics):
+        physics.model.eq_active[:] = np.zeros(1)
+
+    def grasp_rope(self, physics):
+        physics.model.eq_active[:] = np.ones(1)
+
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = RopeManipulation()
     env = composer.Environment(task)
 
-    actions = np.random.uniform(low=env.action_spec().minimum, high=env.action_spec().maximum, size=[10, 20])
+
+    def step(action, n_steps=1):
+        for i in range(n_steps):
+            yield action
 
 
     def controller_gen():
-        for a in actions:
-            obs = env._observation_updater.get_observation()
-            print(obs['joint_positions'])
-            yield a
+        while True:
+            # move to grasp
+            _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
+                                    target_quat=quaternion_from_euler(0, -np.pi, 0),
+                                    site_name='val/left_tool')
+            yield from step(qdes, 20)
+
+            # grasp!
+            task.grasp_rope(env.physics)
+
+            yield from step(qdes, 20)
+
+            # lift up
+            _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
+                                    target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
+                                    site_name='val/left_tool')
+
+            yield from step([0] * 20, 20)
+
+            task.release_rope(env.physics)
+
+            yield from step([0] * 20, 20)
 
 
     c = controller_gen()

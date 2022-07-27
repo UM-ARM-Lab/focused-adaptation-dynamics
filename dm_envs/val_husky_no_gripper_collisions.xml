@@ -91,6 +91,9 @@
                       <joint name="joint47" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2 6.2" damping="1.01" frictionloss="0.01"/>
                       <geom type="mesh" mesh="PINCER_HOUSING2"/>
                       <site name="left_tool" pos="0 0 0.181" type="sphere" size="0.002"/>
+                      <body name="left_tool" pos="0 0 0.181">
+                        <geom name="left_tool_geom" type="sphere" size="0.002"/>
+                      </body>
                     </body>
                   </body>
                 </body>
@@ -130,6 +133,9 @@
                       <joint name="joint7" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2 6.2" damping="1.01" frictionloss="0.01"/>
                       <geom type="mesh" mesh="PINCER_HOUSING2"/>
                       <site name="right_tool" pos="0 0 0.181" type="sphere" size="0.002"/>
+                      <body name="right_tool" pos="0 0 0.181">
+                        <geom name="right_tool_geom" type="sphere" size="0.002"/>
+                      </body>
                     </body>
                   </body>
                 </body>
