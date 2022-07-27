@@ -9,7 +9,6 @@ import tensorflow as tf
 
 from arc_utilities import ros_init
 from link_bot_classifiers.classifier_utils import strip_torch_model_prefix
-from link_bot_data.dataset_utils import make_unique_outdir
 from link_bot_planning.planning_evaluation import evaluate_multiple_planning, load_planner_params
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.args import int_set_arg

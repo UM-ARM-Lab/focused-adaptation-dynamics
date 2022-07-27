@@ -2,15 +2,12 @@ import numpy as np
 from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation import observable
-from dm_control.locomotion.arenas import floors
-from dm_control.mjcf import Physics
 from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
 
 import rospy
-from ros_numpy import numpify, msgify
-from sensor_msgs.msg import Image
-from visualization_msgs.msg import MarkerArray
+from dm_envs.mujoco_visualizer import MujocoVisualizer
+from dm_envs.rope_task import BaseRopeManipulation
 
 seed = 0
 
@@ -53,31 +50,15 @@ class RopeEntity(composer.Entity):
         return self._model
 
 
-class RopeManipulation(composer.Task):
+class ValRopeManipulation(BaseRopeManipulation):
     NUM_SUBSTEPS = 100  # The number of physics substeps per control timestep.
 
     def __init__(self, rope_length=25, seconds_per_substep=0.001):
-        # root entity
-        self._arena = floors.Floor()
-
-        # simulation setting
-        self._arena.mjcf_model.compiler.inertiafromgeom = True
-        self._arena.mjcf_model.default.joint.damping = 0
-        self._arena.mjcf_model.default.joint.stiffness = 0
-        self._arena.mjcf_model.default.geom.contype = 3
-        self._arena.mjcf_model.default.geom.conaffinity = 3
-        self._arena.mjcf_model.default.geom.friction = [1, 0.1, 0.1]
-        self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
-        self._arena.mjcf_model.option.integrator = 'Euler'
-        self._arena.mjcf_model.option.timestep = seconds_per_substep
-        self._arena.mjcf_model.size.nconmax = 10000
-        self._arena.mjcf_model.size.njmax = 10000
+        super().__init__(rope_length, seconds_per_substep)
 
         # other entities
         self._val = ValEntity()
-        self.rope = RopeEntity(length=rope_length)
 
-        self._arena.add_free_entity(self.rope)
         # self._arena.add_free_entity(self._val)
         val_site = self._arena.attach(self._val)  # if you want val to be fixed to the world
         val_site.pos = [0, 0, 0.15]
@@ -90,21 +71,14 @@ class RopeManipulation(composer.Task):
 
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
-        self._task_observables = {
-            'rope_pos':        observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
+        self._task_observables.update({
             'left_tool':       observable.MujocoFeature('site_xpos', 'val/left_tool'),
             'right_tool':      observable.MujocoFeature('site_xpos', 'val/right_tool'),
             'joint_positions': observable.MJCFFeature('qpos', self.actuated_joints),
-        }
+        })
 
         for obs_ in self._task_observables.values():
             obs_.enabled = True
-
-        self.control_timestep = self.NUM_SUBSTEPS * self.physics_timestep
-
-    @property
-    def root_entity(self):
-        return self._arena
 
     @property
     def joints(self):
@@ -122,10 +96,6 @@ class RopeManipulation(composer.Task):
     def actuated_joint_names(self):
         return [f'val/{a.joint.name}' for a in self._actuators]
 
-    @property
-    def task_observables(self):
-        return self._task_observables
-
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
             # this will overrite the pose set when val is 'attach'ed to the arena
@@ -134,12 +104,6 @@ class RopeManipulation(composer.Task):
                                quaternion=quaternion_from_euler(0, 0, 0))
             for i in range(self.rope.length - 1):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
-
-    def before_step(self, physics, action, random_state):
-        physics.set_control(action)
-
-    def get_reward(self, physics):
-        return 0
 
     def solve_ik(self, target_pos, target_quat, site_name):
         # store the initial qpos to restore later
@@ -166,24 +130,9 @@ class RopeManipulation(composer.Task):
         physics.model.eq_active[:] = np.ones(1)
 
 
-class MujocoVisualizer:
-
-    def __init__(self, task):
-        self.geoms_markers_pub = rospy.Publisher("mj_geoms", MarkerArray, queue_size=10)
-        self.camera_img_pub = rospy.Publisher("mj_camera", Image, queue_size=10)
-        self.task = task
-
-    def viz(self, physics: Physics):
-        geoms_marker_msg = MarkerArray()
-        self.geoms_markers_pub.publish(geoms_marker_msg)
-
-        img = physics.render()
-        img_msg = msgify(Image, img, encoding='rgb8')
-        self.camera_img_pub.publish(img_msg)
-
 if __name__ == "__main__":
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
-    task = RopeManipulation()
+    task = ValRopeManipulation()
     env = composer.Environment(task)
 
     rospy.init_node("val_rope_task")
@@ -218,38 +167,3 @@ if __name__ == "__main__":
     # release
     task.release_rope(env.physics)
     step(env, [0] * 20, 20)
-
-    # def step(action, n_steps=1):
-    #     for i in range(n_steps):
-    #         yield action
-    #
-    #
-    # def controller_gen():
-    #     while True:
-    #         # move to grasp
-    #         _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
-    #                                 target_quat=quaternion_from_euler(0, -np.pi, 0),
-    #                                 site_name='val/left_tool')
-    #         yield from step(qdes, 20)
-    #
-    #         # grasp!
-    #         task.grasp_rope(env.physics)
-    #
-    #         yield from step(qdes, 20)
-    #
-    #         # lift up
-    #         _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
-    #                                 target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
-    #                                 site_name='val/left_tool')
-    #
-    #         yield from step([0] * 20, 20)
-    #
-    #         task.release_rope(env.physics)
-    #
-    #         yield from step([0] * 20, 20)
-    #
-    #
-    # c = controller_gen()
-    #
-    # viewer.launch(env, policy=lambda _: next(c))
-

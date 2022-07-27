@@ -12,7 +12,7 @@ class RopeEntity(composer.Entity):
     def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.01):
         self.length = length
         self.length_m = length_m
-        self._thickness = thickness
+        self.thickness = thickness
         self._spacing = length_m / length
         self.half_capsule_length = length_m / (length * 2)
         self._model = mjcf.RootElement('rope')
@@ -20,7 +20,7 @@ class RopeEntity(composer.Entity):
         body = self._model.worldbody.add('body', name='rB0')
         self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
         self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
-        self._composite.geom.set_attributes(type='capsule', size=[self._thickness, self.half_capsule_length],
+        self._composite.geom.set_attributes(type='capsule', size=[self.thickness, self.half_capsule_length],
                                             rgba=rgba, mass=0.005, contype=1, conaffinity=1, priority=1,
                                             friction=[0.1, 5e-3, 1e-4])
 
@@ -43,7 +43,7 @@ class GripperEntity(composer.Entity):
         return self._model
 
 
-class RopeManipulation(composer.Task):
+class BaseRopeManipulation(composer.Task):
     NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
 
     def __init__(self, rope_length=25, seconds_per_substep=0.01):
@@ -60,22 +60,51 @@ class RopeManipulation(composer.Task):
         self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
         self._arena.mjcf_model.option.integrator = 'Euler'
         self._arena.mjcf_model.option.timestep = seconds_per_substep
-        # self._arena.mjcf_model.size.nstack = 30000
+        self.control_timestep = self.NUM_SUBSTEPS * self.physics_timestep
 
         # other entities
-        self._rope = RopeEntity(length=rope_length)
+        self.rope = RopeEntity(length=rope_length)
+
+        self._arena.add_free_entity(self.rope)
+
+        self._task_observables = {
+            'rope_pos': observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
+        }
+
+        for obs_ in self._task_observables.values():
+            obs_.enabled = True
+
+    @property
+    def root_entity(self):
+        return self._arena
+
+    @property
+    def task_observables(self):
+        return self._task_observables
+
+    def before_step(self, physics, action, random_state):
+        physics.set_control(action)
+
+    def get_reward(self, physics):
+        return 0
+
+
+class RopeManipulation(BaseRopeManipulation):
+
+    def __init__(self, rope_length=25, seconds_per_substep=0.01):
+        super().__init__(rope_length, seconds_per_substep)
+
         self._gripper1 = GripperEntity(name='gripper1', rgba=(0, 1, 1, 1), mass=0.01)
         self._gripper2 = GripperEntity(name='gripper2', rgba=(0.5, 0, 0.5, 1), mass=0.1)
 
-        self._arena.add_free_entity(self._rope)
         gripper1_site = self._arena.attach(self._gripper1)
-        gripper1_site.pos = [-self._rope.half_capsule_length, 0, 0]
+        gripper1_site.pos = [-self.rope.half_capsule_length, 0, 0]
         gripper2_site = self._arena.attach(self._gripper2)
-        gripper2_site.pos = [1 - self._rope.half_capsule_length, 0, 0]
+        gripper2_site.pos = [1 - self.rope.half_capsule_length, 0, 0]
 
         # constraint
         self._arena.mjcf_model.equality.add('connect', body1='gripper1/dummy', body2='rope/rB0', anchor=[0, 0, 0])
-        self._arena.mjcf_model.equality.add('connect', body1='gripper2/dummy', body2=f'rope/rB{self._rope.length - 1}',
+        self._arena.mjcf_model.equality.add('connect', body1='gripper2/dummy', body2=f'rope/rB{self.rope.length - 1}',
                                             anchor=[0, 0, 0])
 
         # actuators
@@ -97,43 +126,17 @@ class RopeManipulation(composer.Task):
         _make_actuator(self._gripper2.mjcf_model.find_all('joint')[2], 'gripper2_z')
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
-        self._task_observables = {
-            'rope_pos': observable.MujocoFeature('geom_xpos', [f'rope/rG{i}' for i in range(rope_length)]),
-        }
-
-        for obs_ in self._task_observables.values():
-            obs_.enabled = True
-
-        self.control_timestep = self.NUM_SUBSTEPS * self.physics_timestep
-
-    @property
-    def root_entity(self):
-        return self._arena
-
-    @property
-    def task_observables(self):
-        return self._task_observables
-
-    def initialize_episode_mjcf(self, random_state):
-        pass
-
     def initialize_episode(self, physics, random_state):
         x = 0
         y = 0
         z = 0
         joints = np.zeros(10)
         with physics.reset_context():
-            self._rope.set_pose(physics, position=(x + self._rope.half_capsule_length, y, z))
+            self.rope.set_pose(physics, position=(x + self.rope.half_capsule_length, y, z))
             self._gripper1.set_pose(physics, position=(x, y, z))
-            self._gripper2.set_pose(physics, position=(x + self._rope.length_m, y, z))
+            self._gripper2.set_pose(physics, position=(x + self.rope.length_m, y, z))
             for i in range(10):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = joints[i]
-
-    def before_step(self, physics, action, random_state):
-        physics.set_control(action)
-
-    def get_reward(self, physics):
-        return 0
 
 
 if __name__ == "__main__":
@@ -148,15 +151,3 @@ if __name__ == "__main__":
 
 
     viewer.launch(env, policy=random_policy)
-
-    # steps_per_second = int(1 / task.control_timestep)
-    # action = [0.8, 0, 1, 0, 0, 1]
-    #
-    # from time import perf_counter
-    #
-    # t0 = perf_counter()
-    # sim_seconds = 10
-    # for i in range(steps_per_second * sim_seconds):
-    #     time_step = env.step(action)
-    # real_seconds = perf_counter() - t0
-    # print(sim_seconds / real_seconds)
