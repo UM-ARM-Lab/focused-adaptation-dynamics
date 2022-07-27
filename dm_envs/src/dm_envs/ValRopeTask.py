@@ -1,11 +1,16 @@
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
-from dm_control import viewer
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
+from dm_control.mjcf import Physics
 from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
+
+import rospy
+from ros_numpy import numpify, msgify
+from sensor_msgs.msg import Image
+from visualization_msgs.msg import MarkerArray
 
 seed = 0
 
@@ -161,42 +166,90 @@ class RopeManipulation(composer.Task):
         physics.model.eq_active[:] = np.ones(1)
 
 
+class MujocoVisualizer:
+
+    def __init__(self, task):
+        self.geoms_markers_pub = rospy.Publisher("mj_geoms", MarkerArray, queue_size=10)
+        self.camera_img_pub = rospy.Publisher("mj_camera", Image, queue_size=10)
+        self.task = task
+
+    def viz(self, physics: Physics):
+        geoms_marker_msg = MarkerArray()
+        self.geoms_markers_pub.publish(geoms_marker_msg)
+
+        img = physics.render()
+        img_msg = msgify(Image, img, encoding='rgb8')
+        self.camera_img_pub.publish(img_msg)
+
 if __name__ == "__main__":
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = RopeManipulation()
     env = composer.Environment(task)
 
+    rospy.init_node("val_rope_task")
+    viz = MujocoVisualizer(task)
 
-    def step(action, n_steps=1):
+    obs = env.reset()
+
+
+    def step(env, action, n_steps=1):
         for i in range(n_steps):
-            yield action
+            viz.viz(env.physics)
+            time_step = env.step(action)
+        return time_step.observation
 
 
-    def controller_gen():
-        while True:
-            # move to grasp
-            _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
-                                    target_quat=quaternion_from_euler(0, -np.pi, 0),
-                                    site_name='val/left_tool')
-            yield from step(qdes, 20)
+    # move to grasp
+    _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
+                            target_quat=quaternion_from_euler(0, -np.pi, 0),
+                            site_name='val/left_tool')
+    step(env, qdes, 20)
 
-            # grasp!
-            task.grasp_rope(env.physics)
+    # grasp!
+    task.grasp_rope(env.physics)
+    step(env, qdes, 20)
 
-            yield from step(qdes, 20)
+    # lift up
+    _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
+                            target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
+                            site_name='val/left_tool')
+    step(env, [0] * 20, 20)
 
-            # lift up
-            _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
-                                    target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
-                                    site_name='val/left_tool')
+    # release
+    task.release_rope(env.physics)
+    step(env, [0] * 20, 20)
 
-            yield from step([0] * 20, 20)
+    # def step(action, n_steps=1):
+    #     for i in range(n_steps):
+    #         yield action
+    #
+    #
+    # def controller_gen():
+    #     while True:
+    #         # move to grasp
+    #         _, qdes = task.solve_ik(target_pos=[0, 0, 0.05],
+    #                                 target_quat=quaternion_from_euler(0, -np.pi, 0),
+    #                                 site_name='val/left_tool')
+    #         yield from step(qdes, 20)
+    #
+    #         # grasp!
+    #         task.grasp_rope(env.physics)
+    #
+    #         yield from step(qdes, 20)
+    #
+    #         # lift up
+    #         _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
+    #                                 target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
+    #                                 site_name='val/left_tool')
+    #
+    #         yield from step([0] * 20, 20)
+    #
+    #         task.release_rope(env.physics)
+    #
+    #         yield from step([0] * 20, 20)
+    #
+    #
+    # c = controller_gen()
+    #
+    # viewer.launch(env, policy=lambda _: next(c))
 
-            task.release_rope(env.physics)
-
-            yield from step([0] * 20, 20)
-
-
-    c = controller_gen()
-
-    viewer.launch(env, policy=lambda _: next(c))
