@@ -1,8 +1,7 @@
 import multiprocessing
-from multiprocessing.managers import BaseManager
-from time import sleep
+import queue
 
-import dm_control
+import glfw
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
@@ -10,8 +9,6 @@ from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
 from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
-
-from dm_envs.myviewer import application
 
 seed = 0
 
@@ -164,51 +161,87 @@ class RopeManipulation(composer.Task):
         return result.success, qdes
 
 
-def _launch(physics_proxy):
-    physics = physics_proxy._getvalue()  # not sure why but properties are not available
-    app = application.Application(title='viewer', width=1024, height=768, physics=physics)
+# def _launch(physics_proxy):
+#     physics = physics_proxy._getvalue()  # not sure why but properties are not available
+#     app = application.Application(title='viewer', width=1024, height=768, physics=physics)
+#
+#     def tick():
+#         print('in viz', physics.named.data.qpos['val/joint56'])
+#         app._viewport.set_size(*app._window.shape)
+#         app._tick()
+#         return app._renderer.pixels
+#
+#     app._window.event_loop(tick_func=tick)
+#     app._window.close()
+
+
+def _launch(q: multiprocessing.Queue):
+    task = RopeManipulation()
+    env = composer.Environment(task)
+    app = application.Application(title='viewer', width=1024, height=768, physics=env.physics)
 
     def tick():
+        new_data = None
+        try:
+            from time import perf_counter
+            t0 = perf_counter()
+            new_data = q.get(block=False)
+            print(perf_counter() - t0)
+            if new_data == 'DONE':
+                glfw.set_window_should_close(app.window, True)
+            # print("new data!", new_data.qpos[59])
+        except queue.Empty:
+            pass
         app._viewport.set_size(*app._window.shape)
-        app._tick()
+        app._tick(new_data)
         return app._renderer.pixels
 
     app._window.event_loop(tick_func=tick)
     app._window.close()
 
 
-def launch_my_viewer(physics):
-    p = multiprocessing.Process(target=_launch, args=(physics,))
+def launch_my_viewer(q):
+    p = multiprocessing.Process(target=_launch, args=(q,))
     p.start()
 
 
 if __name__ == "__main__":
     task = RopeManipulation()
-    seed = None
-    env = composer.Environment(task, random_state=seed)
-    obs = env.reset()
+    env = composer.Environment(task)
 
     i = 0
 
-    type(env._physics)
+    actions = np.random.uniform(low=env.action_spec().minimum(), high=env.action_spec().maximum(), size=10)
 
-    BaseManager.register('Physics', dm_control.mjcf.physics.Physics)
-    manager = BaseManager()
-    manager.start()
-    physics_proxy = manager.Physics(env.physics.data)
+    def controller_gen():
+        for a in actions:
+            yield a
 
-    launch_my_viewer(physics_proxy)
 
-    for i in range(50):
-        success, action = task.solve_ik(
-            target_pos=[0, 0, 0.02],
-            target_quat=quaternion_from_euler(np.pi, 0, -np.pi / 2),
-        )
-        time_step = env.step(action)
-        print("doing lots of work...")
-        sleep(2)
-    print("done...")
+    c = controller_gen()
 
+
+    def controller(time_step):
+        return next(c)
+
+    viewer
+
+
+    # q = multiprocessing.Queue()
+    # launch_my_viewer(q)
+    #
+    # env.reset()
+    # for i in range(60):
+    #     success, action = task.solve_ik(
+    #         target_pos=[0, 0, 0.02],
+    #         target_quat=quaternion_from_euler(np.pi, 0, -np.pi / 2),
+    #     )
+    #     time_step = env.step(action)
+    #     # print('in control', env.physics.named.data.qpos['val/joint56'])
+    #     q.put(env.physics.data)
+    # print("done...")
+    # q.put("DONE")
+    #
     # steps_per_second = int(1 / task.control_timestep)
     # action = [0.8, 0, 1, 0, 0, 1]
     #

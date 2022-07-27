@@ -80,10 +80,10 @@ def metrics_main(args):
     # pvalues_at_iter(df_r, method_name_values, 99)
     # print_values_for_ablations_table(df_r, method_name_values, 99)
 
-    # fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # ax.set_ylim(-0.01, 1.01)
-    # plt.savefig(outdir / f'success.png')
+    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='used_augmentation')
+    ax.set_xlim(-0.01, x_max)
+    ax.set_ylim(-0.01, 1.01)
+    plt.savefig(outdir / f'success.png')
 
     fig, ax = lineplot(df_r, iter_key, 'success', f'Rope Manipulation, Rolling Avg. Success', hue='method_name', ci=ci)
     # fig, ax = lineplot(df_r, iter_key, 'success', f'Success Rate (rolling={w})', hue='used_augmentation', ci=ci)

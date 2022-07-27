@@ -224,8 +224,8 @@ class Application:
 
         return toggle
 
-    def _tick(self):
-        self._viewer.render()
+    def _tick(self, data=None):
+        self._viewer.render(data=data)
 
     def launch(self):
         def tick():

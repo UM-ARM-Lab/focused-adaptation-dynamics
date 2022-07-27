@@ -1,9 +1,9 @@
 import pathlib
 import pickle
+import re
 from typing import List, Dict
 
 import pandas as pd
-import tabulate
 from tqdm import tqdm
 
 from analysis.results_metrics import metrics_funcs
@@ -68,12 +68,20 @@ def make_row(datum: Dict, data_filename: pathlib.Path, metadata: Dict, scenario:
 
     results_folder_name = guess_results_folder_name(data_filename)
 
+    ift_iteration = metadata.get('ift_iteration', None)
+    try:
+        m = re.fullmatch(r'iteration_([0-9]+)', results_folder_name)
+        if m:
+            ift_iteration = int(m.group(1))
+    except ValueError:
+        pass
+
     row = [
         data_filename.as_posix(),
         results_folder_name,
         metadata['planner_params']['method_name'],
         seed,
-        metadata.get('ift_iteration', 0),
+        ift_iteration,
         trial_idx,
         datum['uuid'],
     ]
