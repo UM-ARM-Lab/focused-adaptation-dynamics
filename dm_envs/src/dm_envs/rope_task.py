@@ -65,7 +65,7 @@ class BaseRopeManipulation(composer.Task):
         self._arena.mjcf_model.default.geom.contype = 3
         self._arena.mjcf_model.default.geom.conaffinity = 3
         self._arena.mjcf_model.default.geom.friction = [1, 0.1, 0.1]
-        self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
+        self._arena.mjcf_model.option.gravity = [0, 0, 0]
         self._arena.mjcf_model.option.integrator = 'Euler'
         self._arena.mjcf_model.option.timestep = seconds_per_substep
         self._arena.mjcf_model.size.nconmax = 1_000
@@ -93,9 +93,6 @@ class BaseRopeManipulation(composer.Task):
 
     def before_step(self, physics: Physics, action, random_state):
         physics.set_control(action)
-        physics.forward()
-        physics.named.data.xpos['vgb_sphere/']
-        print(physics.data.contact)
 
     def get_reward(self, physics):
         return 0

@@ -37,6 +37,14 @@ def idx_to_point_3d_in_env(row: int,
     return idx_to_point_3d_from_extent(row=row, col=col, channel=channel, resolution=env['res'], extent=env['extent'])
 
 
+def idx_to_point_3d_from_origin_point(row, col, channel, resolution, origin_point):
+    y = origin_point[1] + row * resolution
+    x = origin_point[0] + col * resolution
+    z = origin_point[2] + channel * resolution
+
+    return np.array([x, y, z])
+
+
 def idx_to_point_3d_from_extent(row, col, channel, resolution, extent):
     origin_point = extent_res_to_origin_point(extent=extent, res=resolution)
     y = origin_point[1] + row * resolution

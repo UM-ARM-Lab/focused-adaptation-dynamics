@@ -1,16 +1,20 @@
 from typing import Dict
 
+import mujoco
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation import observable
+from dm_control.mjcf import Physics
 from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
 
 import rospy
+from arc_utilities.ros_helpers import get_connected_publisher
 from dm_envs.mujoco_services import my_step
 from dm_envs.mujoco_visualizer import MujocoVisualizer
 from dm_envs.rope_task import BaseRopeManipulation
+from link_bot_pycommon.grid_utils_np import idx_to_point_3d_from_origin_point, vox_to_voxelgrid_stamped
 
 
 class VoxelgridBuild(composer.Entity):
@@ -65,8 +69,7 @@ class ValRopeManipulation(BaseRopeManipulation):
         static_env_site = self._arena.attach(self._static_env)
         static_env_site.pos = [1.22, -0.14, 0.1]
         static_env_site.quat = quaternion_from_euler(0, 0, -1.5707)
-        vgb_site = self._arena.attach(self.vgb)
-        vgb_site.pos = [0, 0, 0.01]
+        self._arena.add_free_entity(self.vgb)
 
         self._arena.mjcf_model.equality.add('distance', name='left_grasp', geom1='val/left_tool_geom', geom2='rope/rG0',
                                             distance=0, active='false', solref="0.02 2")
@@ -136,6 +139,40 @@ class ValRopeManipulation(BaseRopeManipulation):
 
     def grasp_rope(self, physics):
         physics.model.eq_active[:] = np.ones(1)
+
+    def before_step(self, physics: Physics, action, random_state):
+        super().before_step(physics, action, random_state)
+
+        res = 0.01
+        rows = 20
+        columns = 20
+        channels = 25
+        vg = np.zeros([rows, columns, channels], dtype=np.float32)
+        origin_point = np.array([0.5, 0, 0])
+
+        def in_collision(xyz):
+            self.vgb.set_pose(physics, position=xyz)
+            mujoco.mj_step1(physics.model.ptr, physics.data.ptr)
+            for i, c in enumerate(physics.data.contact):
+                geom1_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('geom'), c.geom1)
+                geom2_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('geom'), c.geom2)
+                if c.dist < 0 and (geom1_name == 'vgb_sphere/geom' or geom2_name == 'vgb_sphere/geom'):
+                    # print(f"Contact at {xyz} between {geom1_name} and {geom2_name}, {c.dist=:.4f} {c.exclude=}")
+                    return True
+            return False
+
+        for row, col, channel in np.ndindex(rows, columns, channels):
+            xyz = idx_to_point_3d_from_origin_point(row, col, channel, res, origin_point)
+            if in_collision(xyz):
+                vg[row, col, channel] = 1
+
+
+        from rviz_voxelgrid_visuals_msgs.msg import VoxelgridStamped
+        pub = get_connected_publisher('/occupancy', VoxelgridStamped, queue_size=1)
+        pub.publish(vox_to_voxelgrid_stamped(vg, scale=res, frame='world'))
+
+    def get_reward(self, physics):
+        return 0
 
 
 if __name__ == "__main__":
