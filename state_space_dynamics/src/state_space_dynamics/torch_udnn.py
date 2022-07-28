@@ -5,7 +5,6 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-import wandb
 from torchmeta.modules import MetaModule, MetaLinear, MetaSequential
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
@@ -72,11 +71,6 @@ class UDNN(MetaModule, pl.LightningModule):
 
                     ref_before = ref_after
             self.register_buffer("ref_actions", torch.tensor(ref_actions_list))
-
-        # self.train_model_errors = None
-        # self.val_model_errors = None
-        # self.test_model_errors = None
-        # self.rope_length_losses = None
 
     def forward(self, inputs, params=None):
         if params is None:
@@ -176,10 +170,7 @@ class UDNN(MetaModule, pl.LightningModule):
                 distances_to_ref_matrix = torch.cdist(train_actions_before_after, ref_actions_before_after)
                 min_distances = distances_to_ref_matrix.min(-1)[0]  # [b, T-1]
                 planning_mask = min_distances < self.hparams['planning_mask_threshold']
-                planning_mask = min_distances < 0.04
 
-                planning_mask_but_not_low_error = torch.logical_and(torch.logical_not(low_error_mask), planning_mask)
-                inputs['example_idx'][torch.where(planning_mask_but_not_low_error.any(1))[0]]
                 mask = torch.logical_or(low_error_mask, planning_mask)
             else:
                 mask = low_error_mask
@@ -209,11 +200,6 @@ class UDNN(MetaModule, pl.LightningModule):
         self.log('train_loss', losses['loss'])
         self.log('train_rope_reg_loss', losses['rope_reg_loss'])
 
-        # model_error_batch = (train_batch['rope'] - outputs['rope']).norm(dim=-1).flatten()
-        # if self.train_model_errors is None:
-        #     self.train_model_errors = model_error_batch
-        # else:
-        #     self.train_model_errors = torch.cat([self.train_model_errors, model_error_batch])
         return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
@@ -226,11 +212,6 @@ class UDNN(MetaModule, pl.LightningModule):
         self.log('val_loss', val_losses['loss'])
         self.log('val_rope_reg_loss', val_losses['rope_reg_loss'])
 
-        # model_error_batch = (val_batch['rope'] - val_udnn_outputs['rope']).norm(dim=-1).flatten()
-        # if self.val_model_errors is None:
-        #     self.val_model_errors = model_error_batch
-        # else:
-        #     self.val_model_errors = torch.cat([self.val_model_errors, model_error_batch])
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
@@ -239,48 +220,7 @@ class UDNN(MetaModule, pl.LightningModule):
         self.log('test_loss', test_losses['loss'])
         self.log('test_rope_reg_loss', test_losses['rope_reg_loss'])
 
-        # model_error_batch = (test_batch['rope'] - test_udnn_outputs['rope']).norm(dim=-1)
-        # if self.test_model_errors is None:
-        #     self.test_model_errors = model_error_batch
-        # else:
-        #     self.test_model_errors = torch.cat([self.test_model_errors, model_error_batch])
-
-        # initial_rope_segment_lengths = segment_lengths(test_batch)
-        # pred_rope_segment_lengths = segment_lengths(test_udnn_outputs)
-        # rope_length_loss_batch = (pred_rope_segment_lengths - initial_rope_segment_lengths).norm(dim=-1)
-        # if self.rope_length_losses is None:
-        #     self.rope_length_losses = rope_length_loss_batch
-        # else:
-        #     self.rope_length_losses = torch.cat([self.rope_length_losses, rope_length_loss_batch])
-
         return test_losses['loss']
-
-    def on_train_epoch_end(self):
-        # data = self.train_model_errors.detach().cpu().unsqueeze(-1).numpy().tolist()
-        # table = wandb.Table(data=data, columns=["model_errors"])
-        # wandb.log({'train_model_error': table})
-
-        # reset all metrics
-        self.train_model_errors = None
-
-    def on_validation_epoch_end(self):
-        # data = self.val_model_errors.cpu().unsqueeze(-1).numpy().tolist()
-        # table = wandb.Table(data=data, columns=["model_errors"])
-        # wandb.log({'val_model_error': table})
-
-        # reset all metrics
-        self.val_model_errors = None
-
-    def on_test_epoch_end(self):
-        # rope_length_loss = self.rope_length_losses.cpu()
-        # error = self.test_model_errors.cpu()
-        # time = torch.arange(error.shape[1]).repeat(error.shape[0], 1)
-        # data = torch.stack([error.flatten(), rope_length_loss.flatten(), time.flatten()], -1)
-        # table = wandb.Table(data=data.numpy().tolist(), columns=["model_errors", "rope_length_loss", "time_idx"])
-        # wandb.log({'test_model_error': table})
-
-        # reset all metrics
-        self.test_model_errors = None
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)

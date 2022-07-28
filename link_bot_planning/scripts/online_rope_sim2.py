@@ -62,7 +62,7 @@ def main():
     unadapted_run_id = job_chunker.load_prompt('unadapted_run_id', 'sim_rope_unadapted-dme7l')
     seed = int(job_chunker.load_prompt('seed', 0))
     collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
-                                                                    'collect_dynamics_params/floating_rope_100.hjson')
+                                                                    'collect_dynamics_params/alt_rope_100.hjson')
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/val_car/mde_online_learning.hjson')
