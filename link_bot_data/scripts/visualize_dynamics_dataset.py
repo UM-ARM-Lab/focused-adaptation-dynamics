@@ -53,6 +53,10 @@ def main():
     while not dataset_anim.done:
         example_idx = dataset_anim.t()
         example = dataset[example_idx]
+        if 'time_mask' in example:
+            print(example['time_mask'])
+        else:
+            print("no time mask")
         if args.indices is not None:
             rospy.logwarn_once(f"Got indices: {args.indices}")
             if example['example_idx'] not in args.indices:

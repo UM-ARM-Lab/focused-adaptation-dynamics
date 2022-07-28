@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from time import perf_counter
 import pathlib
 from typing import Dict, Optional
 
@@ -10,9 +9,9 @@ from tqdm import tqdm
 
 import rospy
 from arm_robots.robot import RobotPlanningError
-from link_bot_data.dataset_utils import make_unique_outdir
-from link_bot_data.tf_dataset_utils import tf_write_example, pkl_write_example
+from link_bot_data.dataset_utils import make_unique_outdir, DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_data.split_dataset import split_dataset_via_files
+from link_bot_data.tf_dataset_utils import pkl_write_example
 from link_bot_pycommon.get_scenario import get_scenario
 from link_bot_pycommon.get_service_provider import get_service_provider
 from link_bot_pycommon.serialization import my_hdump
@@ -120,6 +119,7 @@ def collect_trajectory(params,
     example.update(states)
     example.update(actions)
     example['time_idx'] = np.array(time_indices).astype(np.float32)
+    example['time_mask'] = np.ones_like(time_indices).astype(np.float32)
 
     if verbose:
         print(Fore.GREEN + "Trajectory {} Complete".format(traj_idx) + Fore.RESET)
@@ -253,35 +253,6 @@ class BaseDataCollector:
         raise NotImplementedError()
 
 
-class TfDataCollector(BaseDataCollector):
-
-    def __init__(self,
-                 params: Dict,
-                 seed: Optional[int] = None,
-                 verbose: int = 0):
-        super().__init__(params=params,
-                         seed=seed,
-                         verbose=verbose)
-
-    def write_example(self, full_output_directory, example, traj_idx):
-        return tf_write_example(example=example, full_output_directory=full_output_directory, example_idx=traj_idx)
-
-
-class H5DataCollector(BaseDataCollector):
-
-    def __init__(self,
-                 params: Dict,
-                 seed: Optional[int] = None,
-                 verbose: int = 0):
-        super().__init__(params=params,
-                         seed=seed,
-                         verbose=verbose)
-
-    def write_example(self, full_output_directory, example, traj_idx):
-        # implement this --> h5_write_example(full_output_directory, example, traj_idx)
-        pass
-
-
 class PklDataCollector(BaseDataCollector):
 
     def __init__(self,
@@ -304,13 +275,14 @@ def collect_dynamics_data(collect_dynamics_params: pathlib.Path,
                           seed: Optional[int] = None,
                           states_and_actions: Optional = None,
                           root: Optional[pathlib.Path] = None,
+                          val_split=DEFAULT_VAL_SPLIT,
+                          test_split=DEFAULT_TEST_SPLIT,
                           **kwargs):
     with collect_dynamics_params.open("r") as f:
         collect_dynamics_params = hjson.load(f)
-    DataCollectorClass, extension = get_data_collector_class(save_format)
-    data_collector = DataCollectorClass(params=collect_dynamics_params,
-                                        seed=seed,
-                                        verbose=verbose)
+    data_collector = PklDataCollector(params=collect_dynamics_params,
+                                      seed=seed,
+                                      verbose=verbose)
 
     dataset_dir = None
     n_trajs_done = None
@@ -323,16 +295,5 @@ def collect_dynamics_data(collect_dynamics_params: pathlib.Path,
         else:
             yield dataset_dir, n_trajs_done
 
-    split_dataset_via_files(dataset_dir, extension)
+    split_dataset_via_files(dataset_dir, 'pkl', val_split, test_split)
     yield dataset_dir, n_trajs_done
-
-
-def get_data_collector_class(save_format: str):
-    if save_format == 'h5':
-        return H5DataCollector, 'h5'
-    elif save_format == 'tfrecord':
-        return TfDataCollector, 'tfrecords'
-    elif save_format == 'pkl':
-        return PklDataCollector, 'pkl'
-    else:
-        raise NotImplementedError(f"unsupported save_format {save_format}")

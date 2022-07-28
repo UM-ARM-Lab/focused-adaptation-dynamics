@@ -12,7 +12,15 @@ from dm_envs.mujoco_services import my_step
 from dm_envs.mujoco_visualizer import MujocoVisualizer
 from dm_envs.rope_task import BaseRopeManipulation
 
-seed = 0
+
+class VoxelgridBuild(composer.Entity):
+    def _build(self, res: float):
+        self._model = mjcf.element.RootElement(model='vgb_sphere')
+        self._geom = self._model.worldbody.add('geom', name='geom', type='sphere', size=[res])
+
+    @property
+    def mjcf_model(self):
+        return self._model
 
 
 class StaticEnvEntity(composer.Entity):
@@ -42,27 +50,6 @@ class ValEntity(composer.Entity):
         return [j.name for j in self.joints]
 
 
-class RopeEntity(composer.Entity):
-    def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.01):
-        self.length = length
-        self.length_m = length_m
-        self.thickness = thickness
-        self._spacing = length_m / length
-        self.half_capsule_length = length_m / (length * 2)
-        self._model = mjcf.RootElement('rope')
-        self._model.compiler.angle = 'radian'
-        body = self._model.worldbody.add('body', name='rB0')
-        self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
-        self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
-        self._composite.geom.set_attributes(type='capsule', size=[self.thickness, self.half_capsule_length],
-                                            rgba=rgba, mass=0.005, contype=1, conaffinity=1, priority=1,
-                                            friction=[0.1, 5e-3, 1e-4])
-
-    @property
-    def mjcf_model(self):
-        return self._model
-
-
 class ValRopeManipulation(BaseRopeManipulation):
 
     def __init__(self, params: Dict):
@@ -71,12 +58,15 @@ class ValRopeManipulation(BaseRopeManipulation):
         # other entities
         self._val = ValEntity()
         self._static_env = StaticEnvEntity(params.get('static_env_filename', 'empty.xml'))
+        self.vgb = VoxelgridBuild(res=0.01)
 
         val_site = self._arena.attach(self._val)
         val_site.pos = [0, 0, 0.15]
         static_env_site = self._arena.attach(self._static_env)
         static_env_site.pos = [1.22, -0.14, 0.1]
         static_env_site.quat = quaternion_from_euler(0, 0, -1.5707)
+        vgb_site = self._arena.attach(self.vgb)
+        vgb_site.pos = [0, 0, 0.01]
 
         self._arena.mjcf_model.equality.add('distance', name='left_grasp', geom1='val/left_tool_geom', geom2='rope/rG0',
                                             distance=0, active='false', solref="0.02 2")

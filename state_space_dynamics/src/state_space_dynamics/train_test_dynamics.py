@@ -83,7 +83,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          check_val_every_n_epoch=1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
-                         terminate_on_nan=True,
+                         detect_anomaly=True,
                          gradient_clip_val=0.01)
     trainer.fit(model, data_module)
     wandb.finish()

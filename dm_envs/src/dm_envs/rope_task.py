@@ -5,6 +5,7 @@ from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
+from dm_control.mujoco import Physics
 
 import rospy
 from dm_envs.mujoco_services import my_step
@@ -90,8 +91,11 @@ class BaseRopeManipulation(composer.Task):
     def task_observables(self):
         return self._task_observables
 
-    def before_step(self, physics, action, random_state):
+    def before_step(self, physics: Physics, action, random_state):
         physics.set_control(action)
+        physics.forward()
+        physics.named.data.xpos['vgb_sphere/']
+        print(physics.data.contact)
 
     def get_reward(self, physics):
         return 0

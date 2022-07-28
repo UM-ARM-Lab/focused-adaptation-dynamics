@@ -101,7 +101,7 @@ def main():
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
-            classifiers.append(f'p:{prev_mde_run_id}')
+            classifiers.append(f'p:model-{prev_mde_run_id}:latest')
         else:
             prev_dynamics_run_id = unadapted_run_id
 
@@ -115,7 +115,7 @@ def main():
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
             planner_params["classifier_model_dir"] = classifiers
-            planner_params['fwd_model_dir'] = f'p:{prev_dynamics_run_id}'
+            planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
             gazebo_utils.resume()
             if i == 0:
                 dynamics_dataset_dir_i = None
@@ -123,6 +123,8 @@ def main():
                                                                        n_trajs=10,
                                                                        root=outdir,
                                                                        nickname=f'{args.nickname}_dynamics_dataset_{i}',
+                                                                       val_split=0,
+                                                                       test_split=0,
                                                                        seed=seed):
                     pass
                 wandb_save_dataset(dynamics_dataset_dir_i, 'udnn', entity='armlab')
@@ -142,6 +144,7 @@ def main():
             planning_job_chunker.store_result('planning_outdir_dt', dt)
 
         # convert the planning results to a dynamics dataset
+        # NOTE: if we use random data collection on iter0 this will already be set so conversion will be skipped
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
         if dynamics_dataset_name is None:
             t0 = perf_counter()
@@ -149,6 +152,8 @@ def main():
                                          outname=f'{args.nickname}_dynamics_dataset_{i}',
                                          root=outdir / 'dynamics_datasets',
                                          traj_length=100,
+                                         val_split=0,
+                                         test_split=0,
                                          visualize=False)
             dynamics_dataset_dir_i = r.run()
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
