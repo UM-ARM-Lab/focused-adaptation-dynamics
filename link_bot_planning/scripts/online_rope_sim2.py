@@ -161,6 +161,7 @@ def main():
             sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
             dt = perf_counter() - t0
             planning_job_chunker.store_result('dynamics_dataset_name_dt', dt)
+            sleep(10) # in case wandb hasn't synced yet...
 
         dynamics_dataset_dirs.append(dynamics_dataset_name)
 
@@ -172,7 +173,7 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=10_000,
+                                                                     steps=20_000 + i * 2_000,
                                                                      epochs=-1,
                                                                      repeat=100,
                                                                      seed=seed,
@@ -205,7 +206,7 @@ def main():
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
                                                    epochs=-1,
-                                                   steps=i * 1_000 + 10_000,
+                                                   steps=i * 2_000 + 20_000,
                                                    train_mode='all',
                                                    val_mode='all',
                                                    seed=seed,
