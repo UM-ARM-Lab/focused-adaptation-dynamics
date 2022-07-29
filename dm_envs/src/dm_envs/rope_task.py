@@ -1,7 +1,7 @@
 from typing import Dict
 
 import numpy as np
-from dm_control import composer
+from dm_control import composer, viewer
 from dm_control import mjcf
 from dm_control.composer.observation.observable import MujocoFeature
 from dm_control.mjcf import Physics
@@ -51,8 +51,8 @@ class RopeManipulation(BaseRopeManipulation):
         right_gripper_site.pos = self.right_gripper_initial_pos
 
         # constraint
-        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0')
-        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}')
+        # self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0')
+        # self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}')
 
         # actuators
         def _make_pos_actuator(joint, name):
@@ -63,15 +63,15 @@ class RopeManipulation(BaseRopeManipulation):
                                                 forcelimited=True,
                                                 forcerange=[-1, 1],
                                                 ctrllimited=False,
-                                                kp=1)
+                                                kp=400)
 
         def _make_rot_actuator(joint, name):
-            joint.damping = 1
+            joint.damping = 0
             self._arena.mjcf_model.actuator.add('position',
                                                 name=name,
                                                 joint=joint,
                                                 forcelimited=True,
-                                                forcerange=[-1, 1],
+                                                forcerange=[-0.1, 0.1],
                                                 ctrllimited=False,
                                                 kp=0)
 
@@ -126,17 +126,27 @@ if __name__ == "__main__":
     task = RopeManipulation({})
     env = composer.Environment(task)
     viz = MujocoVisualizer()
-
     rospy.init_node("rope_task")
 
     env.reset()
 
+    # from dm_control import viewer
+    # viewer.launch(env)
+
+
     def _a(lleft_gripper_pos, left_gripper_euler, right_gripper_pos, right_gripper_euler):
         return np.concatenate((lleft_gripper_pos, left_gripper_euler, right_gripper_pos, right_gripper_euler))
 
-    obs = my_step(task, env, _a([0, 0, 0.3], [0, np.pi / 2, 0], [0.5, 0, 0.3], [0, -np.pi / 2, 0]), 20)
-    print(obs['left_gripper'], np.linalg.norm(obs['left_gripper'] - np.array([0, 0, 0.3])))
-    print(obs['right_gripper'], np.linalg.norm(obs['right_gripper'] - np.array([0.5, 0, 0.3])))
+
+    lp = [0, 0, 0.3]
+    le = [np.pi / 2, 0, 0]
+    rp = [0.5, 0, 0.3]
+    re = [0, -np.pi / 2, 0]
+    obs = my_step(task, env, _a(lp, le, rp, re), 20)
+    print(obs['left_gripper'], np.linalg.norm(obs['left_gripper'] - lp))
+    print(obs['right_gripper'], np.linalg.norm(obs['right_gripper'] - rp))
+    print(euler_from_quaternion(env.physics.named.data.xquat['left_gripper/body']), le)
+    print(euler_from_quaternion(env.physics.named.data.xquat['right_gripper/body']), re)
 
     # obs = my_step(viz, env, np.array([0, 0.25, 0.5, 0.5, -0.25, 0.5]), 20)
     # print(obs['left_gripper'] - np.array([0, 0.25, 0.5]),
