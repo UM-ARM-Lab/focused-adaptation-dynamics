@@ -57,8 +57,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
             if len(dataset) > 0:
                 steps_per_traj = dataset[0][dataset.state_keys[0]].shape[0]
 
-                total = n_seq(steps_per_traj - 1) * len(dataset) / step
-                for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step), total=total):
+                for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step)):
                     # NOTE: what if two modes have the example input example? can we check if we've already generated
                     #  it an skip actually re-doing the conversion to MDE and just re-use the existing one?
                     result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
@@ -90,7 +89,6 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
     state_keys = dataset.state_keys + dataset.state_metadata_keys
 
     for example in dataset:
-        print(example['example_idx'])
         from link_bot_data.tf_dataset_utils import deserialize_scene_msg
         deserialize_scene_msg(example)
         if 'time_mask' in example:
