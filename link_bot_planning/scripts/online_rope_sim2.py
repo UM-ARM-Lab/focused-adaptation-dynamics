@@ -70,10 +70,10 @@ def main():
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))
     n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
-    udnn_init_iters = int(job_chunker.load_prompt('udnn_init_iters', 1_000))
-    udnn_scale_iters = int(job_chunker.load_prompt('udnn_scale_iters', 10_000))
-    mde_init_iters = int(job_chunker.load_prompt('mde_init_iters', 10_000))
-    mde_scale_iters = int(job_chunker.load_prompt('mde_scale_iters', 10_000))
+    udnn_init_epochs = int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 3))
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
@@ -177,8 +177,8 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=udnn_init_iters + i * udnn_scale_iters,
-                                                                     epochs=-1,
+                                                                     steps=-1
+                                                                     epochs=udnn_init_epochs + i * udnn_scale_epochs,
                                                                      repeat=100,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
@@ -209,8 +209,8 @@ def main():
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
-                                                   epochs=-1,
-                                                   steps=mde_init_iters + i * mde_scale_iters,
+                                                   steps=-1,
+                                                   epochs=mde_init_epochs + i * mde_scale_epochs,
                                                    train_mode='all',
                                                    val_mode='all',
                                                    seed=seed,
