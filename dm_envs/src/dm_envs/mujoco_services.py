@@ -1,7 +1,5 @@
-import numpy as np
 from dm_control import composer
 
-from dm_envs.mujoco_visualizer import MujocoVisualizer
 from link_bot_pycommon.base_services import BaseServices
 
 
@@ -20,8 +18,8 @@ def my_step(task, env: composer.Environment, action, n_steps=1):
         task.viz(env.physics)
         current_action = i / n_steps * action + (1 - i / n_steps) * initial
         env.step(current_action)
-    for i in range(100):
-        task.viz(env.physics)
-        time_step = env.step(action)
+
+    time_step = env.step(action)
     task.viz(env.physics)
+
     return time_step.observation

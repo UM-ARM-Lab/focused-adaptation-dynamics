@@ -1,11 +1,11 @@
 from typing import Dict
 
 import numpy as np
-from dm_control import composer, viewer
+from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation.observable import MujocoFeature
 from dm_control.mjcf import Physics
-from transformations import euler_from_quaternion
+from transformations import quaternion_from_euler
 
 import rospy
 from dm_envs.base_rope_task import BaseRopeManipulation
@@ -20,12 +20,6 @@ class GripperEntity(composer.Entity):
         self._model = mjcf.RootElement(name)
         body = self._model.worldbody.add('body', name='body')
         body.add('geom', name='geom', size=[0.02, 0.02, 0.02], mass=mass, rgba=rgba, type='box')
-        body.add('joint', axis=[1, 0, 0], type='slide', name='x', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 1, 0], type='slide', name='y', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 0, 1], type='slide', name='z', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[1, 0, 0], type='hinge', name='r', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 1, 0], type='hinge', name='p', pos=[0, 0, 0], limited=False)
-        body.add('joint', axis=[0, 0, 1], type='hinge', name='t', pos=[0, 0, 0], limited=False)
 
     @property
     def mjcf_model(self):
@@ -51,42 +45,10 @@ class RopeManipulation(BaseRopeManipulation):
         right_gripper_site.pos = self.right_gripper_initial_pos
 
         # constraint
-        # self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0')
-        # self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}')
+        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0')
+        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}')
 
         # actuators
-        def _make_pos_actuator(joint, name):
-            joint.damping = 1
-            self._arena.mjcf_model.actuator.add('position',
-                                                name=name,
-                                                joint=joint,
-                                                forcelimited=True,
-                                                forcerange=[-1, 1],
-                                                ctrllimited=False,
-                                                kp=400)
-
-        def _make_rot_actuator(joint, name):
-            joint.damping = 0
-            self._arena.mjcf_model.actuator.add('position',
-                                                name=name,
-                                                joint=joint,
-                                                forcelimited=True,
-                                                forcerange=[-0.1, 0.1],
-                                                ctrllimited=False,
-                                                kp=0)
-
-        _make_pos_actuator(self.left_gripper.mjcf_model.find_all('joint')[0], 'left_gripper_x')
-        _make_pos_actuator(self.left_gripper.mjcf_model.find_all('joint')[1], 'left_gripper_y')
-        _make_pos_actuator(self.left_gripper.mjcf_model.find_all('joint')[2], 'left_gripper_z')
-        _make_rot_actuator(self.left_gripper.mjcf_model.find_all('joint')[3], 'left_gripper_r')
-        _make_rot_actuator(self.left_gripper.mjcf_model.find_all('joint')[4], 'left_gripper_p')
-        _make_rot_actuator(self.left_gripper.mjcf_model.find_all('joint')[5], 'left_gripper_t')
-        _make_pos_actuator(self.right_gripper.mjcf_model.find_all('joint')[0], 'right_gripper_x')
-        _make_pos_actuator(self.right_gripper.mjcf_model.find_all('joint')[1], 'right_gripper_y')
-        _make_pos_actuator(self.right_gripper.mjcf_model.find_all('joint')[2], 'right_gripper_z')
-        _make_rot_actuator(self.right_gripper.mjcf_model.find_all('joint')[3], 'right_gripper_r')
-        _make_rot_actuator(self.right_gripper.mjcf_model.find_all('joint')[4], 'right_gripper_p')
-        _make_rot_actuator(self.right_gripper.mjcf_model.find_all('joint')[5], 'right_gripper_t')
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables.update({
@@ -111,13 +73,13 @@ class RopeManipulation(BaseRopeManipulation):
     def current_action_vec(self, physics):
         left_gripper_pos = physics.named.data.xpos['left_gripper/body']
         right_gripper_pos = physics.named.data.xpos['right_gripper/body']
-        right_gripper_euler = euler_from_quaternion(physics.named.data.xquat['right_gripper/body'])
-        left_gripper_euler = euler_from_quaternion(physics.named.data.xquat['left_gripper/body'])
-        return np.concatenate((left_gripper_pos, left_gripper_euler, right_gripper_pos, right_gripper_euler))
+        right_gripper_quat = physics.named.data.xquat['right_gripper/body']
+        left_gripper_quat = physics.named.data.xquat['left_gripper/body']
+        return np.concatenate((left_gripper_pos, left_gripper_quat, right_gripper_pos, right_gripper_quat))
 
     def before_step(self, physics: Physics, action, random_state):
-        relative_action = action - self.post_reset_action
-        physics.set_control(relative_action)
+        self.left_gripper.set_pose(physics, position=action[0:3], quaternion=action[3:7])
+        self.right_gripper.set_pose(physics, position=action[7:10], quaternion=action[10:14])
         self.viz(physics)
 
 
@@ -130,32 +92,20 @@ if __name__ == "__main__":
 
     env.reset()
 
+
     # from dm_control import viewer
     # viewer.launch(env)
-
 
     def _a(lleft_gripper_pos, left_gripper_euler, right_gripper_pos, right_gripper_euler):
         return np.concatenate((lleft_gripper_pos, left_gripper_euler, right_gripper_pos, right_gripper_euler))
 
 
     lp = [0, 0, 0.3]
-    le = [np.pi / 2, 0, 0]
+    lq = quaternion_from_euler(0, np.pi / 2, 0)
     rp = [0.5, 0, 0.3]
-    re = [0, -np.pi / 2, 0]
-    obs = my_step(task, env, _a(lp, le, rp, re), 20)
-    print(obs['left_gripper'], np.linalg.norm(obs['left_gripper'] - lp))
-    print(obs['right_gripper'], np.linalg.norm(obs['right_gripper'] - rp))
-    print(euler_from_quaternion(env.physics.named.data.xquat['left_gripper/body']), le)
-    print(euler_from_quaternion(env.physics.named.data.xquat['right_gripper/body']), re)
-
-    # obs = my_step(viz, env, np.array([0, 0.25, 0.5, 0.5, -0.25, 0.5]), 20)
-    # print(obs['left_gripper'] - np.array([0, 0.25, 0.5]),
-    #       np.linalg.norm(obs['left_gripper'] - np.array([0, 0.25, 0.5])))
-    #
-    # obs = my_step(viz, env, np.array([0.25, 0.25, 0.5, 0.5, -0.25, 0.5]), 20)
-    # print(obs['left_gripper'] - np.array([0.25, 0.25, 0.5]),
-    #       np.linalg.norm(obs['left_gripper'] - np.array([0.25, 0.25, 0.5])))
-    #
-    # obs = my_step(viz, env, np.array([0.25, 0.25, 0.25, 0.5, -0.25, 0.5]), 20)
-    # print(obs['left_gripper'] - np.array([0.25, 0.25, 0.25]),
-    #       np.linalg.norm(obs['left_gripper'] - np.array([0.25, 0.25, 0.25])))
+    rq = quaternion_from_euler(0, -np.pi / 2, 0)
+    obs = my_step(task, env, _a(lp, lq, rp, rq), 20)
+    print('left pos error', np.linalg.norm(obs['left_gripper'] - lp))
+    print('right pos error', np.linalg.norm(obs['right_gripper'] - rp))
+    print('left quat error', np.linalg.norm(env.physics.named.data.xquat['left_gripper/body'] - lq))
+    print('right quat error', np.linalg.norm(env.physics.named.data.xquat['right_gripper/body'] - rq))

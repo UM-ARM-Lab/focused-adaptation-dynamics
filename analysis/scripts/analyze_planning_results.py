@@ -31,6 +31,8 @@ def analyze_planning_results(args):
 
     hue = 'method_name'
 
+    _, ax = boxplot(df, outdir, hue, 'mean_progagation_time', "speed", figsize=(12, 8))
+
     _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
     ax.set_ylim([0, 0.7])
