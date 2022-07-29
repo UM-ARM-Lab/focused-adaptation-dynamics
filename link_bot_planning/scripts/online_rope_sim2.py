@@ -3,7 +3,7 @@ import argparse
 import itertools
 import pathlib
 import warnings
-from time import perf_counter
+from time import perf_counter, sleep
 
 import rospkg
 from more_itertools import chunked
@@ -34,7 +34,7 @@ from state_space_dynamics import train_test_dynamics
 limit_gpu_mem(None)  # just in case TF is used somewhere
 
 
-@ros_init.with_ros("save_as_test_scene")
+@ros_init.with_ros("online_rope_sim")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
