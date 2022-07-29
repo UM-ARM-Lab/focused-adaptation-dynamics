@@ -14,15 +14,14 @@ class MujocoServices(BaseServices):
         pass
 
 
-def my_step(viz: MujocoVisualizer, env: composer.Environment, action, n_steps=1):
-    obs = env._observation_updater.get_observation()
-    initial = np.concatenate((obs['left_gripper'], obs['right_gripper']), 1).squeeze()
+def my_step(task, env: composer.Environment, action, n_steps=1):
+    initial = task.current_action_vec(env.physics)
     for i in range(n_steps):
-        viz.viz(env.physics)
+        task.viz(env.physics)
         current_action = i / n_steps * action + (1 - i / n_steps) * initial
-        print(current_action)
-        time_step = env.step(current_action)
-    viz.viz(env.physics)
-    time_step = env.step(action)
-    viz.viz(env.physics)
+        env.step(current_action)
+    for i in range(100):
+        task.viz(env.physics)
+        time_step = env.step(action)
+    task.viz(env.physics)
     return time_step.observation
