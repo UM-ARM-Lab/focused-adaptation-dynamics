@@ -76,7 +76,7 @@ def main():
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 3))
 
     if method_name == 'adaptation':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
     elif method_name == 'all_data':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
     elif method_name == 'no_adaptation':
