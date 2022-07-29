@@ -4,10 +4,8 @@ from typing import Dict
 import ros_numpy
 import rospy
 from actionlib_msgs.msg import GoalStatus
-from arc_utilities.tf2wrapper import TF2Wrapper
 from link_bot_pycommon.base_dual_arm_rope_scenario import joint_state_msg_from_state_dict
-from peter_msgs.srv import GetOverstretching, GetOverstretchingResponse, GetOverstretchingRequest
-from rosgraph.names import ns_join
+from peter_msgs.srv import GetOverstretchingResponse, GetOverstretchingRequest
 from sensor_msgs.msg import JointState
 
 with warnings.catch_warnings():
@@ -49,9 +47,7 @@ def dual_arm_rope_execute_action(scenario, robot: MoveitEnabledRobot, environmen
                                                                     points=grippers,
                                                                     vel_scaling=vel_scaling,
                                                                     stop_condition=_stop_condition)
-
     if check_overstretching:
-        rospy.sleep(1.0)
         try:
             res: GetOverstretchingResponse = scenario.overstretching_srv(GetOverstretchingRequest())
             overstretched = res.overstretched
@@ -81,4 +77,3 @@ def overstretching_stop_condition(scenario):
         return res.overstretched
     except Exception:
         return False
-
