@@ -45,7 +45,7 @@ def main():
     ou.setLogLevel(ou.LOG_ERROR)
     wandb_lightning_magic()
 
-    root = pathlib.Path("results/online_adaptation")
+    root = pathlib.Path("/media/shared/online_adaptation")
     outdir = root / args.nickname
     outdir.mkdir(exist_ok=True, parents=True)
     print(Fore.YELLOW + "Output directory: {}".format(outdir) + Fore.RESET)
@@ -70,6 +70,10 @@ def main():
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))
     n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
+    udnn_init_iters = int(job_chunker.load_prompt('udnn_init_iters', 1_000))
+    udnn_scale_iters = int(job_chunker.load_prompt('udnn_scale_iters', 10_000))
+    mde_init_iters = int(job_chunker.load_prompt('mde_init_iters', 10_000))
+    mde_scale_iters = int(job_chunker.load_prompt('mde_scale_iters', 10_000))
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
@@ -173,7 +177,7 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=20_000 + i * 2_000,
+                                                                     steps=udnn_init_iters + i * udnn_scale_iters,
                                                                      epochs=-1,
                                                                      repeat=100,
                                                                      seed=seed,
@@ -206,7 +210,7 @@ def main():
                                                    params_filename=mde_params_filename,
                                                    batch_size=4,
                                                    epochs=-1,
-                                                   steps=i * 2_000 + 20_000,
+                                                   steps=mde_init_iters + i * mde_scale_iters,
                                                    train_mode='all',
                                                    val_mode='all',
                                                    seed=seed,
