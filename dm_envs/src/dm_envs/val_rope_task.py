@@ -13,7 +13,7 @@ import rospy
 from arc_utilities.ros_helpers import get_connected_publisher
 from dm_envs.mujoco_services import my_step
 from dm_envs.mujoco_visualizer import MujocoVisualizer
-from dm_envs.rope_task import BaseRopeManipulation
+from dm_envs.base_rope_task import BaseRopeManipulation
 from link_bot_pycommon.grid_utils_np import idx_to_point_3d_from_origin_point, vox_to_voxelgrid_stamped
 
 
@@ -80,8 +80,8 @@ class ValRopeManipulation(BaseRopeManipulation):
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables.update({
-            'left_tool':       observable.MujocoFeature('site_xpos', 'val/left_tool'),
-            'right_tool':      observable.MujocoFeature('site_xpos', 'val/right_tool'),
+            'left_gripper':       observable.MujocoFeature('site_xpos', 'val/left_tool'),
+            'right_gripper':      observable.MujocoFeature('site_xpos', 'val/right_tool'),
             'joint_positions': observable.MJCFFeature('qpos', self.actuated_joints),
         })
 

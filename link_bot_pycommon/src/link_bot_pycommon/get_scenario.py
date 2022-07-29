@@ -63,6 +63,11 @@ def make_real_val_with_robot_feasibility_checking():
     return DualArmRopeRealValWithRobotFeasibilityCheckingScenario
 
 
+def make_mj_floating_rope_scenario():
+    from dm_envs.mj_floating_rope_scenario import MjFloatingRopeScenario
+    return MjFloatingRopeScenario
+
+
 scenario_map = {
     'link_bot':                                              make_rope_dragging_scenario,
     'rope dragging':                                         make_rope_dragging_scenario,
@@ -83,6 +88,7 @@ scenario_map = {
     'blocks':                                                make_blocks_scenario,
     'cylinders':                                             make_cylinders_scenario,
     'toy':                                                   make_toy_scenario,
+    'mj_floating_rope':                                      make_mj_floating_rope_scenario,
 }
 
 
