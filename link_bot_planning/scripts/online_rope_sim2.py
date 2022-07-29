@@ -177,7 +177,7 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=-1
+                                                                     steps=-1,
                                                                      epochs=udnn_init_epochs + i * udnn_scale_epochs,
                                                                      repeat=100,
                                                                      seed=seed,
