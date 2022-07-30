@@ -15,11 +15,12 @@ class MujocoVisualizer:
         self.camera_img_pub = rospy.Publisher("mj_camera", Image, queue_size=10)
 
     def viz(self, physics: Physics):
-        geoms_marker_msg = MarkerArray()
-        self.geoms_markers_pub.publish(geoms_marker_msg)
-
-        img = physics.render()
+        img = physics.render(camera_id='mycamera')
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             img_msg = msgify(Image, img, encoding='rgb8')
         self.camera_img_pub.publish(img_msg)
+
+        geoms_marker_msg = MarkerArray()
+        self.geoms_markers_pub.publish(geoms_marker_msg)
+

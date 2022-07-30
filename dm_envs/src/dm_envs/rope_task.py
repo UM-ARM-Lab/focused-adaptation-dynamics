@@ -30,6 +30,7 @@ class RopeManipulation(BaseRopeManipulation):
 
     def __init__(self, params: Dict):
         super().__init__(params)
+        self.use_viz = True
         self.post_reset_action = None
 
         self.left_gripper = GripperEntity(name='left_gripper', rgba=(0, 1, 1, 1))
@@ -45,8 +46,8 @@ class RopeManipulation(BaseRopeManipulation):
         right_gripper_site.pos = self.right_gripper_initial_pos
 
         # constraint
-        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0')
-        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}')
+        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0', solref='0.02 1')
+        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}', solref='0.02 1')
 
         # actuators
         self._actuators = self._arena.mjcf_model.find_all('actuator')
@@ -80,7 +81,8 @@ class RopeManipulation(BaseRopeManipulation):
     def before_step(self, physics: Physics, action, random_state):
         self.left_gripper.set_pose(physics, position=action[0:3], quaternion=action[3:7])
         self.right_gripper.set_pose(physics, position=action[7:10], quaternion=action[10:14])
-        self.viz(physics)
+        if self.use_viz:
+            self.viz(physics)
 
 
 if __name__ == "__main__":
@@ -104,7 +106,11 @@ if __name__ == "__main__":
     lq = quaternion_from_euler(0, np.pi / 2, 0)
     rp = [0.5, 0, 0.3]
     rq = quaternion_from_euler(0, -np.pi / 2, 0)
-    obs = my_step(task, env, _a(lp, lq, rp, rq), 20)
+    from time import perf_counter
+
+    t0 = perf_counter()
+    obs = my_step(task, env, _a(lp, lq, rp, rq), 5)
+    print(perf_counter() - t0)
     print('left pos error', np.linalg.norm(obs['left_gripper'] - lp))
     print('right pos error', np.linalg.norm(obs['right_gripper'] - rp))
     print('left quat error', np.linalg.norm(env.physics.named.data.xquat['left_gripper/body'] - lq))

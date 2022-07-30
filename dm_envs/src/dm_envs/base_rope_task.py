@@ -1,5 +1,6 @@
 from typing import Dict
 
+import numpy as np
 from dm_control import composer, mjcf
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
@@ -8,13 +9,14 @@ from dm_envs.mujoco_visualizer import MujocoVisualizer
 
 
 class BaseRopeManipulation(composer.Task):
-    NUM_SUBSTEPS = 100  # The number of physics substeps per control timestep.
+    NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
 
     def __init__(self, params: Dict):
         rope_length = params.get('rope_length', 25)
         seconds_per_substep = params.get('seconds_per_substep', 0.01)
         # root entity
         self._arena = floors.Floor()
+        self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.5, -2, 2], euler=[1, -0.1, 0])
 
         self._viz = MujocoVisualizer()
 

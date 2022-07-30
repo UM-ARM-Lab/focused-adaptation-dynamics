@@ -5,8 +5,8 @@ import pathlib
 from arc_utilities import ros_init
 from link_bot_data.base_collect_dynamics_data import collect_dynamics_data
 from link_bot_data.wandb_datasets import wandb_save_dataset
-from moonshine.gpu_config import limit_gpu_mem
 
+from moonshine.gpu_config import limit_gpu_mem
 limit_gpu_mem(None)
 
 

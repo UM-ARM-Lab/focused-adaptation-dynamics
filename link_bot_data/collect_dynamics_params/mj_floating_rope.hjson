@@ -36,6 +36,8 @@
   repeat_delta_gripper_motion_probability: 0.7
   max_distance_gripper_can_move: 0.10
   max_distance_between_grippers: 0.8
+  left_gripper_quat: [0.7071, 0, 0.7071, 0]
+  right_gripper_quat: [0.7071,  0, -0.7071,  0]
   state_description: {
     left_gripper: 3
     right_gripper: 3
@@ -45,7 +47,9 @@
   }
   action_description: {
     left_gripper_position: 3
-    right_gripper_position: 3
+    left_gripper_position: 3
+    right_gripper_quat: 4
+    right_gripper_quat: 4
   }
   env_description: {
     env: null

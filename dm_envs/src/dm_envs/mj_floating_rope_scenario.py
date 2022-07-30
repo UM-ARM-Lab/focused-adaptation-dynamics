@@ -3,7 +3,6 @@ from typing import Dict, Optional
 
 import numpy as np
 from dm_control import composer
-from dm_control.rl.control import PhysicsError
 
 import rospy
 from dm_envs.mujoco_visualizer import MujocoVisualizer
@@ -15,6 +14,18 @@ from link_bot_pycommon.grid_utils_np import extent_to_env_shape
 from link_bot_pycommon.marker_index_generator import marker_index_generator
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 from visualization_msgs.msg import MarkerArray
+
+
+def interp_to(target, current, d_per_step=0.005):
+    delta = target - current
+    l = np.linalg.norm(delta)
+    if l > d_per_step:
+        delta_unit = delta / np.linalg.norm(delta)
+        step = delta_unit * d_per_step
+    else:
+        step = delta
+    tmp_target = current + step
+    return tmp_target
 
 
 class MjFloatingRopeScenario(ScenarioWithVisualization):
@@ -46,6 +57,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         init_action = {
             'left_gripper_position':  left_gripper_position,
             'right_gripper_position': right_gripper_position,
+            'left_gripper_quat':      params['left_gripper_quat'],
+            'right_gripper_quat':     params['right_gripper_quat'],
         }
         init_state = self.get_state()
         self.execute_action(None, init_state, init_action)
@@ -103,6 +116,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
             action = {
                 'left_gripper_position':        left_gripper_position,
                 'right_gripper_position':       right_gripper_position,
+                'left_gripper_quat':            action_params['left_gripper_quat'],
+                'right_gripper_quat':           action_params['right_gripper_quat'],
                 'left_gripper_delta_position':  left_gripper_delta_position,
                 'right_gripper_delta_position': right_gripper_delta_position,
             }
@@ -117,31 +132,31 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
             'right_gripper_position':       state['right_gripper'],
             'left_gripper_delta_position':  np.zeros(3, dtype=np.float),
             'right_gripper_delta_position': np.zeros(3, dtype=np.float),
+            'left_gripper_quat':            np.zeros(4, dtype=np.float),
+            'right_gripper_quat':           np.zeros(4, dtype=np.float),
         }
         return zero_action, (invalid := False)
 
     def execute_action(self, environment, state, action: Dict):
         # local controller with time and error based stopping conditions, as well as interpolation
-        target_action_vec = np.concatenate((action['left_gripper_position'], action['right_gripper_position']))
+        target_action_vec = np.concatenate((action['left_gripper_position'], action['left_gripper_quat'],
+                                            action['right_gripper_position'], action['right_gripper_quat']))
 
         end_trial = False
         position_threshold = 0.001
+        desired_speed = 0.1  # m/s
+        time_fudge_factor = 2
+        d_per_step = desired_speed * self.env.control_timestep()
+        expected_distance = np.mean([np.linalg.norm(action['left_gripper_position'] - state['left_gripper']),
+                                     np.linalg.norm(action['right_gripper_position'] - state['right_gripper'])])
+        timeout = expected_distance / desired_speed * time_fudge_factor
+        tmp_target_action_vec = self.task.current_action_vec(self.env.physics)
+
         t0 = perf_counter()
-        timeout = 30
-        obs = self.env._observation_updater.get_observation()
-        tmp_target_action_vec = np.concatenate((obs['left_gripper'], obs['right_gripper']), 1).squeeze()
         while True:
-            self.viz.viz(self.env.physics)
+            self.env.step(tmp_target_action_vec)
 
-            obs = self.env._observation_updater.get_observation()
-            current_vec = np.concatenate((obs['left_gripper'], obs['right_gripper']), 1).squeeze()
-
-            try:
-                self.env.step(tmp_target_action_vec)
-            except PhysicsError as e:
-                print(e)
-                end_trial = True
-                break
+            current_vec = self.task.current_action_vec(self.env.physics)
 
             position_error = np.linalg.norm(current_vec - target_action_vec)
             positions_reached = position_error < position_threshold
@@ -153,11 +168,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
             if timeout_reached:
                 break
 
-            step_target_action_vec = np.clip((target_action_vec - tmp_target_action_vec), -0.01, 0.01)
-            tmp_target_action_vec += step_target_action_vec
+            tmp_target_action_vec = interp_to(target_action_vec, current_vec, d_per_step)
 
-        self.viz.viz(self.env.physics)
-        print(position_error)
         return end_trial
 
     def needs_reset(self, state: Dict, params: Dict):
