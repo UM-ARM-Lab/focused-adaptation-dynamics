@@ -38,7 +38,7 @@ class RopeManipulation(BaseRopeManipulation):
 
         # we have to set the gripper positions here so that the rope and grippers connect with no offset
         left_gripper_site = self._arena.attach(self.left_gripper)
-        gripper_offset = 0.05
+        gripper_offset = self.rope.half_capsule_length + 0.01
         self.left_gripper_initial_pos = np.array([-self.rope.half_capsule_length - gripper_offset, 0, 0])
         left_gripper_site.pos = self.left_gripper_initial_pos
         right_gripper_site = self._arena.attach(self.right_gripper)
@@ -46,8 +46,8 @@ class RopeManipulation(BaseRopeManipulation):
         right_gripper_site.pos = self.right_gripper_initial_pos
 
         # constraint
-        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0', solref='0.02 1')
-        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}', solref='0.02 1')
+        self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0', solref='0.1 1')
+        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}', solref='0.1 1')
 
         # actuators
         self._actuators = self._arena.mjcf_model.find_all('actuator')

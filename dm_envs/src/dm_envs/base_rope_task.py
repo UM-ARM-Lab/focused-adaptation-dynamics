@@ -59,7 +59,7 @@ class BaseRopeManipulation(composer.Task):
 
 
 class RopeEntity(composer.Entity):
-    def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.001):
+    def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.001, mass=0.2):
         self.length = length
         self.length_m = length_m
         self.thickness = thickness
@@ -71,7 +71,7 @@ class RopeEntity(composer.Entity):
         self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
         self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
         self._composite.geom.set_attributes(type='capsule', size=[self.thickness, self.half_capsule_length],
-                                            rgba=rgba, mass=0.005, friction=[0.1, 5e-3, 1e-4])
+                                            rgba=rgba, mass=mass/length, friction=[0.1, 5e-3, 1e-4])
 
     @property
     def mjcf_model(self):
