@@ -32,7 +32,7 @@
   left_gripper_quat: [0.7071, 0, 0.7071, 0]
   right_gripper_quat: [0.7071,  0, -0.7071,  0]
   res: 0.02
-  max_step_size: 0.01
+  max_step_size: 0.001
   real_time_rate: 0.0
   steps_per_traj: 100
   randomize_n: null

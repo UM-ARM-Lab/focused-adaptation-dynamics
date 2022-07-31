@@ -14,7 +14,7 @@ class BaseRopeManipulation(composer.Task):
         self.use_viz = params.get("use_viz", True)
 
         rope_length = params.get('rope_length', 25)
-        seconds_per_substep = params.get('seconds_per_substep', 0.01)
+        seconds_per_substep = params.get('max_step_size', 0.01)
         # root entity
         self._arena = floors.Floor()
         self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.5, -2, 2],

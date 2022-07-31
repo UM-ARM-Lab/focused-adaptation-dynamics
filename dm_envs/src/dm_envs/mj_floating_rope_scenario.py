@@ -30,7 +30,6 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         super().__init__(params)
         self.task = None
         self.env = None
-        self.action_spec = None
 
         self.viz = MujocoVisualizer()
 
@@ -38,11 +37,7 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         self.max_action_attempts = 100
 
     def on_before_data_collection(self, params: Dict):
-        self.task = self.make_dm_task(params)
-        # we don't want episode termination to be decided by dm_control, we do that ourselves elsewhere
-        self.env = composer.Environment(self.task, time_limit=9999, random_state=0)
-        self.env.reset()
-        self.action_spec = self.env.action_spec()
+        self.setup_task_and_env(params)
 
         extent = np.array(params['extent']).reshape([3, 2])
         cx = extent[0].mean()
@@ -58,6 +53,12 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         }
         init_state = self.get_state()
         self.execute_action(None, init_state, init_action)
+
+    def setup_task_and_env(self, params):
+        self.task = self.make_dm_task(params)
+        # we don't want episode termination to be decided by dm_control, we do that ourselves elsewhere
+        self.env = composer.Environment(self.task, time_limit=9999, random_state=0)
+        self.env.reset()
 
     def get_environment(self, params: Dict, **kwargs):
         from link_bot_pycommon.grid_utils_np import extent_to_env_shape

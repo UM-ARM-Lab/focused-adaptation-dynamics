@@ -11,7 +11,7 @@
       <geom type="box" name="top" pos="-0.02 -0.29 0.32" size="0.12 0.14 0.075"/>
       <geom type="box" name="pallet" pos="0 -0.07 -0.08" size="0.75 0.6 0.105"/>
       <geom type="box" name="hood" pos="0 0.3 0.5" quat="0.9624 0.2715 0 0" size="0.75 0.1 0.55"/>
-      <geom type="cylinder" name="cylinder" pos="-0.53 -0.22 0.15" size="0.0525 0.135"/>
+      <geom type="cylinder" name="cylinder" pos="-0.53 -0.22 0.15" size="0.105 0.135"/>
       <geom type="box" name="box1" pos="-0.13 0.08 0.12" size="0.1 0.115 0.075"/>
       <geom type="box" name="box2" pos="0.1 0.18 0.2" size="0.15 0.175 0.16"/>
       <geom type="box" name="box3" pos="0.37 -0.05 0.07" size="0.13 0.26 0.075"/>

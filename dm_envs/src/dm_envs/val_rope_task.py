@@ -1,6 +1,5 @@
 from typing import Dict
 
-import mujoco
 import numpy as np
 from dm_control import composer
 from dm_control import mjcf
@@ -10,11 +9,9 @@ from dm_control.utils import inverse_kinematics
 from transformations import quaternion_from_euler
 
 import rospy
-from arc_utilities.ros_helpers import get_connected_publisher
+from dm_envs.base_rope_task import BaseRopeManipulation
 from dm_envs.mujoco_services import my_step
 from dm_envs.mujoco_visualizer import MujocoVisualizer
-from dm_envs.base_rope_task import BaseRopeManipulation
-from link_bot_pycommon.grid_utils_np import idx_to_point_3d_from_origin_point, vox_to_voxelgrid_stamped
 
 
 class VoxelgridBuild(composer.Entity):
@@ -80,8 +77,8 @@ class ValRopeManipulation(BaseRopeManipulation):
         self._actuators = self._arena.mjcf_model.find_all('actuator')
 
         self._task_observables.update({
-            'left_gripper':       observable.MujocoFeature('site_xpos', 'val/left_tool'),
-            'right_gripper':      observable.MujocoFeature('site_xpos', 'val/right_tool'),
+            'left_gripper':    observable.MujocoFeature('site_xpos', 'val/left_tool'),
+            'right_gripper':   observable.MujocoFeature('site_xpos', 'val/right_tool'),
             'joint_positions': observable.MJCFFeature('qpos', self.actuated_joints),
         })
 
@@ -111,10 +108,17 @@ class ValRopeManipulation(BaseRopeManipulation):
                                position=[0, 0, 0.15],
                                quaternion=quaternion_from_euler(0, 0, 0))
             self.rope.set_pose(physics,
-                               position=[0.5, -self.rope.length_m / 2, 0.5],
+                               position=[0.5, -self.rope.length_m / 2, 0.6],
                                quaternion=quaternion_from_euler(0, 0, 1.5707))
             for i in range(self.rope.length - 1):
                 physics.named.data.qpos[f'rope/rJ1_{i + 1}'] = 0
+
+    def current_action_vec(self, physics):
+        left_tool_pos = physics.named.data.xpos['val/left_tool']
+        right_tool_pos = physics.named.data.xpos['val/right_tool']
+        right_tool_quat = physics.named.data.xquat['val/right_tool']
+        left_tool_quat = physics.named.data.xquat['val/left_tool']
+        return np.concatenate((left_tool_pos, left_tool_quat, right_tool_pos, right_tool_quat))
 
     def solve_ik(self, target_pos, target_quat, site_name):
         # store the initial qpos to restore later
@@ -150,7 +154,7 @@ class ValRopeManipulation(BaseRopeManipulation):
 if __name__ == "__main__":
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = ValRopeManipulation({
-        'seconds_per_substep': 0.001,
+        'max_step_size':       0.001,
         'static_env_filename': 'car1.xml',
     })
     env = composer.Environment(task, random_state=0)
@@ -171,7 +175,8 @@ if __name__ == "__main__":
 
     # grasp!
     task.grasp_rope(env.physics)
-    my_step(viz, env, [0] * 20, 20)
+    for i in range(100):
+        env.step([0] * 20)
 
     # # lift up
     # _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
@@ -181,4 +186,5 @@ if __name__ == "__main__":
 
     # release
     task.release_rope(env.physics)
-    my_step(viz, env, [0] * 20, 20)
+    for i in range(100):
+        env.step([0] * 20)
