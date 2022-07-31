@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# NOTE: I've used some local imports here because the initial import time was 5 seconds which was annoying
+
 import pathlib
 from typing import Dict, Optional
 
@@ -8,9 +10,7 @@ from colorama import Fore
 from tqdm import tqdm
 
 import rospy
-from arm_robots.robot import RobotPlanningError
-from link_bot_data.dataset_utils import make_unique_outdir, DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
-from link_bot_data.split_dataset import split_dataset_via_files
+from link_bot_data.dataset_constants import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_data.tf_dataset_utils import pkl_write_example
 from link_bot_pycommon.get_scenario import get_scenario
 from link_bot_pycommon.get_service_provider import get_service_provider
@@ -35,6 +35,8 @@ def collect_trajectory(params,
                        predetermined_actions,
                        verbose: int,
                        action_rng: np.random.RandomState):
+    from arm_robots.robot import RobotPlanningError
+
     environment = scenario.get_environment(params)
 
     example = {}
@@ -169,6 +171,8 @@ class BaseDataCollector:
                      states_and_actions: Optional = None,
                      root: Optional[pathlib.Path] = None,
                      ):
+        from link_bot_data.dataset_utils import make_unique_outdir
+
         if root is None:
             outdir = pathlib.Path('fwd_model_data') / nickname
         else:
@@ -278,6 +282,8 @@ def collect_dynamics_data(collect_dynamics_params: pathlib.Path,
                           val_split=DEFAULT_VAL_SPLIT,
                           test_split=DEFAULT_TEST_SPLIT,
                           **kwargs):
+    from link_bot_data.split_dataset import split_dataset_via_files
+
     with collect_dynamics_params.open("r") as f:
         collect_dynamics_params = hjson.load(f)
     data_collector = PklDataCollector(params=collect_dynamics_params,

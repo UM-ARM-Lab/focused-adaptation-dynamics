@@ -68,6 +68,11 @@ def make_mj_floating_rope_scenario():
     return MjFloatingRopeScenario
 
 
+def make_mj_val_rope_scenario():
+    from dm_envs.mj_val_rope_scenario import MjValRopeScenario
+    return MjValRopeScenario
+
+
 scenario_map = {
     'link_bot':                                              make_rope_dragging_scenario,
     'rope dragging':                                         make_rope_dragging_scenario,
@@ -89,6 +94,7 @@ scenario_map = {
     'cylinders':                                             make_cylinders_scenario,
     'toy':                                                   make_toy_scenario,
     'mj_floating_rope':                                      make_mj_floating_rope_scenario,
+    'mj_val_rope':                                           make_mj_val_rope_scenario,
 }
 
 

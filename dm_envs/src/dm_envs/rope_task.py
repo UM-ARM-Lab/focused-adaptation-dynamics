@@ -30,7 +30,6 @@ class RopeManipulation(BaseRopeManipulation):
 
     def __init__(self, params: Dict):
         super().__init__(params)
-        self.use_viz = True
         self.post_reset_action = None
 
         self.left_gripper = GripperEntity(name='left_gripper', rgba=(0, 1, 1, 1))
@@ -47,7 +46,8 @@ class RopeManipulation(BaseRopeManipulation):
 
         # constraint
         self._arena.mjcf_model.equality.add('weld', body1='left_gripper/body', body2='rope/rB0', solref='0.1 1')
-        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}', solref='0.1 1')
+        self._arena.mjcf_model.equality.add('weld', body1='right_gripper/body', body2=f'rope/rB{self.rope.length - 1}',
+                                            solref='0.1 1')
 
         # actuators
         self._actuators = self._arena.mjcf_model.find_all('actuator')
@@ -69,8 +69,6 @@ class RopeManipulation(BaseRopeManipulation):
 
         self.post_reset_action = self.current_action_vec(physics)
 
-        self.viz(physics)
-
     def current_action_vec(self, physics):
         left_gripper_pos = physics.named.data.xpos['left_gripper/body']
         right_gripper_pos = physics.named.data.xpos['right_gripper/body']
@@ -79,10 +77,9 @@ class RopeManipulation(BaseRopeManipulation):
         return np.concatenate((left_gripper_pos, left_gripper_quat, right_gripper_pos, right_gripper_quat))
 
     def before_step(self, physics: Physics, action, random_state):
+        super().before_step(physics, action, random_state)
         self.left_gripper.set_pose(physics, position=action[0:3], quaternion=action[3:7])
         self.right_gripper.set_pose(physics, position=action[7:10], quaternion=action[10:14])
-        if self.use_viz:
-            self.viz(physics)
 
 
 if __name__ == "__main__":

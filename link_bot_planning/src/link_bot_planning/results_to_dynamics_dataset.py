@@ -9,7 +9,7 @@ import rospy
 from analysis import results_utils
 from analysis.results_utils import NoTransitionsError
 from arc_utilities.algorithms import reversed_chunked
-from link_bot_data.dataset_utils import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
+from link_bot_data.dataset_constants import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_data.split_dataset import split_dataset
 from link_bot_data.tf_dataset_utils import write_example
 from link_bot_planning.my_planner import PlanningResult

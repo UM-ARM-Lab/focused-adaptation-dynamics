@@ -143,41 +143,6 @@ class ValRopeManipulation(BaseRopeManipulation):
     def before_step(self, physics: Physics, action, random_state):
         super().before_step(physics, action, random_state)
 
-        from tqdm import tqdm
-        from time import perf_counter
-        from rviz_voxelgrid_visuals_msgs.msg import VoxelgridStamped
-
-        pub = get_connected_publisher('/occupancy', VoxelgridStamped, queue_size=1)
-
-        geom_type = mujoco.mju_str2Type('geom')
-
-        def in_collision(xyz):
-            self.vgb.set_pose(physics, position=xyz)
-            mujoco.mj_step1(physics.model.ptr, physics.data.ptr)
-            for i, c in enumerate(physics.data.contact):
-                geom1_name = mujoco.mj_id2name(physics.model.ptr, geom_type, c.geom1)
-                geom2_name = mujoco.mj_id2name(physics.model.ptr, geom_type, c.geom2)
-                if c.dist < 0 and (geom1_name == 'vgb_sphere/geom' or geom2_name == 'vgb_sphere/geom'):
-                    # print(f"Contact at {xyz} between {geom1_name} and {geom2_name}, {c.dist=:.4f} {c.exclude=}")
-                    return True
-            return False
-
-        t0 = perf_counter()
-        res = 0.02
-        rows = 60
-        columns = 50
-        channels = 55
-        vg = np.zeros([rows, columns, channels], dtype=np.float32)
-        origin_point = np.array([0, -0.5, 0])
-
-        for row, col, channel in tqdm(np.ndindex(rows, columns, channels), total=rows * columns * channels):
-            xyz = idx_to_point_3d_from_origin_point(row, col, channel, res, origin_point)
-            if in_collision(xyz):
-                vg[row, col, channel] = 1
-        print(perf_counter() - t0)
-
-        pub.publish(vox_to_voxelgrid_stamped(vg, scale=res, frame='world'))
-
     def get_reward(self, physics):
         return 0
 

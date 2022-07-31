@@ -8,7 +8,7 @@ import tensorflow as tf
 import genpy
 import rospy
 from link_bot_data.coerce_types import coerce_types
-from link_bot_data.dataset_utils import NULL_PAD_VALUE
+from link_bot_data.dataset_constants import NULL_PAD_VALUE
 from link_bot_data.ros_msg_serialization import ros_msg_to_bytes_tensor, bytes_to_ros_msg
 from link_bot_pycommon.serialization import dump_gzipped_pickle
 from moonshine.torch_and_tf_utils import remove_batch, add_batch

@@ -18,6 +18,7 @@ def main():
     parser.add_argument("nickname")
     parser.add_argument("--states-and-actions", type=pathlib.Path)
     parser.add_argument("--seed", '-s', type=int, help='seed')
+    parser.add_argument("--no-save", action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument('--save-format', choices=['pkl', 'h5', 'tfrecord'], default='pkl')
 
@@ -27,7 +28,8 @@ def main():
     for dataset_dir, n_trajs_done in collect_dynamics_data(**vars(args)):
         pass
 
-    wandb_save_dataset(dataset_dir, 'udnn', entity='armlab')
+    if not args.no_save:
+        wandb_save_dataset(dataset_dir, 'udnn', entity='armlab')
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 import argparse
 import pathlib
 
-from link_bot_data.dataset_utils import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
+from link_bot_data.dataset_constants import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_data.split_dataset import split_dataset
 
 

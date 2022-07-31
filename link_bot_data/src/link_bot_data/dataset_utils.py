@@ -10,16 +10,12 @@ import numpy as np
 from colorama import Fore
 
 from arc_utilities.filesystem_utils import mkdir_and_ask
+from link_bot_data.dataset_constants import NULL_PAD_VALUE, DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_pycommon import pycommon
 from link_bot_pycommon.grid_utils_np import pad_voxel_grid
 from moonshine.filepath_tools import load_params
 from moonshine.numpify import numpify
 from moveit_msgs.msg import PlanningScene
-
-NULL_PAD_VALUE = -10000
-
-DEFAULT_VAL_SPLIT = 0.125
-DEFAULT_TEST_SPLIT = 0.125
 
 
 def multigen(gen_func):

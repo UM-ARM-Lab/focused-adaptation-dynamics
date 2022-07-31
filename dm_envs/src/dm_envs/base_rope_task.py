@@ -1,6 +1,5 @@
 from typing import Dict
 
-import numpy as np
 from dm_control import composer, mjcf
 from dm_control.composer.observation import observable
 from dm_control.locomotion.arenas import floors
@@ -9,14 +8,17 @@ from dm_envs.mujoco_visualizer import MujocoVisualizer
 
 
 class BaseRopeManipulation(composer.Task):
-    NUM_SUBSTEPS = 10  # The number of physics substeps per control timestep.
+    NUM_SUBSTEPS = 20  # The number of physics substeps per control timestep.
 
     def __init__(self, params: Dict):
+        self.use_viz = params.get("use_viz", True)
+
         rope_length = params.get('rope_length', 25)
         seconds_per_substep = params.get('seconds_per_substep', 0.01)
         # root entity
         self._arena = floors.Floor()
-        self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.5, -2, 2], euler=[1, -0.1, 0])
+        self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.5, -2, 2],
+                                             euler=[1, -0.1, 0])
 
         self._viz = MujocoVisualizer()
 
@@ -24,6 +26,7 @@ class BaseRopeManipulation(composer.Task):
         self._arena.mjcf_model.compiler.inertiafromgeom = True
         self._arena.mjcf_model.default.joint.damping = 0
         self._arena.mjcf_model.default.joint.stiffness = 0
+        self._arena.mjcf_model.default.material.reflectance = 0
         self._arena.mjcf_model.default.geom.friction = [1, 0.1, 0.1]
         self._arena.mjcf_model.option.gravity = [0, 0, -9.81]
         self._arena.mjcf_model.option.integrator = 'Euler'
@@ -57,6 +60,10 @@ class BaseRopeManipulation(composer.Task):
     def viz(self, physics):
         self._viz.viz(physics)
 
+    def before_step(self, physics, action, random_state):
+        if self.use_viz:
+            self.viz(physics)
+
 
 class RopeEntity(composer.Entity):
     def _build(self, length=25, length_m=1, rgba=(0.2, 0.8, 0.2, 1), thickness=0.01, stiffness=0.001, mass=0.2):
@@ -70,8 +77,9 @@ class RopeEntity(composer.Entity):
         body = self._model.worldbody.add('body', name='rB0')
         self._composite = body.add('composite', prefix="r", type='rope', count=[length, 1, 1], spacing=self._spacing)
         self._composite.add('joint', kind='main', damping=1e-2, stiffness=stiffness)
+        self._composite.add('joint', kind='twist', damping=1e-3, stiffness=1e-4)
         self._composite.geom.set_attributes(type='capsule', size=[self.thickness, self.half_capsule_length],
-                                            rgba=rgba, mass=mass/length, friction=[0.1, 5e-3, 1e-4])
+                                            rgba=rgba, mass=mass / length, friction=[0.1, 5e-3, 1e-4])
 
     @property
     def mjcf_model(self):

@@ -1,3 +1,5 @@
+# NOTE: I've used some local imports here because the initial import time was 5 seconds which was annoying
+
 from time import perf_counter
 from typing import Dict, Optional
 
@@ -7,13 +9,7 @@ from dm_control import composer
 import rospy
 from dm_envs.mujoco_visualizer import MujocoVisualizer
 from dm_envs.rope_task import RopeManipulation
-from link_bot_data.color_from_kwargs import color_from_kwargs
-from link_bot_pycommon.experiment_scenario import sample_delta_position
-from link_bot_pycommon.floating_rope_scenario import FloatingRopeScenario
-from link_bot_pycommon.grid_utils_np import extent_to_env_shape
-from link_bot_pycommon.marker_index_generator import marker_index_generator
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
-from visualization_msgs.msg import MarkerArray
 
 
 def interp_to(target, current, d_per_step=0.005):
@@ -52,8 +48,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         cx = extent[0].mean()
         cy = extent[1].mean()
         min_z = extent[2, 0]
-        left_gripper_position = np.array([cx, cy + 0.25, min_z + 0.6])
-        right_gripper_position = np.array([cx, cy - 0.25, min_z + 0.6])
+        left_gripper_position = np.array([cx, cy + 0.25, min_z + 0.8])
+        right_gripper_position = np.array([cx, cy - 0.25, min_z + 0.8])
         init_action = {
             'left_gripper_position':  left_gripper_position,
             'right_gripper_position': right_gripper_position,
@@ -64,6 +60,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         self.execute_action(None, init_state, init_action)
 
     def get_environment(self, params: Dict, **kwargs):
+        from link_bot_pycommon.grid_utils_np import extent_to_env_shape
+
         # not the mujoco "env", this means the static obstacles and workspaces geometry
         res = np.float32(params['res'])
         extent = np.array(params['extent'])
@@ -80,10 +78,8 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
 
     def get_state(self):
         state = self.env._observation_updater.get_observation()
-        state['rope'] = state['rope'].reshape(75)
-        state['left_gripper'] = state['left_gripper'].reshape(3)
-        state['right_gripper'] = state['right_gripper'].reshape(3)
-        return state
+        state_flat = {k: v.reshape([-1]) for k, v in state.items()}
+        return state_flat
 
     def plot_action_rviz(self, state: Dict, action: Dict, **kwargs):
         pass
@@ -95,6 +91,9 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
                       action_params: Dict,
                       validate: bool,
                       stateless: Optional[bool] = False):
+        from link_bot_pycommon.experiment_scenario import sample_delta_position
+        from link_bot_pycommon.floating_rope_scenario import FloatingRopeScenario
+
         for _ in range(self.max_action_attempts):
             # move in the same direction as the previous action with some probability
             repeat_probability = action_params['repeat_delta_gripper_motion_probability']
@@ -183,6 +182,10 @@ class MjFloatingRopeScenario(ScenarioWithVisualization):
         super().reset_viz()
 
     def plot_state_rviz(self, state: Dict, **kwargs):
+        from link_bot_data.color_from_kwargs import color_from_kwargs
+        from visualization_msgs.msg import MarkerArray
+        from link_bot_pycommon.marker_index_generator import marker_index_generator
+
         super().plot_state_rviz(state, **kwargs)
 
         ns = kwargs.get("label", "")

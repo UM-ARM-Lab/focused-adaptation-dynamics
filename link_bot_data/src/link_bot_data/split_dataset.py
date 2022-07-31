@@ -1,6 +1,6 @@
 import pathlib
 
-from link_bot_data.dataset_utils import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
+from link_bot_data.dataset_constants import DEFAULT_VAL_SPLIT, DEFAULT_TEST_SPLIT
 from link_bot_data.files_dataset import OldDatasetSplitter
 from link_bot_data.load_dataset import guess_dataset_format
 
