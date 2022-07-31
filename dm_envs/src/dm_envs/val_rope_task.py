@@ -12,8 +12,6 @@ from arc_utilities import ros_init
 from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_ordered_tolerance_list, is_waypoint_reached, \
     waypoint_error, make_follow_joint_trajectory_goal
 from dm_envs.base_rope_task import BaseRopeManipulation
-from dm_envs.mujoco_services import my_step
-from dm_envs.mujoco_visualizer import MujocoVisualizer
 from moveit_msgs.msg import RobotState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
@@ -149,6 +147,7 @@ class ValRopeManipulation(BaseRopeManipulation):
         physics.model.eq_active[:] = np.ones(1)
 
     def follow_trajectory(self, env, trajectory: JointTrajectory):
+        # TODO: make this generic so it could be used by Andrea in pybullet
         traj_goal = make_follow_joint_trajectory_goal(trajectory)
 
         # Interpolate the trajectory to a fine resolution
@@ -175,7 +174,6 @@ class ValRopeManipulation(BaseRopeManipulation):
             dt = rospy.Time.now() - t0
 
             # get feedback
-            new_waypoint = False
             obs = env._observation_updater.get_observation()
             actual_joint_positions = []
             for n in trajectory_joint_names:
@@ -183,9 +181,9 @@ class ValRopeManipulation(BaseRopeManipulation):
                 actual_joint_positions.append(obs['joint_positions'][0, i])
 
             actual_point = JointTrajectoryPoint(positions=actual_joint_positions, time_from_start=dt)
-            while trajectory_point_idx < len(interpolated_points) - 1 and is_waypoint_reached(actual_point, interpolated_points[trajectory_point_idx], tolerance):
+            while trajectory_point_idx < len(interpolated_points) - 1 and \
+                    is_waypoint_reached(actual_point, interpolated_points[trajectory_point_idx], tolerance):
                 trajectory_point_idx += 1
-                new_waypoint = True
 
             desired_point = interpolated_points[trajectory_point_idx]
 
@@ -193,31 +191,26 @@ class ValRopeManipulation(BaseRopeManipulation):
                     is_waypoint_reached(actual_point, desired_point, goal_tolerance):
                 return True
 
-            if new_waypoint:
-                action_vec = self.action_vec_from_positions_and_names(desired_point.positions, trajectory_joint_names)
-                for _ in range(100):
-                    time_step = env.step(action_vec)
-                    obs = time_step.observation
-                    obs['joint_positions']
+            action_vec = self.action_vec_from_positions_and_names(desired_point.positions, trajectory_joint_names)
+            env.step(action_vec)
 
-            # let the caller stop
             error = waypoint_error(actual_point, desired_point)
-            print(1, f"{error} {desired_point.time_from_start.to_sec()} {dt.to_sec()}")
-            # if desired_point.time_from_start.to_sec() > 0 and dt > desired_point.time_from_start * 5.0:
-            #     if trajectory_point_idx == len(interpolated_points) - 1:
-            #         stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-            #                    + f" error to waypoint is {error}, goal tolerance is {goal_tolerance}"
-            #     else:
-            #         stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-            #                    + f" error to waypoint is {error}, tolerance is {tolerance}"
-            #
-            #     # command the current configuration
-            #     action_vec = self.action_vec_from_positions_and_names(actual_point.positions, trajectory_joint_names)
-            #     print(dt.to_sec())
-            #     env.step(action_vec)
-            #     rospy.loginfo("Preempt requested, aborting.")
-            #     rospy.logwarn(f"Stopped with message: {stop_msg}")
-            #     return True
+            # print(trajectory_point_idx, len(trajectory.points), f"{error} {desired_point.time_from_start.to_sec()} {dt.to_sec()}")
+            if desired_point.time_from_start.to_sec() > 0 and dt > desired_point.time_from_start * 5.0:
+                if trajectory_point_idx == len(interpolated_points) - 1:
+                    stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
+                               + f" error to waypoint is {error}, goal tolerance is {goal_tolerance}"
+                else:
+                    stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
+                               + f" error to waypoint is {error}, tolerance is {tolerance}"
+
+                # command the current configuration
+                action_vec = self.action_vec_from_positions_and_names(actual_point.positions, trajectory_joint_names)
+                print(dt.to_sec())
+                env.step(action_vec)
+                rospy.loginfo("Preempt requested, aborting.")
+                rospy.logwarn(f"Stopped with message: {stop_msg}")
+                return True
 
     def action_vec_from_positions_and_names(self, positions, trajectory_joint_names):
         action_vec = np.zeros(len(self.actuated_joint_names))
@@ -225,6 +218,10 @@ class ValRopeManipulation(BaseRopeManipulation):
             i = self.actuated_joint_names.index(f'val/{n}')
             action_vec[i] = positions[j]
         return action_vec
+
+    def before_step(self, physics, action, random_state):
+        super().before_step(physics, action, random_state)
+        physics.set_control(action)
 
 
 @ros_init.with_ros("val_rope_task")
@@ -235,49 +232,22 @@ def main():
         'static_env_filename': 'car1.xml',
     })
     env = composer.Environment(task, random_state=0, time_limit=9999)
-    viz = MujocoVisualizer()
+
     # from dm_control import viewer
     # viewer.launch(env)
 
     env.reset()
 
-    # create a mujoco arm_robots hdt_michigan object
-    # this can call env.step() in send_joint_command()
-    # if all we want is planning, we just need to create a move group and call plan
-    # from arm_robots.hdt_michigan import Val
-    # val = Val()
-    # val.set_execute(False)
-    # start_state = RobotState()
-    # start_state.joint_state.name = val.get_joint_names(group_name='whole_body')
-    # start_state.joint_state.position = [0] * 20
-    # plan = val.plan_to_joint_config(group_name='both_arms',
-    #                                 joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                                 start_state=start_state)
-    # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-
-    # move to grasp
-    _, qdes = task.solve_ik(env.physics,
-                            target_pos=[0, task.rope.length_m / 2, 0.05],
-                            target_quat=quaternion_from_euler(0, -np.pi, 0),
-                            site_name='val/left_tool')
-    for i in range(1000):
-        env.step(qdes)
-
-    # grasp!
-    task.grasp_rope(env.physics)
-    while True:
-        env.step([0] * 20)
-
-    # # lift up
-    # _, qdes = task.solve_ik(target_pos=[0, 0, 0.5],
-    #                         target_quat=quaternion_from_euler(0, -np.pi - 0.4, 0),
-    #                         site_name='val/left_tool')
-    # my_step(viz, env, [0] * 20, 20)
-
-    # release
-    task.release_rope(env.physics)
-    for i in range(100):
-        env.step([0] * 20)
+    from arm_robots.hdt_michigan import Val
+    val = Val()
+    val.set_execute(False)
+    start_state = RobotState()
+    start_state.joint_state.name = val.get_joint_names(group_name='whole_body')
+    start_state.joint_state.position = [0] * 20
+    plan = val.plan_to_joint_config(group_name='both_arms',
+                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    start_state=start_state)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
 
 if __name__ == "__main__":

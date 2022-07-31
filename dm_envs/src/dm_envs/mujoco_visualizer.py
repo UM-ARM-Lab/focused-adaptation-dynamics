@@ -25,7 +25,6 @@ class MujocoVisualizer:
             warnings.simplefilter("ignore")
             img_msg = msgify(Image, img, encoding='rgb8')
         self.camera_img_pub.publish(img_msg)
-        print("pub!")
 
         geoms_marker_msg = MarkerArray()
 
