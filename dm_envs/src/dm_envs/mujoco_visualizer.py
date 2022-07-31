@@ -29,8 +29,6 @@ class MujocoVisualizer:
 
         for geom_id in range(physics.model.ngeom):
             geom_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('geom'), geom_id)
-            if 'val' not in geom_name:
-                continue
 
             geom_bodyid = physics.model.geom_bodyid[geom_id]
             body_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('body'), geom_bodyid)
