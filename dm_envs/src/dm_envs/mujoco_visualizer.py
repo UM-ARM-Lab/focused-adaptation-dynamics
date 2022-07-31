@@ -6,7 +6,6 @@ from dm_control.mjcf import Physics
 from transformations import quaternion_from_matrix
 
 import rospy
-from geometry_msgs.msg import Point
 from ros_numpy import msgify
 from sensor_msgs.msg import Image
 from visualization_msgs.msg import MarkerArray, Marker
@@ -19,11 +18,14 @@ class MujocoVisualizer:
         self.camera_img_pub = rospy.Publisher("mj_camera", Image, queue_size=10)
 
     def viz(self, physics: Physics):
+        from time import perf_counter
+        t0 = perf_counter()
         img = physics.render(camera_id='mycamera')
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             img_msg = msgify(Image, img, encoding='rgb8')
         self.camera_img_pub.publish(img_msg)
+        print("pub!")
 
         geoms_marker_msg = MarkerArray()
 
@@ -33,8 +35,6 @@ class MujocoVisualizer:
             geom_bodyid = physics.model.geom_bodyid[geom_id]
             body_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('body'), geom_bodyid)
 
-            # print('goem:', geom_name)
-            # print('body:', body_name)
             geom_marker_msg = Marker()
             geom_marker_msg.action = Marker.ADD
             geom_marker_msg.header.frame_id = 'world'
@@ -50,7 +50,7 @@ class MujocoVisualizer:
             geom_quat = quaternion_from_matrix(geom2world)
             geom_size = physics.model.geom_size[geom_id]
             geom_rgba = physics.model.geom_rgba[geom_id]
-            geom_dataid = physics.model.geom_dataid[geom_id]
+            geom_meshid = physics.model.geom_dataid[geom_id]
 
             geom_marker_msg.pose.position.x = geom_pos[0]
             geom_marker_msg.pose.position.y = geom_pos[1]
@@ -85,30 +85,19 @@ class MujocoVisualizer:
                 geom_marker_msg.scale.y = geom_size[0] * 2
                 geom_marker_msg.scale.z = geom_size[0] * 2
             elif geom_type == mujoco.mjtGeom.mjGEOM_MESH:
-                geom_marker_msg.type = Marker.TRIANGLE_LIST
-
-                mesh = physics.model.mesh(geom_dataid)
-
-                for face_i in range(0, mesh.facenum[0], 1):
-                    # Points here are in geom frame
-                    face_adr = mesh.faceadr[0] + face_i
-                    point_adrs = physics.model.mesh_face[face_adr]
-                    point0_xyz = physics.model.mesh_vert[mesh.vertadr[0] + point_adrs[0]]
-                    point1_xyz = physics.model.mesh_vert[mesh.vertadr[0] + point_adrs[1]]
-                    point2_xyz = physics.model.mesh_vert[mesh.vertadr[0] + point_adrs[2]]
-
-                    geom_marker_msg.points.append(msgify(Point, point0_xyz))
-                    geom_marker_msg.points.append(msgify(Point, point1_xyz))
-                    geom_marker_msg.points.append(msgify(Point, point2_xyz))
+                continue
+                geom_marker_msg.type = Marker.MESH_RESOURCE
+                mesh_name = mujoco.mj_id2name(physics.model.ptr, mujoco.mju_str2Type('mesh'), geom_meshid)
+                mesh_name = mesh_name.split("/")[1]  # skip the model prefix, e.g. val/my_mesh
+                geom_marker_msg.mesh_resource = f"package://dm_envs/meshes/{mesh_name}_centered.stl"
                 geom_marker_msg.scale.x = 1
                 geom_marker_msg.scale.y = 1
                 geom_marker_msg.scale.z = 1
-
             else:
-                print(f"Unsupported geom type {geom_type}")
+                rospy.loginfo_once(f"Unsupported geom type {geom_type}")
                 continue
 
             geoms_marker_msg.markers.append(geom_marker_msg)
 
         self.geoms_markers_pub.publish(geoms_marker_msg)
-        print('pub!')
+        # print(f"viz took {perf_counter() - t0:0.3f}")

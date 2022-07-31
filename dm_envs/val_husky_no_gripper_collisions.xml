@@ -7,17 +7,17 @@
     <mesh name="wheel" file="wheel.stl"/>
     <mesh name="top_plate" file="top_plate.stl"/>
     <mesh name="ark_lidar" file="ark_lidar.stl"/>
-    <mesh name="PEDESTAL_ASSEMBLY" file="PEDESTAL_ASSEMBLY.STL"/>
+    <mesh name="PEDESTAL_ASSEMBLY" file="PEDESTAL_ASSEMBLY.stl"/>
     <mesh name="Drive56_mujoco" file="Drive56_mujoco.stl"/>
-    <mesh name="MK4_MT" file="MK4_MT.STL"/>
-    <mesh name="TORSO" file="TORSO.STL"/>
-    <mesh name="MK4_LT" file="MK4_LT.STL"/>
-    <mesh name="SHOULDER_BRACKET" file="SHOULDER_BRACKET.STL"/>
-    <mesh name="PROXIMAL_TUBE" file="PROXIMAL_TUBE.STL"/>
-    <mesh name="FOREARM_BRACKET" file="FOREARM_BRACKET.STL"/>
-    <mesh name="A35_DRIVE" file="A35_DRIVE.STL"/>
-    <mesh name="A35_BRACKET" file="A35_BRACKET.STL"/>
-    <mesh name="PINCER_HOUSING2" file="PINCER_HOUSING2.STL"/>
+    <mesh name="MK4_MT" file="MK4_MT.stl"/>
+    <mesh name="TORSO" file="TORSO.stl"/>
+    <mesh name="MK4_LT" file="MK4_LT.stl"/>
+    <mesh name="SHOULDER_BRACKET" file="SHOULDER_BRACKET.stl"/>
+    <mesh name="PROXIMAL_TUBE" file="PROXIMAL_TUBE.stl"/>
+    <mesh name="FOREARM_BRACKET" file="FOREARM_BRACKET.stl"/>
+    <mesh name="A35_DRIVE" file="A35_DRIVE.stl"/>
+    <mesh name="A35_BRACKET" file="A35_BRACKET.stl"/>
+    <mesh name="PINCER_HOUSING2" file="PINCER_HOUSING2.stl"/>
   </asset>
   <worldbody>
     <body name="base">
