@@ -12,6 +12,7 @@ from arc_utilities import ros_init
 from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_ordered_tolerance_list, is_waypoint_reached, \
     waypoint_error, make_follow_joint_trajectory_goal
 from dm_envs.base_rope_task import BaseRopeManipulation
+from geometry_msgs.msg import Pose
 from moveit_msgs.msg import RobotState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
@@ -174,11 +175,7 @@ class ValRopeManipulation(BaseRopeManipulation):
             dt = rospy.Time.now() - t0
 
             # get feedback
-            obs = env._observation_updater.get_observation()
-            actual_joint_positions = []
-            for n in trajectory_joint_names:
-                i = self.actuated_joint_names.index(f'val/{n}')
-                actual_joint_positions.append(obs['joint_positions'][0, i])
+            actual_joint_positions = self.get_joint_positions(env, trajectory_joint_names)
 
             actual_point = JointTrajectoryPoint(positions=actual_joint_positions, time_from_start=dt)
             while trajectory_point_idx < len(interpolated_points) - 1 and \
@@ -212,6 +209,15 @@ class ValRopeManipulation(BaseRopeManipulation):
                 rospy.logwarn(f"Stopped with message: {stop_msg}")
                 return True
 
+    def get_joint_positions(self, env, joint_names):
+        obs = env._observation_updater.get_observation()
+        actual_joint_positions = []
+        for n in joint_names:
+            # NOTE: this doesn't work for joints that aren't actuated? (leftgripper)
+            i = self.actuated_joint_names.index(f'val/{n}')
+            actual_joint_positions.append(obs['joint_positions'][0, i])
+        return actual_joint_positions
+
     def action_vec_from_positions_and_names(self, positions, trajectory_joint_names):
         action_vec = np.zeros(len(self.actuated_joint_names))
         for j, n in enumerate(trajectory_joint_names):
@@ -242,11 +248,28 @@ def main():
     val = Val()
     val.set_execute(False)
     start_state = RobotState()
-    start_state.joint_state.name = val.get_joint_names(group_name='whole_body')
-    start_state.joint_state.position = [0] * 20
+    start_state.joint_state.name = val.get_joint_names(group_name='both_arms')
+    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
     plan = val.plan_to_joint_config(group_name='both_arms',
                                     joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                     start_state=start_state)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+    return
+
+    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
+    pose = Pose()
+    pose.position.x = 0.8
+    pose.position.y = -0.2
+    pose.position.z = 0.4
+    q = quaternion_from_euler(0, np.pi, -np.pi / 4)
+    pose.orientation.x = q[0]
+    pose.orientation.y = q[1]
+    pose.orientation.z = q[2]
+    pose.orientation.w = q[3]
+    plan = val.plan_to_pose(group_name='both_arms',
+                            ee_link_name='right_tool',
+                            target_pose=pose,
+                            start_state=start_state)
     task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
 

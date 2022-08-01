@@ -17,7 +17,7 @@ class BaseRopeManipulation(composer.Task):
         seconds_per_substep = params.get('max_step_size', 0.01)
         # root entity
         self._arena = floors.Floor()
-        self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.4, -0.7, 0.8],
+        self._arena.mjcf_model.worldbody.add('camera', name="mycamera", mode='fixed', pos=[0.4, -1, 0.8],
                                              euler=[1.2, 0, 0])
 
         self._viz = MujocoVisualizer()

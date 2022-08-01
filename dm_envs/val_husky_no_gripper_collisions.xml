@@ -18,16 +18,18 @@
     <mesh name="A35_DRIVE" file="A35_DRIVE.stl"/>
     <mesh name="A35_BRACKET" file="A35_BRACKET.stl"/>
     <mesh name="PINCER_HOUSING2" file="PINCER_HOUSING2.stl"/>
+    <mesh name="box" file="box.stl"/>
   </asset>
   <worldbody>
     <body name="base">
       <inertial pos="0 0 0" quat="0.707107 0 0 0.707107" mass="50" diaginertia="8.333 8.333 8.333"/>
       <geom type="mesh" mesh="base_link" name="base_link"/>
-      <geom pos="0.0812 0 0.245" type="mesh" mesh="top_plate" name="top_plate"/>
-      <geom pos="0.412 0 0.068" type="mesh" mesh="ark_lidar" name="front_lidar"/>
-      <geom pos="-0.412 0 0.068" quat="1.32679e-06 0 0 1" type="mesh" mesh="ark_lidar" name="back_lidar"/>
-      <geom pos="0.275 0.0047 0.319" quat="0.500024 -0.500024 0.499976 -0.499976" type="mesh" mesh="PEDESTAL_ASSEMBLY" name="PEDESTAL_ASSEMBLY"/>
-      <geom pos="0.3641 0.00470858 0.319" quat="0 -0.707141 0.707073 0" type="mesh" mesh="Drive56_mujoco" name="Drive56_mujoco"/>
+      <geom pos="1 0 0" type="mesh" mesh="box" name="box"/>
+<!--      <geom pos="0.0812 0 0.245" type="mesh" mesh="top_plate" name="top_plate"/>-->
+<!--      <geom pos="0.412 0 0.068" type="mesh" mesh="ark_lidar" name="front_lidar"/>-->
+<!--      <geom pos="-0.412 0 0.068" quat="1.32679e-06 0 0 1" type="mesh" mesh="ark_lidar" name="back_lidar"/>-->
+<!--      <geom pos="0.275 0.0047 0.319" quat="0.500024 -0.500024 0.499976 -0.499976" type="mesh" mesh="PEDESTAL_ASSEMBLY" name="PEDESTAL_ASSEMBLY"/>-->
+<!--      <geom pos="0.3641 0.00470858 0.319" quat="0 -0.707141 0.707073 0" type="mesh" mesh="Drive56_mujoco" name="Drive56_mujoco"/>-->
     </body>
     <body name="front_left_wheel_link" pos="0.256 0.35 0.03282">
       <inertial pos="0 0 0" quat="0.707107 0 0 0.707107" mass="2.637" diaginertia="0.04411 0.02467 0.02467"/>
@@ -165,6 +167,8 @@
 		<position name="joint45_pos" ctrllimited="true" ctrlrange="-3.14159 3.14159" joint="joint45" kp="100"/>
 		<position name="joint46_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint46" kp="10"/>
 		<position name="joint47_pos" ctrllimited="true" ctrlrange="-3.14159 3.14159" joint="joint47" kp="10"/>
+
+      <position name="leftgripper_pos" ctrllimited="true" ctrlrange="-1 1" joint="joint47" kp="10"/>
 
 		<intvelocity name="front_left_wheel_vel" actrange="-10 10" ctrllimited="true" ctrlrange="-1 1" joint="front_left_wheel" kp="1"/>
 		<intvelocity name="front_right_wheel_vel" actrange="-10 10" ctrllimited="true" ctrlrange="-1 1" joint="front_right_wheel" kp="1"/>
