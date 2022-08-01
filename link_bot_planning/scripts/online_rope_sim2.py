@@ -78,7 +78,7 @@ def main():
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
     elif method_name == 'all_data':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data.hjson"
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
     elif method_name == 'no_adaptation':
         dynamics_params_filename = None
     else:
