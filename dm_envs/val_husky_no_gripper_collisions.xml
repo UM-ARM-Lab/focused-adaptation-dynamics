@@ -36,10 +36,10 @@
             <body pos="-0.412 0 0.068" quat="1.32679e-06 0 0 1" name="back_lidar">
                 <geom type="mesh" mesh="ark_lidar"/>
             </body>
-            <body pos="0.275 0.0047 0.319" quat="0.500024 -0.500024 0.499976 -0.499976" name="pedestal_assembly">
+            <body pos="0.275 0.0047 0.315" quat="0.492 -0.507 0.4926 -0.5072" name="pedestal_assembly">
                 <geom type="mesh" mesh="PEDESTAL_ASSEMBLY"/>
             </body>
-            <body pos="0.3641 0.00470858 0.319" quat="0 -0.707141 0.707073 0" name="Drive56_mujoco">
+            <body pos="0.3641 0.00470858 0.315" quat="0 -0.707141 0.707073 0" name="Drive56_mujoco">
                 <geom type="mesh" mesh="Drive56_mujoco"/>
             </body>
         </body>
@@ -63,7 +63,7 @@
             <joint name="rear_right_wheel" pos="0 0 0" axis="0 1 0" damping="20"/>
             <geom type="mesh" mesh="wheel" name="rear_right_wheel"/>
         </body>
-        <body name="drive57" pos="0.3641 0.00470858 0.401642" quat="3.40567e-05 -3.40567e-05 0.707107 -0.707107">
+        <body name="drive57" pos="0.3641 0.00470858 0.393" quat="3.40567e-05 -3.40567e-05 0.707107 -0.707107">
             <inertial pos="-3.658e-05 0.00177045 0.00631346" quat="0.999687 -0.0245928 0.000670972 -0.00444195"
                       mass="1.39278" diaginertia="0.00159583 0.00151341 0.00105295"/>
             <joint name="joint56" pos="0 0 0" axis="0 -1 0" limited="true" range="-6.2 6.2" damping="50"

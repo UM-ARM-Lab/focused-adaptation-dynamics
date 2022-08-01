@@ -15,15 +15,32 @@ from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_orde
     waypoint_error, make_follow_joint_trajectory_goal
 from dm_envs.base_rope_task import BaseRopeManipulation
 from geometry_msgs.msg import Pose
-from moveit_msgs.msg import RobotState, PlanningScene, CollisionObject
+from moveit_msgs.msg import PlanningScene, CollisionObject
+from moveit_msgs.srv import GetPlanningScene
 from shape_msgs.msg import SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 
-def make_planning_scene_msg(physics, exclude):
-    msg = PlanningScene()
-    msg.is_diff = True
-    msg.robot_model_name = 'hdt_michigan'
+def make_planning_scene_msg(physics, exclude, initial_msg):
+    initial_msg.is_diff = False
+    initial_msg.world.collision_objects = []
+
+    initial_msg.robot_state.joint_state.position = []
+    initial_msg.robot_state.joint_state.velocity = []
+    initial_msg.robot_state.joint_state.effort = []
+    for n in initial_msg.robot_state.joint_state.name:
+        qname = f'val/{n}'
+        if qname in physics.named.data.qpos.axes[0].names:
+            p = float(physics.named.data.qpos[qname])
+            v = float(physics.named.data.qvel[qname])
+            a = float(physics.named.data.qacc[qname])
+        else:
+            p = 0
+            v = 0
+            a = 0
+        initial_msg.robot_state.joint_state.position.append(p)
+        initial_msg.robot_state.joint_state.velocity.append(v)
+        initial_msg.robot_state.joint_state.effort.append(a)
 
     for geom_id in range(physics.model.ngeom):
         geom_name = mj_id2name(physics.model.ptr, mju_str2Type('geom'), geom_id)
@@ -52,21 +69,21 @@ def make_planning_scene_msg(physics, exclude):
         mju_mat2Quat(geom_quat, geom_xmat)
         geom_size = physics.model.geom_size[geom_id]
 
-        collision_object.pose.position.x = geom_pos[0]
-        collision_object.pose.position.y = geom_pos[1]
-        collision_object.pose.position.z = geom_pos[2]
-        collision_object.pose.orientation.w = geom_quat[0]
-        collision_object.pose.orientation.x = geom_quat[1]
-        collision_object.pose.orientation.y = geom_quat[2]
-        collision_object.pose.orientation.z = geom_quat[3]
+        collision_object.pose.orientation.w = 1
 
         if geom_type == mjtGeom.mjGEOM_MESH:
-            # not implemeting this yet since the only meshes are those on the robot itself
+            # not implementing this yet since the only meshes are those on the robot itself
             continue
         else:
             primitive = SolidPrimitive()
             primitive_pose = Pose()
-            primitive_pose.orientation.w = 1
+            primitive_pose.position.x = geom_pos[0]
+            primitive_pose.position.y = geom_pos[1]
+            primitive_pose.position.z = geom_pos[2]
+            primitive_pose.orientation.w = geom_quat[0]
+            primitive_pose.orientation.x = geom_quat[1]
+            primitive_pose.orientation.y = geom_quat[2]
+            primitive_pose.orientation.z = geom_quat[3]
             if geom_type == mjtGeom.mjGEOM_BOX:
                 primitive.type = SolidPrimitive.BOX
                 primitive.dimensions = (geom_size * 2).tolist()
@@ -86,21 +103,32 @@ def make_planning_scene_msg(physics, exclude):
             collision_object.primitives.append(primitive)
             collision_object.primitive_poses.append(primitive_pose)
 
-        msg.world.collision_objects.append(collision_object)
+        initial_msg.world.collision_objects.append(collision_object)
 
-    return msg
+    return initial_msg
 
 
 class MoveitPlanningScenePublisher:
 
     def __init__(self, scene_topic: str = '/hdt_michigan/planning_scene', exclude: List[str] = None):
+        self.latest_msg = None
         self.exclude = exclude if exclude is not None else []
         self.exclude.extend(['val', 'rope', 'vgb_sphere'])
         self.pub = rospy.Publisher(scene_topic, PlanningScene, queue_size=10)
+        self.get_srv = rospy.ServiceProxy("/hdt_michigan/get_planning_scene", GetPlanningScene)
+
+        # we get the ACM, link padding, etc... from this, then we add on top the collision objects and robot state
+        planning_scene_response = self.get_srv()
+        self.initial_scene_from_move_group = planning_scene_response.scene
 
     def update(self, physics):
-        msg = make_planning_scene_msg(physics, self.exclude)
-        self.pub.publish(msg)
+        self.latest_msg = make_planning_scene_msg(physics, self.exclude, self.initial_scene_from_move_group)
+        self.pub.publish(self.latest_msg)
+
+    def get_planning_scene_msg(self, physics):
+        if self.latest_msg is None:
+            self.latest_msg = make_planning_scene_msg(physics, self.exclude, self.initial_scene_from_move_group)
+        return self.latest_msg
 
 
 class VoxelgridBuild(composer.Entity):
@@ -154,7 +182,8 @@ class ValRopeManipulation(BaseRopeManipulation):
         self.vgb = VoxelgridBuild(res=0.01)
 
         val_site = self._arena.attach(self._val)
-        val_site.pos = [0, 0, 0.0]
+        self.val_init_pos = np.array([0, 0, 0.15])
+        val_site.pos = self.val_init_pos
         static_env_site = self._arena.attach(self._static_env)
         static_env_site.pos = [1.22, -0.14, 0.1]
         static_env_site.quat = quaternion_from_euler(0, 0, -1.5707)
@@ -196,11 +225,7 @@ class ValRopeManipulation(BaseRopeManipulation):
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
             # this will overwrite the pose set when val is 'attach'ed to the arena
-            self.tfw.send_transform(parent='world', child='robot_root', is_static=True,
-                                    translation=[0, 0, 0.15], quaternion=[0, 0, 0, 1])
-            self._val.set_pose(physics,
-                               position=[0, 0, 0.15],
-                               quaternion=quaternion_from_euler(0, 0, 0))
+            self._val.set_pose(physics, position=self.val_init_pos)
             self.rope.set_pose(physics,
                                position=[0.5, -self.rope.length_m / 2, 0.6],
                                quaternion=quaternion_from_euler(0, 0, 1.5707))
@@ -315,7 +340,14 @@ class ValRopeManipulation(BaseRopeManipulation):
     def before_step(self, physics, action, random_state):
         self.psp.update(physics)
         super().before_step(physics, action, random_state)
+        self.tfw.send_transform(parent='world', child='robot_root', is_static=True,
+                                translation=self.val_init_pos, quaternion=[0, 0, 0, 1])
+        self.tfw.send_transform(parent='world', child='base_link', is_static=True,
+                                translation=self.val_init_pos, quaternion=[0, 0, 0, 1])
         physics.set_control(action)
+
+    def get_planning_scene_msg(self, physics):
+        return self.psp.get_planning_scene_msg(physics)
 
 
 @ros_init.with_ros("val_rope_task")
@@ -335,14 +367,25 @@ def main():
     from arm_robots.hdt_michigan import Val
     val = Val()
     val.set_execute(False)
-    start_state = RobotState()
-    start_state.joint_state.name = val.get_joint_names(group_name='both_arms')
 
-    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
+    start_scene = task.get_planning_scene_msg(env.physics)
+    val.store_current_tool_orientations([val.right_tool_name])
+    plan = val.follow_jacobian_to_position_from_scene_and_state(start_scene,
+                                                                start_scene.robot_state.joint_state,
+                                                                'both_arms',
+                                                                [val.right_tool_name],
+                                                                [[[0.8, -0.2, 0.4]]],
+                                                                vel_scaling=1.0)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+    return
+
+    start_scene = task.get_planning_scene_msg(env.physics)
     plan = val.plan_to_joint_config(group_name='both_arms',
                                     joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                    start_state=start_state)
+                                    # FIXME: this should take in the scene!!!
+                                    start_state=start_scene.robot_state.joint_state)
     task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+    return
 
     start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
     pose = Pose()
