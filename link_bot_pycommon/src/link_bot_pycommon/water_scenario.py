@@ -50,36 +50,65 @@ from std_msgs.msg import ColorRGBA
 from std_srvs.srv import Empty, EmptyRequest
 from visualization_msgs.msg import MarkerArray, Marker
 
+from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
+from softgym.utils.normalized_env import normalize
+from softgym.utils.visualization import save_numpy_as_gif
+from autolab_core import YamlConfig
+
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 
 control_box_name = "control_box"
 
+
 class WaterSimScenario(ScenarioWithVisualization):
     """
     Representation:
-    state: target/control pose, target/control volume
+    state: target/control pos, target/control volume
     goal: target_volume, tolerance
     action: goal x,z of control. theta, which can be 0.
     """
+
     def __init__(self, params: Optional[dict] = None):
         ScenarioWithVisualization.__init__(self, params)
         self.state_color_viz_pub = rospy.Publisher("state_color_viz", Image, queue_size=10, latch=True)
         self.state_depth_viz_pub = rospy.Publisher("state_depth_viz", Image, queue_size=10, latch=True)
         self.last_action = None
         self.pos3d = Position3D()
+        self._params = params
         self.max_action_attempts = 100
         self.robot_reset_rng = np.random.RandomState(0)
         self._make_softgym_env()
 
     def _make_softgym_env(self):
-        pass
+        softgym_env_name = "PourWater"
+        env_kwargs = env_arg_dict[softgym_env_name]
+
+        # Generate and save the initial states for running this environment for the first time
+        env_kwargs['use_cached_states'] = False
+        env_kwargs['save_cached_states'] = False
+        env_kwargs['num_variations'] = 1
+        env_kwargs['render'] = 1  # True
+        env_kwargs["action_repeat"] = 2
+        env_kwargs['headless'] = not self._params['gui']
+        self._n_envs = 1
+        self._env_idxs = [0]
+        self._save_cfg = self._params["save_cfg"]
+
+        if not env_kwargs['use_cached_states']:
+            print('Waiting to generate environment variations. May take 1 minute for each variation...')
+        self._scene = normalize(SOFTGYM_ENVS[softgym_env_name](**env_kwargs))
+        self._save_frames = self._save_cfg["save_frames"]
+        if self._save_frames:
+            self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
 
     def needs_reset(self, state: Dict, params: Dict):
-        raise NotImplementedError()
-
+        total_water_in_containers = state["control_volume"] + state["target_volume"]
+        if total_water_in_containers < 0.5:
+            return True
+        return False
 
     def get_environment(self, params: Dict, **kwargs):
-        env = {"env":np.zeros((40,40,40))}
+        env = {"env": np.zeros((40, 40, 40))}
         return env
 
     def hard_reset(self):
@@ -89,16 +118,33 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.on_before_action()
 
     def on_before_action(self):
-        self.register_fake_grasping()
-
-    def on_before_data_collection(self, params: Dict):
-        self.on_before_action()
-        init_action = {}
-        self.execute_action(None, None, init_action, wait=True)
-
-    def execute_action(self, environment, state, action: Dict, **kwargs):
         pass
 
+    def on_before_data_collection(self, params: Dict):
+        null_action = np.zeros(3, )
+        self._saved_data = self._scene.step(null_action, record_continuous_video=self._save_frames,
+                                            img_size=self._save_cfg["img_size"])
+
+    def execute_action(self, environment, state, action: Dict, **kwargs):
+        target_pos = action["controlled_container_target_pos"]
+        target_angle = action["controlled_container_target_angle"]
+        curr_state = state
+        for i in range(self._params["controller_max_horizon"]):
+            curr_pos = curr_state["controlled_container_pos"]
+            curr_angle = curr_state["controlled_container_angle"]
+            pos_error = target_pos - curr_pos
+            pos_control = self._params["k_pos"] * (pos_error)
+            angle_error = target_angle - curr_angle
+            angle_control = self._params["k_angle"] * (angle_error)
+
+            vector_action = np.hstack([pos_control, angle_control])
+
+            self._saved_data = self._scene.step(vector_action, record_continuous_video=self._save_frames,
+                                                img_size=self._save_cfg["img_size"])
+            _, _, _, info = self._saved_data
+            curr_state = self.get_state()
+            if self._save_frames:
+                self.frames.extend(info['flex_env_recorded_frames'])
 
     def dynamics_dataset_metadata(self):
         metadata = ScenarioWithVisualization.dynamics_dataset_metadata(self)
@@ -111,19 +157,22 @@ class WaterSimScenario(ScenarioWithVisualization):
                       action_params: Dict,
                       validate: bool,
                       stateless: Optional[bool] = False):
-        current_controlled_container_pos = state["controller_container_pose"]
+        current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
             is_pour = action_rng.randint(2)
             if is_pour:
-                random_angle = action_rng.random()
-                action = {"controlled_container_target_pos":current_controlled_container_pos,
-                          "controlled_container_angle": random_angle}
+                random_angle = action_rng.uniform(low=self._params["action_range"]["angle"][0],
+                                                  high=self._params["action_range"]["angle"][1])
+                action = {"controlled_container_target_pos":   current_controlled_container_pos,
+                          "controlled_container_target_angle": random_angle}
             else:
-                random_delta = action_rng.uniform(low=0.01, high=0.01, size=(2,))
-                action = {"controlled_container_target_pos": current_controlled_container_pos + random_delta,
-                          "controlled_container_angle": 0}
-            return action
-
+                random_x = action_rng.uniform(low=self._params["action_range"]["x"][0],
+                                              high=self._params["action_range"]["x"][1])
+                random_z = action_rng.uniform(low=self._params["action_range"]["z"][0],
+                                              high=self._params["action_range"]["z"][1])
+                action = {"controlled_container_target_pos":   np.array([random_x, random_z]),
+                          "controlled_container_target_angle": 0}
+            return action, False
 
     def is_action_valid(self, environment: Dict, state: Dict, action: Dict, action_params: Dict):
         return True
@@ -139,7 +188,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         return "control_box"
 
     def randomize_environment(self, env_rng, params: Dict):
-        pass
+        self._scene.reset()
 
     @staticmethod
     def put_state_local_frame(state: Dict):
@@ -157,18 +206,21 @@ class WaterSimScenario(ScenarioWithVisualization):
     def put_action_local_frame(state: Dict, action: Dict):
         raise NotImplementedError
 
-
     def get_state(self):
-        state = {"controlled_container_pos":np.array([0,1]),
-                 "target_container_pos": np.array([0,1]),
-                 "control_volume":0.01,
-                 "target_volume":0.99}
+        state_vector = self._saved_data[0][0]
+        # cup_state = np.array([self.glass_x, self.glass_y, self.glass_rotation, self.glass_dis_x, self.glass_dis_z, self.height,
+        # self.glass_distance + self.glass_x, self.poured_height, self.poured_glass_dis_x, self.poured_glass_dis_z,
+        # self._get_current_water_height(), in_poured_glass, in_control_glass])
+        state = {"controlled_container_pos":   state_vector[:2],
+                 "controlled_container_angle": state_vector[2],
+                 "target_container_pos":       np.array([-1, -1]),  # need to check this one
+                 "control_volume":             state_vector[-1],
+                 "target_volume":              state_vector[-2]}
         return state
-
 
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
         goal_target_volume = goal["goal_target_volume"]
-        return abs(state["target_volume"]-goal_target_volume)
+        return abs(state["target_volume"] - goal_target_volume)
 
     def goal_state_to_goal(self, goal_state: Dict, goal_type: str):
         raise NotImplementedError()
@@ -217,4 +269,3 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def is_action_valid(self, environment: Dict, state: Dict, action: Dict, action_params: Dict):
         return True
-
