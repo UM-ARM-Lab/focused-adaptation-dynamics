@@ -5,6 +5,7 @@ from dm_control import composer
 from dm_control import mjcf
 from dm_control.composer.observation import observable
 from dm_control.utils import inverse_kinematics
+from mujoco import mj_id2name, mju_str2Type, mju_mat2Quat, mjtGeom
 from transformations import quaternion_from_euler
 
 import rospy
@@ -14,8 +15,105 @@ from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_orde
     waypoint_error, make_follow_joint_trajectory_goal
 from dm_envs.base_rope_task import BaseRopeManipulation
 from geometry_msgs.msg import Pose
-from moveit_msgs.msg import RobotState
+from moveit_msgs.msg import RobotState, PlanningScene, CollisionObject
+from shape_msgs.msg import SolidPrimitive, Mesh
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+
+
+def make_planning_scene_msg(physics):
+    msg = PlanningScene()
+    msg.name = 'world'
+    msg.is_diff = False
+
+    for geom_id in range(physics.model.ngeom):
+        geom_name = mj_id2name(physics.model.ptr, mju_str2Type('geom'), geom_id)
+
+        geom_bodyid = physics.model.geom_bodyid[geom_id]
+        body_name = mj_id2name(physics.model.ptr, mju_str2Type('body'), geom_bodyid)
+
+        collision_object = CollisionObject()
+        collision_object.header.frame_id = 'world'
+        collision_object.operation = CollisionObject.ADD
+        collision_object.id = f'{body_name}-{geom_name}'
+
+        geom_type = physics.model.geom_type[geom_id]
+        body_pos = physics.data.xpos[geom_bodyid]
+        body_xmat = physics.data.xmat[geom_bodyid]
+        body_xquat = np.zeros(4)
+        mju_mat2Quat(body_xquat, body_xmat)
+        geom_pos = physics.data.geom_xpos[geom_id]
+        geom_xmat = physics.data.geom_xmat[geom_id]
+        geom_xquat = np.zeros(4)
+        mju_mat2Quat(geom_xquat, geom_xmat)
+        geom_size = physics.model.geom_size[geom_id]
+        geom_meshid = physics.model.geom_dataid[geom_id]
+
+        collision_object.pose.position.x = geom_pos[0]
+        collision_object.pose.position.y = geom_pos[1]
+        collision_object.pose.position.z = geom_pos[2]
+        collision_object.pose.orientation.w = geom_xquat[0]
+        collision_object.pose.orientation.x = geom_xquat[1]
+        collision_object.pose.orientation.y = geom_xquat[2]
+        collision_object.pose.orientation.z = geom_xquat[3]
+
+        if geom_type == mjtGeom.mjGEOM_MESH:
+            mesh = Mesh()
+            # TODO: implement me
+            # mesh_name = mj_id2name(physics.model.ptr, mju_str2Type('mesh'), geom_meshid)
+            # mesh_name = mesh_name.split("/")[1]  # skip the model prefix, e.g. val/my_mesh
+            # collision_object.type = Marker.MESH_RESOURCE
+            # collision_object.mesh_resource = f"package://dm_envs/meshes/{mesh_name}.stl"
+            #
+            # collision_object.scale.x = 1
+            # collision_object.scale.y = 1
+            # collision_object.scale.z = 1
+
+            mesh_pose = Pose()
+            mesh_pose.position.x = body_pos[0]
+            mesh_pose.position.y = body_pos[1]
+            mesh_pose.position.z = body_pos[2]
+            mesh_pose.orientation.w = body_xquat[0]
+            mesh_pose.orientation.x = body_xquat[1]
+            mesh_pose.orientation.y = body_xquat[2]
+            mesh_pose.orientation.z = body_xquat[3]
+
+            collision_object.meshes.append(mesh)
+            collision_object.mesh_poses.append(mesh_pose)
+        else:
+            primitive = SolidPrimitive()
+            primitive_pose = Pose()
+            if geom_type == mjtGeom.mjGEOM_BOX:
+                primitive.type = SolidPrimitive.BOX
+                primitive.dimensions = (geom_size * 2).tolist()
+            elif geom_type == mjtGeom.mjGEOM_CYLINDER:
+                primitive.type = SolidPrimitive.CYLINDER
+                primitive.dimensions = [geom_size[0] * 2, geom_size[0] * 2, geom_size[1] * 2]
+            elif geom_type == mjtGeom.mjGEOM_CAPSULE:
+                primitive.type = SolidPrimitive.CYLINDER
+                primitive.dimensions = [geom_size[0] * 2, geom_size[0] * 2, geom_size[1] * 2]
+            elif geom_type == mjtGeom.mjGEOM_SPHERE:
+                primitive.type = SolidPrimitive.SPHERE
+                primitive.dimensions = [geom_size[0] * 2, geom_size[0] * 2, geom_size[0] * 2]
+            else:
+                rospy.loginfo_once(f"Unsupported geom type {geom_type}")
+                continue
+
+            collision_object.primitives.append(primitive)
+            collision_object.primitive_poses.append(primitive_pose)
+
+        msg.world.collision_objects.append(collision_object)
+
+    return msg
+
+
+class MoveitPlanningScenePublisher:
+
+    def __init__(self, scene_topic: str = '/hdt_michigan/planning_scene'):
+        self.pub = rospy.Publisher(scene_topic, PlanningScene, queue_size=10)
+
+    def update(self, physics):
+        msg = make_planning_scene_msg(physics)
+        self.pub.publish(msg)
 
 
 class VoxelgridBuild(composer.Entity):
@@ -61,6 +159,7 @@ class ValRopeManipulation(BaseRopeManipulation):
         super().__init__(params)
 
         self.tfw = TF2Wrapper()
+        self.psp = MoveitPlanningScenePublisher()
 
         # other entities
         self._val = ValEntity()
@@ -227,6 +326,7 @@ class ValRopeManipulation(BaseRopeManipulation):
         return action_vec
 
     def before_step(self, physics, action, random_state):
+        self.psp.update(physics)
         super().before_step(physics, action, random_state)
         physics.set_control(action)
 
@@ -235,8 +335,8 @@ class ValRopeManipulation(BaseRopeManipulation):
 def main():
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = ValRopeManipulation({
-        'max_step_size': 0.001,
-        # 'static_env_filename': 'car1.xml',
+        'max_step_size':       0.001,
+        'static_env_filename': 'car1.xml',
     })
     env = composer.Environment(task, random_state=0, time_limit=9999)
 
@@ -252,6 +352,12 @@ def main():
     start_state.joint_state.name = val.get_joint_names(group_name='both_arms')
 
     start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
+    plan = val.plan_to_joint_config(group_name='both_arms',
+                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    start_state=start_state)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+
+    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
     pose = Pose()
     pose.position.x = 0.8
     pose.position.y = -0.2
@@ -265,12 +371,6 @@ def main():
                             ee_link_name='right_tool',
                             target_pose=pose,
                             start_state=start_state)
-    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-
-    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
-    plan = val.plan_to_joint_config(group_name='both_arms',
-                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                    start_state=start_state)
     task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
 
