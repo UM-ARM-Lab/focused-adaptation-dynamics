@@ -57,7 +57,7 @@ def make_planning_scene_msg(physics, exclude, initial_msg):
             continue
 
         collision_object = CollisionObject()
-        collision_object.header.frame_id = 'base_link'  # must match robot root link
+        collision_object.header.frame_id = 'world'  # must match robot root link
         collision_object.header.stamp = rospy.Time.now()
         collision_object.operation = CollisionObject.ADD
         collision_object.id = f'{body_name}-{geom_name}'
@@ -368,26 +368,7 @@ def main():
     val = Val()
     val.set_execute(False)
 
-    start_scene = task.get_planning_scene_msg(env.physics)
-    val.store_current_tool_orientations([val.right_tool_name])
-    plan = val.follow_jacobian_to_position_from_scene_and_state(start_scene,
-                                                                start_scene.robot_state.joint_state,
-                                                                'both_arms',
-                                                                [val.right_tool_name],
-                                                                [[[0.8, -0.2, 0.4]]],
-                                                                vel_scaling=1.0)
-    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-    return
 
-    start_scene = task.get_planning_scene_msg(env.physics)
-    plan = val.plan_to_joint_config(group_name='both_arms',
-                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                    # FIXME: this should take in the scene!!!
-                                    start_state=start_scene.robot_state.joint_state)
-    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-    return
-
-    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
     pose = Pose()
     pose.position.x = 0.8
     pose.position.y = -0.2
@@ -397,10 +378,27 @@ def main():
     pose.orientation.y = q[1]
     pose.orientation.z = q[2]
     pose.orientation.w = q[3]
+    start_scene = task.get_planning_scene_msg(env.physics)
     plan = val.plan_to_pose(group_name='right_side',
                             ee_link_name='right_tool',
                             target_pose=pose,
-                            start_state=start_state)
+                            start_state=start_scene.robot_state)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+
+    start_scene = task.get_planning_scene_msg(env.physics)
+    val.store_current_tool_orientations([val.right_tool_name])
+    plan = val.follow_jacobian_to_position_from_scene_and_state(start_scene,
+                                                                start_scene.robot_state.joint_state,
+                                                                'both_arms',
+                                                                [val.right_tool_name],
+                                                                [[[0.8, -0.2, 0.6]]],
+                                                                vel_scaling=1.0)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+
+    start_scene = task.get_planning_scene_msg(env.physics)
+    plan = val.plan_to_joint_config(group_name='both_arms',
+                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    start_state=start_scene.robot_state)
     task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
 
