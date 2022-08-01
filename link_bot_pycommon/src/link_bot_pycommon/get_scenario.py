@@ -72,6 +72,9 @@ def make_mj_val_rope_scenario():
     from dm_envs.mj_val_rope_scenario import MjValRopeScenario
     return MjValRopeScenario
 
+def make_water_scenario():
+    from link_bot_pycommon.water_scenario import WaterSimScenario
+    return WaterSimScenario
 
 scenario_map = {
     'link_bot':                                              make_rope_dragging_scenario,
@@ -93,6 +96,7 @@ scenario_map = {
     'blocks':                                                make_blocks_scenario,
     'cylinders':                                             make_cylinders_scenario,
     'toy':                                                   make_toy_scenario,
+    'watering':                                              make_water_scenario,
     'mj_floating_rope':                                      make_mj_floating_rope_scenario,
     'mj_val_rope':                                           make_mj_val_rope_scenario,
 }

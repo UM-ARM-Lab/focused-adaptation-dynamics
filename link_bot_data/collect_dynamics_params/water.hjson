@@ -1,0 +1,21 @@
+{
+  name: watering 
+  scenario: watering 
+  scenario_params: {
+  }
+  state_description: {
+    controlled_container_pos: 2
+    target_container_pos: 2
+    control_volume: 1
+    target_volume: 1
+  }
+  state_metadata_description: {
+  }
+  action_description: {
+    controlled_container_target_pos: 2
+    controlled_container_angle: 1
+  }
+  env_description: {
+    env: null
+  }
+}
