@@ -85,10 +85,20 @@ class MujocoVisualizer:
                 geom_marker_msg.scale.y = geom_size[0] * 2
                 geom_marker_msg.scale.z = geom_size[0] * 2
             elif geom_type == mjtGeom.mjGEOM_MESH:
-                continue
                 mesh_name = mj_id2name(physics.model.ptr, mju_str2Type('mesh'), geom_meshid)
                 mesh_name = mesh_name.split("/")[1]  # skip the model prefix, e.g. val/my_mesh
+                geom_marker_msg.type = Marker.MESH_RESOURCE
                 geom_marker_msg.mesh_resource = f"package://dm_envs/meshes/{mesh_name}.stl"
+
+                # We use body pos/quat here under the assumption that in the XML, the <geom type="mesh" ... />
+                #  has NO POS OR QUAT, but instead that info goes in the <body> tag
+                geom_marker_msg.pose.position.x = body_pos[0]
+                geom_marker_msg.pose.position.y = body_pos[1]
+                geom_marker_msg.pose.position.z = body_pos[2]
+                geom_marker_msg.pose.orientation.w = body_xquat[0]
+                geom_marker_msg.pose.orientation.x = body_xquat[1]
+                geom_marker_msg.pose.orientation.y = body_xquat[2]
+                geom_marker_msg.pose.orientation.z = body_xquat[3]
 
                 geom_marker_msg.scale.x = 1
                 geom_marker_msg.scale.y = 1

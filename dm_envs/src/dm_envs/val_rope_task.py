@@ -68,7 +68,7 @@ class ValRopeManipulation(BaseRopeManipulation):
         self.vgb = VoxelgridBuild(res=0.01)
 
         val_site = self._arena.attach(self._val)
-        val_site.pos = [0, 0, 0.15]
+        val_site.pos = [0, 0, 0.0]
         static_env_site = self._arena.attach(self._static_env)
         static_env_site.pos = [1.22, -0.14, 0.1]
         static_env_site.quat = quaternion_from_euler(0, 0, -1.5707)
