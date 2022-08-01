@@ -25,7 +25,7 @@ def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
     mde = load_model_artifact(mde_run_id, MDE, project='mde', version='best', user='armlab')
     dynamics_used_for_mde = mde.hparams['dataset_hparams']['checkpoint']
     if dynamics_used_for_mde != dynamics_run_id:
-        q = input(f"{dynamics_used_for_mde} != {mde_run_id} Do you want to override? [y/N]")
+        q = input(f"{dynamics_used_for_mde} != {dynamics_run_id} Do you want to override? [y/N]")
         if q != 'y':
             raise RuntimeError()
         print("Ok, continuing...")
