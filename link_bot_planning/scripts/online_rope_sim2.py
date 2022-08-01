@@ -208,7 +208,7 @@ def main():
             t0 = perf_counter()
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
-                                                   batch_size=4,
+                                                   batch_size=32,
                                                    steps=-1,
                                                    epochs=mde_init_epochs + i * mde_scale_epochs,
                                                    train_mode='all',

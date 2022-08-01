@@ -131,15 +131,8 @@ class UDNN(MetaModule, pl.LightningModule):
 
         batch_loss = batch_time_loss.sum(-1)
 
-        rope_reg_weight = self.hparams.get('rope_reg', 0)
-        initial_rope_segment_lengths = segment_lengths(inputs)
-        pred_rope_segment_lengths = segment_lengths(outputs)
-        pred_segment_length_loss = (pred_rope_segment_lengths - initial_rope_segment_lengths).norm(dim=-1).mean(-1)
-        batch_loss += rope_reg_weight * pred_segment_length_loss
-
         return {
             'loss':          batch_loss,
-            "rope_reg_loss": pred_segment_length_loss,
         }
 
     def low_error_mask(self, inputs, outputs):
@@ -198,7 +191,6 @@ class UDNN(MetaModule, pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
-        self.log('train_rope_reg_loss', losses['rope_reg_loss'])
 
         return losses['loss']
 
@@ -210,7 +202,6 @@ class UDNN(MetaModule, pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
         self.log('val_loss', val_losses['loss'])
-        self.log('val_rope_reg_loss', val_losses['rope_reg_loss'])
 
         return val_losses['loss']
 
@@ -218,7 +209,6 @@ class UDNN(MetaModule, pl.LightningModule):
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         self.log('test_loss', test_losses['loss'])
-        self.log('test_rope_reg_loss', test_losses['rope_reg_loss'])
 
         return test_losses['loss']
 
