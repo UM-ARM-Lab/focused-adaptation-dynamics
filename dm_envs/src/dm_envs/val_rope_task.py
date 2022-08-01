@@ -9,6 +9,7 @@ from transformations import quaternion_from_euler
 
 import rospy
 from arc_utilities import ros_init
+from arc_utilities.tf2wrapper import TF2Wrapper
 from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_ordered_tolerance_list, is_waypoint_reached, \
     waypoint_error, make_follow_joint_trajectory_goal
 from dm_envs.base_rope_task import BaseRopeManipulation
@@ -59,6 +60,8 @@ class ValRopeManipulation(BaseRopeManipulation):
     def __init__(self, params: Dict):
         super().__init__(params)
 
+        self.tfw = TF2Wrapper()
+
         # other entities
         self._val = ValEntity()
         self._static_env = StaticEnvEntity(params.get('static_env_filename', 'empty.xml'))
@@ -107,6 +110,8 @@ class ValRopeManipulation(BaseRopeManipulation):
     def initialize_episode(self, physics, random_state):
         with physics.reset_context():
             # this will overwrite the pose set when val is 'attach'ed to the arena
+            self.tfw.send_transform(parent='world', child='robot_root', is_static=True,
+                                    translation=[0, 0, 0.15], quaternion=[0, 0, 0, 1])
             self._val.set_pose(physics,
                                position=[0, 0, 0.15],
                                quaternion=quaternion_from_euler(0, 0, 0))
@@ -150,6 +155,7 @@ class ValRopeManipulation(BaseRopeManipulation):
     def follow_trajectory(self, env, trajectory: JointTrajectory):
         # TODO: make this generic so it could be used by Andrea in pybullet
         traj_goal = make_follow_joint_trajectory_goal(trajectory)
+        initial_joint_positions = env._observation_updater.get_observation()['joint_positions'].flatten()
 
         # Interpolate the trajectory to a fine resolution
         # if you set max_step_size to be large and position tolerance to be small, then things will be jerky
@@ -188,25 +194,19 @@ class ValRopeManipulation(BaseRopeManipulation):
                     is_waypoint_reached(actual_point, desired_point, goal_tolerance):
                 return True
 
-            action_vec = self.action_vec_from_positions_and_names(desired_point.positions, trajectory_joint_names)
+            action_vec = self.action_vec_from_positions_and_names(desired_point.positions, trajectory_joint_names,
+                                                                  initial_joint_positions)
             env.step(action_vec)
 
             error = waypoint_error(actual_point, desired_point)
             # print(trajectory_point_idx, len(trajectory.points), f"{error} {desired_point.time_from_start.to_sec()} {dt.to_sec()}")
-            if desired_point.time_from_start.to_sec() > 0 and dt > desired_point.time_from_start * 5.0:
+            if desired_point.time_from_start.to_sec() > 0 and dt > desired_point.time_from_start * 2.0:
                 if trajectory_point_idx == len(interpolated_points) - 1:
-                    stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-                               + f" error to waypoint is {error}, goal tolerance is {goal_tolerance}"
+                    print(f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
+                          + f" error to waypoint is {error}, goal tolerance is {goal_tolerance}")
                 else:
-                    stop_msg = f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-                               + f" error to waypoint is {error}, tolerance is {tolerance}"
-
-                # command the current configuration
-                action_vec = self.action_vec_from_positions_and_names(actual_point.positions, trajectory_joint_names)
-                print(dt.to_sec())
-                env.step(action_vec)
-                rospy.loginfo("Preempt requested, aborting.")
-                rospy.logwarn(f"Stopped with message: {stop_msg}")
+                    print(f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
+                          + f" error to waypoint is {error}, tolerance is {tolerance}")
                 return True
 
     def get_joint_positions(self, env, joint_names):
@@ -218,11 +218,12 @@ class ValRopeManipulation(BaseRopeManipulation):
             actual_joint_positions.append(obs['joint_positions'][0, i])
         return actual_joint_positions
 
-    def action_vec_from_positions_and_names(self, positions, trajectory_joint_names):
-        action_vec = np.zeros(len(self.actuated_joint_names))
-        for j, n in enumerate(trajectory_joint_names):
-            i = self.actuated_joint_names.index(f'val/{n}')
-            action_vec[i] = positions[j]
+    def action_vec_from_positions_and_names(self, positions, trajectory_joint_names, initial_joint_positions):
+        action_vec = initial_joint_positions.copy()
+        for i, a in enumerate(self._actuators):
+            if a.joint.name in trajectory_joint_names:
+                j = trajectory_joint_names.index(a.joint.name)
+                action_vec[i] = positions[j]
         return action_vec
 
     def before_step(self, physics, action, random_state):
@@ -234,8 +235,8 @@ class ValRopeManipulation(BaseRopeManipulation):
 def main():
     np.set_printoptions(suppress=True, precision=4, linewidth=250)
     task = ValRopeManipulation({
-        'max_step_size':       0.001,
-        'static_env_filename': 'car1.xml',
+        'max_step_size': 0.001,
+        # 'static_env_filename': 'car1.xml',
     })
     env = composer.Environment(task, random_state=0, time_limit=9999)
 
@@ -249,27 +250,27 @@ def main():
     val.set_execute(False)
     start_state = RobotState()
     start_state.joint_state.name = val.get_joint_names(group_name='both_arms')
-    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
-    plan = val.plan_to_joint_config(group_name='both_arms',
-                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                    start_state=start_state)
-    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-    return
 
     start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
     pose = Pose()
     pose.position.x = 0.8
     pose.position.y = -0.2
     pose.position.z = 0.4
-    q = quaternion_from_euler(0, np.pi, -np.pi / 4)
+    q = quaternion_from_euler(0, 0, 0)
     pose.orientation.x = q[0]
     pose.orientation.y = q[1]
     pose.orientation.z = q[2]
     pose.orientation.w = q[3]
-    plan = val.plan_to_pose(group_name='both_arms',
+    plan = val.plan_to_pose(group_name='right_side',
                             ee_link_name='right_tool',
                             target_pose=pose,
                             start_state=start_state)
+    task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+
+    start_state.joint_state.position = task.get_joint_positions(env, start_state.joint_state.name)
+    plan = val.plan_to_joint_config(group_name='both_arms',
+                                    joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    start_state=start_state)
     task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
 

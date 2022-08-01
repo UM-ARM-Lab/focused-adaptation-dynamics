@@ -33,9 +33,6 @@ class MujocoVisualizer:
             geom_bodyid = physics.model.geom_bodyid[geom_id]
             body_name = mj_id2name(physics.model.ptr, mju_str2Type('body'), geom_bodyid)
 
-            if geom_name != 'val/box':
-                continue
-
             geom_marker_msg = Marker()
             geom_marker_msg.action = Marker.ADD
             geom_marker_msg.header.frame_id = 'world'
@@ -51,8 +48,6 @@ class MujocoVisualizer:
             geom_xmat = physics.data.geom_xmat[geom_id]
             geom_xquat = np.zeros(4)
             mju_mat2Quat(geom_xquat, geom_xmat)
-            mesh_geom_pos = physics.model.geom_pos[geom_id]
-            mesh_goem_quat = physics.model.geom_quat[geom_id]
             geom_size = physics.model.geom_size[geom_id]
             geom_rgba = physics.model.geom_rgba[geom_id]
             geom_meshid = physics.model.geom_dataid[geom_id]
@@ -90,26 +85,10 @@ class MujocoVisualizer:
                 geom_marker_msg.scale.y = geom_size[0] * 2
                 geom_marker_msg.scale.z = geom_size[0] * 2
             elif geom_type == mjtGeom.mjGEOM_MESH:
-                geom_marker_msg.type = Marker.MESH_RESOURCE
+                continue
                 mesh_name = mj_id2name(physics.model.ptr, mju_str2Type('mesh'), geom_meshid)
                 mesh_name = mesh_name.split("/")[1]  # skip the model prefix, e.g. val/my_mesh
                 geom_marker_msg.mesh_resource = f"package://dm_envs/meshes/{mesh_name}.stl"
-
-                # final_geom_pos = geom_pos - mesh_geom_pos
-                # neg_mesh_geom_quat = np.zeros(4)
-                # mju_negQuat(neg_mesh_geom_quat, mesh_goem_quat)
-                # final_geom_xquat = np.zeros(4)
-                # mju_mulQuat(final_geom_xquat, geom_xquat, neg_mesh_geom_quat)
-                final_geom_pos = body_pos
-                final_geom_xquat = body_xquat
-
-                geom_marker_msg.pose.position.x = final_geom_pos[0]
-                geom_marker_msg.pose.position.y = final_geom_pos[1]
-                geom_marker_msg.pose.position.z = final_geom_pos[2]
-                geom_marker_msg.pose.orientation.w = final_geom_xquat[0]
-                geom_marker_msg.pose.orientation.x = final_geom_xquat[1]
-                geom_marker_msg.pose.orientation.y = final_geom_xquat[2]
-                geom_marker_msg.pose.orientation.z = final_geom_xquat[3]
 
                 geom_marker_msg.scale.x = 1
                 geom_marker_msg.scale.y = 1
