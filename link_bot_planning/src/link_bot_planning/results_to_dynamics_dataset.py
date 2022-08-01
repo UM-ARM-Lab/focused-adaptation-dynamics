@@ -89,8 +89,6 @@ class ResultsToDynamicsDataset:
                     'origin_point': 3,
                     'res':          None,
                     'scene_msg':    None,
-                    'sdf':          None,
-                    'sdf_grad':     None,
                 },
             },
         }
