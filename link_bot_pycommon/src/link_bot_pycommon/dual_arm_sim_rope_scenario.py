@@ -172,7 +172,8 @@ class SimDualArmRopeScenario(BaseDualArmRopeScenario):
         self.heartbeat()
         self.service_provider.play()
 
-        self.move_objects_out_of_scene(params)
+        print("skipping move")
+        # self.move_objects_out_of_scene(params)
         self.detach_rope_from_grippers()
 
         with rosbag.Bag(bagfile_name) as bag:
@@ -186,7 +187,8 @@ class SimDualArmRopeScenario(BaseDualArmRopeScenario):
         self.robot.plan_to_joint_config("whole_body", joint_config)
 
         self.service_provider.pause()
-        self.service_provider.restore_from_bag(bagfile_name, excluded_models=[self.robot_name(), 'kinect2'])
+        print("skipping restore")
+        # self.service_provider.restore_from_bag(bagfile_name, excluded_models=[self.robot_name(), 'kinect2'])
         self.grasp_rope_endpoints(settling_time=1.0)
         self.service_provider.play()
 
