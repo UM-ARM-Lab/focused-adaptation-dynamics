@@ -184,7 +184,9 @@ def main():
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab',
-                                                                     online=True,  # gets stored in run config
+                                                                     # extra args get stored in run config
+                                                                     online=True,
+                                                                     online_iter=i,
                                                                      )
                 print(f'{dynamics_run_id=}')
                 sub_chunker_i.store_result(f"dynamics_run_id", dynamics_run_id)
@@ -219,7 +221,9 @@ def main():
                                                    seed=seed,
                                                    user='armlab',
                                                    nickname=f'{args.nickname}_mde_{i}',
-                                                   online=True,  # gets stored in run config
+                                                   # extra args get stored in run config
+                                                   online=True,
+                                                   online_iter=i,
                                                    )
             sub_chunker_i.store_result('mde_run_id', mde_run_id)
             dt = perf_counter() - t0
