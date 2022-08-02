@@ -8,6 +8,7 @@ from time import perf_counter, sleep
 import rospkg
 from more_itertools import chunked
 
+from link_bot_data.base_collect_dynamics_data import collect_dynamics_data
 from link_bot_gazebo import gazebo_utils
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.pycommon import pathify
@@ -33,7 +34,7 @@ from state_space_dynamics import train_test_dynamics
 limit_gpu_mem(None)  # just in case TF is used somewhere
 
 
-@ros_init.with_ros("save_as_test_scene")
+@ros_init.with_ros("online_rope_sim")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
@@ -44,32 +45,40 @@ def main():
     ou.setLogLevel(ou.LOG_ERROR)
     wandb_lightning_magic()
 
-    root = pathlib.Path("results/online_adaptation")
+    root = pathlib.Path("/media/shared/online_adaptation")
     outdir = root / args.nickname
     outdir.mkdir(exist_ok=True, parents=True)
     print(Fore.YELLOW + "Output directory: {}".format(outdir) + Fore.RESET)
 
     r = rospkg.RosPack()
     dynamics_pkg_dir = pathlib.Path(r.get_path('state_space_dynamics'))
+    data_pkg_dir = pathlib.Path(r.get_path('link_bot_data'))
     mde_pkg_dir = pathlib.Path(r.get_path('mde'))
 
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 
-    method_name = job_chunker.load_prompt('method_name')
-    unadapted_run_id = job_chunker.load_prompt('unadapted_run_id')
-    seed = int(job_chunker.load_prompt('seed'))
+    method_name = job_chunker.load_prompt('method_name', 'adaptation')
+    unadapted_run_id = job_chunker.load_prompt('unadapted_run_id', 'sim_rope_unadapted-dme7l')
+    seed = int(job_chunker.load_prompt('seed', 0))
+    collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
+                                                                    'collect_dynamics_params/alt_rope_100.hjson')
+    collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/val_car/mde_online_learning.hjson')
     planner_params = load_planner_params(planner_params_filename)
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))
-    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 5))
+    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
+    udnn_init_epochs = int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 3))
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_all.hjson"
     elif method_name == 'all_data':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data.hjson"
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
     elif method_name == 'no_adaptation':
         dynamics_params_filename = None
     else:
@@ -96,33 +105,51 @@ def main():
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
-            classifiers.append(f'p:{prev_mde_run_id}')
+            classifiers.append(f'p:model-{prev_mde_run_id}:latest')
         else:
             prev_dynamics_run_id = unadapted_run_id
 
         planning_outdir = pathify(planning_job_chunker.get('planning_outdir'))
+        if i == 0:
+            planning_trials = None
+        else:
+            planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
         if planning_outdir is None:
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
+            planner_params['method_name'] = method_name
             planner_params["classifier_model_dir"] = classifiers
-            planner_params['fwd_model_dir'] = f'p:{prev_dynamics_run_id}'
-            trials = next(trial_indices_generator)
+            planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
             gazebo_utils.resume()
-            sleep(5)
-            evaluate_planning(planner_params=planner_params,
-                              job_chunker=planning_job_chunker,
-                              outdir=planning_outdir,
-                              test_scenes_dir=test_scenes_dir,
-                              trials=trials,
-                              seed=seed,
-                              how_to_handle=args.on_exception)
+            if i == 0:
+                dynamics_dataset_dir_i = None
+                for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
+                                                                       n_trajs=10,
+                                                                       root=outdir,
+                                                                       nickname=f'{args.nickname}_dynamics_dataset_{i}',
+                                                                       val_split=0,
+                                                                       test_split=0,
+                                                                       seed=seed):
+                    pass
+                wandb_save_dataset(dynamics_dataset_dir_i, 'udnn', entity='armlab')
+                dynamics_dataset_name = dynamics_dataset_dir_i.name
+                sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
+            else:
+                evaluate_planning(planner_params=planner_params,
+                                  job_chunker=planning_job_chunker,
+                                  outdir=planning_outdir,
+                                  test_scenes_dir=test_scenes_dir,
+                                  trials=planning_trials,
+                                  seed=seed,
+                                  how_to_handle=args.on_exception)
             gazebo_utils.suspend()
             planning_job_chunker.store_result('planning_outdir', planning_outdir.as_posix())
             dt = perf_counter() - t0
             planning_job_chunker.store_result('planning_outdir_dt', dt)
 
         # convert the planning results to a dynamics dataset
+        # NOTE: if we use random data collection on iter0 this will already be set so conversion will be skipped
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
         if dynamics_dataset_name is None:
             t0 = perf_counter()
@@ -130,6 +157,8 @@ def main():
                                          outname=f'{args.nickname}_dynamics_dataset_{i}',
                                          root=outdir / 'dynamics_datasets',
                                          traj_length=100,
+                                         val_split=0,
+                                         test_split=0,
                                          visualize=False)
             dynamics_dataset_dir_i = r.run()
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
@@ -137,6 +166,7 @@ def main():
             sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
             dt = perf_counter() - t0
             planning_job_chunker.store_result('dynamics_dataset_name_dt', dt)
+            sleep(10)  # in case wandb hasn't synced yet...
 
         dynamics_dataset_dirs.append(dynamics_dataset_name)
 
@@ -148,12 +178,14 @@ def main():
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
-                                                                     steps=10_000,
-                                                                     epochs=-1,
+                                                                     steps=-1,
+                                                                     epochs=udnn_init_epochs + i * udnn_scale_epochs,
                                                                      repeat=100,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
-                                                                     user='armlab')
+                                                                     user='armlab',
+                                                                     online=True,  # gets stored in run config
+                                                                     )
                 print(f'{dynamics_run_id=}')
                 sub_chunker_i.store_result(f"dynamics_run_id", dynamics_run_id)
                 dt = perf_counter() - t0
@@ -162,7 +194,7 @@ def main():
         mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
         if mde_dataset_name is None:
             t0 = perf_counter()
-            mde_dataset_name = f'{args.nickname}_mde_dataset_{i}'
+            mde_dataset_name = pathlib.Path(f'{args.nickname}_mde_dataset_{i}')
             mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
             mde_dataset_outdir.mkdir(parents=True, exist_ok=True)
             make_mde_dataset(dataset_dir=fetch_udnn_dataset(dynamics_dataset_name),
@@ -179,14 +211,16 @@ def main():
             t0 = perf_counter()
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
-                                                   batch_size=4,
-                                                   epochs=-1,
-                                                   steps=i * 1_000 + 10_000,
+                                                   batch_size=32,
+                                                   steps=-1,
+                                                   epochs=mde_init_epochs + i * mde_scale_epochs,
                                                    train_mode='all',
                                                    val_mode='all',
                                                    seed=seed,
                                                    user='armlab',
-                                                   nickname=f'{args.nickname}_mde_{i}')
+                                                   nickname=f'{args.nickname}_mde_{i}',
+                                                   online=True,  # gets stored in run config
+                                                   )
             sub_chunker_i.store_result('mde_run_id', mde_run_id)
             dt = perf_counter() - t0
             planning_job_chunker.store_result('fine_tune_mde_dt', dt)

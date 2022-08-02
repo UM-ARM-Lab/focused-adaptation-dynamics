@@ -56,6 +56,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
         run_id = nickname + '-' + run_id
 
     params = load_hjson(params_filename)
+    params.update(kwargs)
 
     data_module = UDNNDataModule(dataset_dir,
                                  batch_size=batch_size,
