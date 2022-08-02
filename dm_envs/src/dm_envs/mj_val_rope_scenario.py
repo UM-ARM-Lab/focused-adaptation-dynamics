@@ -1,19 +1,29 @@
-from time import perf_counter
 from typing import Dict
 
 import mujoco
 import numpy as np
 from tqdm import tqdm
 
-from dm_envs.mj_floating_rope_scenario import MjFloatingRopeScenario, interp_to
+import dm_envs.abstract_follow_trajectory
+from arm_robots.hdt_michigan import Val
+from dm_envs.mj_floating_rope_scenario import MjFloatingRopeScenario
 from dm_envs.val_rope_task import ValRopeManipulation
 from link_bot_pycommon.grid_utils_np import extent_to_env_shape, idx_to_point_3d_from_origin_point
+from tf import transformations
 
 
 class MjValRopeScenario(MjFloatingRopeScenario):
 
     def __init__(self, params: Dict):
         super().__init__(params)
+
+        self.val_planner = Val()
+        self.val_planner.set_execute(False)
+        self.val_planner.store_tool_orientations({
+            # Here we use tf.transformations because it uses [x,y,z,w] convention which is what arm_robots uses
+            'left_tool':  transformations.quaternion_from_euler(-1.779, -1.043, -2.0),
+            'right_tool': transformations.quaternion_from_euler(np.pi, -1.408, 0.9),
+        })
 
     def on_before_data_collection(self, params: Dict):
         super().setup_task_and_env(params)
@@ -36,6 +46,9 @@ class MjValRopeScenario(MjFloatingRopeScenario):
         init_state = self.get_state()
         self.execute_action(None, init_state, init_action)
 
+        for i in range(100):
+            self.env.step(None)
+
     def get_environment(self, params: Dict, **kwargs):
         env = super().get_environment(params)
         res = np.float32(params['res'])
@@ -56,16 +69,12 @@ class MjValRopeScenario(MjFloatingRopeScenario):
             return False
 
         vg = np.zeros(shape, dtype=np.float32)
-        for row, col, channel in tqdm(np.ndindex(*shape), total=np.prod(shape)):
+        for row, col, channel in np.ndindex(*shape):
             xyz = idx_to_point_3d_from_origin_point(row, col, channel, res, env['origin_point'])
             if in_collision(xyz):
                 vg[row, col, channel] = 1
 
-        env.update({
-            'res':    res,
-            'extent': extent,
-            'env':    env,
-        })
+        env['env'] = vg
         return env
 
     def get_state(self):
@@ -78,44 +87,18 @@ class MjValRopeScenario(MjFloatingRopeScenario):
     def execute_action(self, environment, state, action: Dict):
         end_trial = False
 
-        # local controller with time and error based stopping conditions, as well as interpolation
-        target_action_vec = np.concatenate((action['left_gripper_position'], action['left_gripper_quat'],
-                                            action['right_gripper_position'], action['right_gripper_quat']))
-
-        end_trial = False
-        position_threshold = 0.001
-        desired_speed = 0.1  # m/s
-        time_fudge_factor = 2
-        d_per_step = desired_speed * self.env.control_timestep()
-        expected_distance = np.mean([np.linalg.norm(action['left_gripper_position'] - state['left_gripper']),
-                                     np.linalg.norm(action['right_gripper_position'] - state['right_gripper'])])
-        timeout = expected_distance / desired_speed * time_fudge_factor
-        tmp_target_action_vec = self.task.current_action_vec(self.env.physics)
-
-        t0 = perf_counter()
-        while True:
-            tmp_target_action_vec
-            joint_action_vec = self.task.solve_ik(target_pos=[])
-            # _, qdes = task.solve_ik(target_pos=[0, task.rope.length_m / 2, 0.05],
-            #                         target_quat=quaternion_from_euler(0, -np.pi, 0),
-            #                         site_name='val/left_tool')
-            self.env.step(joint_action_vec)
-
-            current_vec = self.task.current_action_vec(self.env.physics)
-
-            position_error = np.linalg.norm(current_vec - target_action_vec)
-            positions_reached = position_error < position_threshold
-            if positions_reached:
-                break
-
-            dt = perf_counter() - t0
-            timeout_reached = dt > timeout
-            if timeout_reached:
-                break
-
-            tmp_target_action_vec = interp_to(target_action_vec, current_vec, d_per_step)
-
-        return end_trial
+        tool_names = [self.val_planner.left_tool_name, self.val_planner.right_tool_name]
+        scene = self.task.get_planning_scene_msg(self.env.physics)
+        left_gripper_point = action['left_gripper_position']
+        right_gripper_point = action['right_gripper_position']
+        grippers = [[left_gripper_point], [right_gripper_point]]
+        result = self.val_planner.follow_jacobian_to_position_from_scene_and_state(group_name="both_arms",
+                                                                                   scene_msg=scene,
+                                                                                   joint_state=scene.robot_state.joint_state,
+                                                                                   tool_names=tool_names,
+                                                                                   points=grippers,
+                                                                                   vel_scaling=1)
+        dm_envs.abstract_follow_trajectory.follow_trajectory(self.env, result.planning_result.plan.joint_trajectory)
 
         return end_trial
 

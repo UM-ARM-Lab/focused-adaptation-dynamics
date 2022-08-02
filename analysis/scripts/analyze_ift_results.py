@@ -19,8 +19,8 @@ limit_gpu_mem(0.1)
 def metrics_main(args):
     outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
 
-    w = 1
-    max_iter = 100
+    w = 5
+    max_iter = 15
     x_max = max_iter + 0.01
     ci = 95
     te_max = 0.25
@@ -29,116 +29,81 @@ def metrics_main(args):
 
     # z2 = df.groupby(iter_key).agg('mean').rolling(w).agg('mean')  # groupby iter_key also sorts by default
     # fig, ax = lineplot(z2, iter_key, 'success', 'Success Rate [all combined] (rolling)')
-    # ax.set_xlim(-0.01, x_max)
     # ax.set_ylim(-0.01, 1.01)
 
     # compute rolling average per run
 
     method_name_map = {
-        '/media/shared/ift/small-hooks-diverse-aug':      'Augmentation (full method)',
-        '/media/shared/ift/small-hooks-diverse-no-aug':   'No Augmentation (baseline)',
-        '/media/shared/ift_ablations/no_occupancy':       'Augmentation (No occupancy)',
-        '/media/shared/ift_ablations/no_invariance':      'Augmentation (No transf. Val.)',
-        '/media/shared/ift_ablations/no_delta_min_dist':  'Augmentation (No delta min dist)',
-        '/media/shared/ift_ablations/no_min_delta_dist':  'Augmentation (No delta min dist)',
-        '/media/shared/ift_ablations/noise':              'Gaussian Noise (baseline)',
-        '../link_bot_planning/real_val_ift/aug':          'Augmentation (full method)',
-        '../link_bot_planning/results/online_adaptation': 'Adaptation (full method)',
-        'results/ift/debugging_vae-2/':                   'VAE (baseline)',
-        '/media/shared/ift_ablations/vae':                'VAE (baseline)',
+        '/media/shared/online_adaptation/v7':          'Adaptation (ours)',
+        '/media/shared/online_adaptation/v7_all_data': 'All Data (baseline)',
     }
 
     for i, k in enumerate(method_name_map.keys()):
         indices, = np.where(df['data_filename'].str.startswith(k))
         df.loc[indices, 'method_idx'] = i
 
-    agg = {
-        'success':           'mean',
-        'task_error':        'mean',
-        # 'normalized_model_error':      'mean',
-        # 'combined_error':              'mean',
-        # 'min_error_discrepancy':       'mean',
-        # 'total_time':                  'mean',
-        # 'min_planning_error':          'mean',
-        # 'mean_error_accept_agreement': 'mean',
-        # 'mean_accept_probability':     'mean',
-        'used_augmentation': rlast,
-        'method_idx':        rlast,
-        iter_key:            rlast,
-    }
-
-    df_r = df.sort_values(iter_key).groupby('ift_uuid').rolling(w).agg(agg)
-    # hack for the fact that for iter=0 used_augmentation is always 0, even on runs where augmentation is used.
     method_name_values = []
-    for method_idx in df_r['method_idx'].values:
+    for method_idx in df['method_idx'].values:
         if np.isnan(method_idx):
             method_name_values.append(np.nan)
         else:
             k = list(method_name_map.keys())[int(method_idx)]
             method_name_values.append(method_name_map[k])
-    df_r['method_name'] = method_name_values
+    df['method_name'] = method_name_values
+
+    agg = {
+        'success':                'mean',
+        'task_error':             'mean',
+        'normalized_model_error': 'mean',
+        'used_augmentation':      rlast,
+        'method_idx':             rlast,
+        iter_key:                 rlast,
+    }
+
+    df_r = df.sort_values(iter_key).groupby('ift_uuid').rolling(w).agg(agg)
+    # hack for the fact that for iter=0 used_augmentation is always 0, even on runs where augmentation is used.
+    method_name_values_r = []
+    for method_idx in df_r['method_idx'].values:
+        if np.isnan(method_idx):
+            method_name_values_r.append(np.nan)
+        else:
+            k = list(method_name_map.keys())[int(method_idx)]
+            method_name_values_r.append(method_name_map[k])
+    df_r['method_name'] = method_name_values_r
 
     # pvalues_at_iter(df_r, method_name_values, 99)
     # print_values_for_ablations_table(df_r, method_name_values, 99)
 
-    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='used_augmentation')
-    ax.set_xlim(-0.01, x_max)
+    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=None)
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 
+    fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
+    plt.savefig(outdir / f'normalized_model_error.png')
+
     fig, ax = lineplot(df_r, iter_key, 'success', f'Rope Manipulation, Rolling Avg. Success', hue='method_name', ci=ci)
-    # fig, ax = lineplot(df_r, iter_key, 'success', f'Success Rate (rolling={w})', hue='used_augmentation', ci=ci)
-    ax.set_xlim(-0.01, x_max)
     ax.set_ylim(-0.01, 1.01)
     ax.set_xlabel("Iteration")
-    # ax.axhline(0.8125, color='black', linewidth=4, label='heuristic classifier')
     ax.legend()
+    plt.show()
     plt.savefig(outdir / f'success_rate_rolling.png', dpi=180)
 
-    # fig, ax = lineplot(df, iter_key, 'any_solved', 'Any Solved', hue='used_augmentation')
+    # fig, ax = lineplot(df, iter_key, 'any_solved', 'Any Solved', hue='method_name')
     # plt.savefig(outdir / f'any_solved.png')
     #
     # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error (separate)', hue='ift_uuid')
-    # ax.set_xlim(-0.01, x_max)
 
-    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='used_augmentation')
+    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
     # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
-    # ax.set_xlim(-0.01, x_max)
 
-    fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='used_augmentation', ci=ci)
-    ax.set_xlim(-0.01, x_max)
+    fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='method_name', ci=ci)
     ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
     ax.legend()
     plt.savefig(outdir / f'task_error_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'combined_error', f'Combined Score (rolling={w})', hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # plt.savefig(outdir / f'combined_error_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'min_error_discrepancy', f'Error Discrepancy (rolling={w})',
-    #                    hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # plt.savefig(outdir / f'min_error_discrepancy_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'min_planning_error', f'Planning Error (rolling={w})', hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # plt.savefig(outdir / f'min_planning_error_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'normalized_model_error', f'Normalized Model Error (rolling={w})',
-    #                    hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # ax.set_ylim(0.0, nme_max)
-    # plt.savefig(outdir / f'normalized_model_error_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'mean_error_accept_agreement', f'Error-Accept Agreement (rolling={w})',
-    #                    hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # plt.savefig(outdir / f'error_accept_agreement_rolling.png')
-    #
-    # fig, ax = lineplot(df_r, iter_key, 'mean_accept_probability', f'Accept Probability (rolling={w})',
-    #                    hue='used_augmentation')
-    # ax.set_xlim(-0.01, x_max)
-    # plt.savefig(outdir / f'accept_probability_rolling.png')
+
+    fig, ax = lineplot(df_r, iter_key, 'normalized_model_error', f'Normalized Model Error (rolling={w})',
+                       hue='method_name')
+    plt.savefig(outdir / f'normalized_model_error_rolling.png')
 
     if not args.no_plot:
         plt.show()

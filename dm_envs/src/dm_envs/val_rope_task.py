@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from dm_control import composer
@@ -11,14 +11,13 @@ from transformations import quaternion_from_euler
 import rospy
 from arc_utilities import ros_init
 from arc_utilities.tf2wrapper import TF2Wrapper
-from arm_robots.robot_utils import interpolate_joint_trajectory_points, get_ordered_tolerance_list, is_waypoint_reached, \
-    waypoint_error, make_follow_joint_trajectory_goal
+from dm_envs.abstract_follow_trajectory import follow_trajectory
 from dm_envs.base_rope_task import BaseRopeManipulation
 from geometry_msgs.msg import Pose
 from moveit_msgs.msg import PlanningScene, CollisionObject
 from moveit_msgs.srv import GetPlanningScene
 from shape_msgs.msg import SolidPrimitive
-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from trajectory_msgs.msg import JointTrajectory
 
 
 def make_planning_scene_msg(physics, exclude, initial_msg):
@@ -172,7 +171,6 @@ class ValRopeManipulation(BaseRopeManipulation):
 
     def __init__(self, params: Dict):
         super().__init__(params)
-
         self.tfw = TF2Wrapper()
         self.psp = MoveitPlanningScenePublisher()
 
@@ -264,70 +262,29 @@ class ValRopeManipulation(BaseRopeManipulation):
         physics.model.eq_active[:] = np.ones(1)
 
     def follow_trajectory(self, env, trajectory: JointTrajectory):
-        # TODO: make this generic so it could be used by Andrea in pybullet
-        traj_goal = make_follow_joint_trajectory_goal(trajectory)
-        initial_joint_positions = env._observation_updater.get_observation()['joint_positions'].flatten()
+        def _get_joint_positions(joint_names: Optional[List[str]] = None) -> np.ndarray:
+            return self.get_joint_positions(env, joint_names)
 
-        # Interpolate the trajectory to a fine resolution
-        # if you set max_step_size to be large and position tolerance to be small, then things will be jerky
-        if len(trajectory.points) == 0:
-            rospy.loginfo("Ignoring empty trajectory")
-            return True
-
-        # construct a list of the tolerances in order of the joint names
-        trajectory_joint_names = trajectory.joint_names
-        tolerance = get_ordered_tolerance_list(trajectory_joint_names, traj_goal.path_tolerance)
-        goal_tolerance = get_ordered_tolerance_list(trajectory_joint_names, traj_goal.goal_tolerance, is_goal=True)
-        interpolated_points = interpolate_joint_trajectory_points(trajectory.points, max_step_size=0.01)
-
-        if len(interpolated_points) == 0:
-            rospy.loginfo("Trajectory was empty after interpolation")
-            return True
-
-        trajectory_point_idx = 0
-        t0 = rospy.Time.now()
-        while True:
-            # tiny sleep lets the listeners process messages better, results in smoother following
-            rospy.sleep(1e-3)
-            dt = rospy.Time.now() - t0
-
-            # get feedback
-            actual_joint_positions = self.get_joint_positions(env, trajectory_joint_names)
-
-            actual_point = JointTrajectoryPoint(positions=actual_joint_positions, time_from_start=dt)
-            while trajectory_point_idx < len(interpolated_points) - 1 and \
-                    is_waypoint_reached(actual_point, interpolated_points[trajectory_point_idx], tolerance):
-                trajectory_point_idx += 1
-
-            desired_point = interpolated_points[trajectory_point_idx]
-
-            if trajectory_point_idx >= len(interpolated_points) - 1 and \
-                    is_waypoint_reached(actual_point, desired_point, goal_tolerance):
-                return True
-
+        def _command_and_simulate(desired_point, trajectory_joint_names, initial_joint_positions):
             action_vec = self.action_vec_from_positions_and_names(desired_point.positions, trajectory_joint_names,
                                                                   initial_joint_positions)
             env.step(action_vec)
 
-            error = waypoint_error(actual_point, desired_point)
-            # print(trajectory_point_idx, len(trajectory.points), f"{error} {desired_point.time_from_start.to_sec()} {dt.to_sec()}")
-            if desired_point.time_from_start.to_sec() > 0 and dt > desired_point.time_from_start * 2.0:
-                if trajectory_point_idx == len(interpolated_points) - 1:
-                    print(f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-                          + f" error to waypoint is {error}, goal tolerance is {goal_tolerance}")
-                else:
-                    print(f"timeout. expected t={desired_point.time_from_start.to_sec()} but t={dt.to_sec()}." \
-                          + f" error to waypoint is {error}, tolerance is {tolerance}")
-                return True
+        follow_trajectory(trajectory, _get_joint_positions, _command_and_simulate)
 
-    def get_joint_positions(self, env, joint_names):
+    def get_joint_positions(self, env, joint_names=None):
         obs = env._observation_updater.get_observation()
         actual_joint_positions = []
-        for n in joint_names:
-            # NOTE: this doesn't work for joints that aren't actuated? (leftgripper)
-            i = self.actuated_joint_names.index(f'val/{n}')
-            actual_joint_positions.append(obs['joint_positions'][0, i])
-        return actual_joint_positions
+
+        if joint_names is None:
+            return obs['joint_positions'].flatten()
+        else:
+            for n in joint_names:
+                # NOTE: this doesn't work for joints that aren't actuated? (leftgripper)
+                i = self.actuated_joint_names.index(f'val/{n}')
+                actual_joint_positions.append(obs['joint_positions'][0, i])
+
+            return actual_joint_positions
 
     def action_vec_from_positions_and_names(self, positions, trajectory_joint_names, initial_joint_positions):
         action_vec = initial_joint_positions.copy()
@@ -344,7 +301,8 @@ class ValRopeManipulation(BaseRopeManipulation):
                                 translation=self.val_init_pos, quaternion=[0, 0, 0, 1])
         self.tfw.send_transform(parent='world', child='base_link', is_static=True,
                                 translation=self.val_init_pos, quaternion=[0, 0, 0, 1])
-        physics.set_control(action)
+        if action is not None:
+            physics.set_control(action)
 
     def get_planning_scene_msg(self, physics):
         return self.psp.get_planning_scene_msg(physics)
@@ -368,6 +326,7 @@ def main():
     val = Val()
     val.set_execute(False)
 
+    task.grasp_rope(env.physics)
 
     pose = Pose()
     pose.position.x = 0.8

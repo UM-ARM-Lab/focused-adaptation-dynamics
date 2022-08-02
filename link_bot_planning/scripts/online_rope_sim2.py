@@ -118,6 +118,7 @@ def main():
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
+            planner_params['method_name'] = method_name
             planner_params["classifier_model_dir"] = classifiers
             planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
             gazebo_utils.resume()
