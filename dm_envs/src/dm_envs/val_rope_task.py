@@ -334,17 +334,15 @@ def main():
     while True:
         start_scene = task.get_planning_scene_msg(env.physics)
         plan = val.plan_to_joint_config(group_name='both_arms',
-                                        joint_config=[0, .3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                        joint_config=[0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
                                         start_state=start_scene.robot_state)
         task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
-        for i in range(100):
+        for i in range(40):
             env.step(None)
 
         start_scene = task.get_planning_scene_msg(env.physics)
-        print(abs(start_scene.robot_state.joint_state.position[1] - 0.3))
-        rospy.sleep(5)
-
+        print(abs(start_scene.robot_state.joint_state.position[8] - 2))
 
         start_scene = task.get_planning_scene_msg(env.physics)
         plan = val.plan_to_joint_config(group_name='both_arms',
@@ -352,8 +350,11 @@ def main():
                                         start_state=start_scene.robot_state)
         task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
-        rospy.sleep(5)
+        for i in range(40):
+            env.step(None)
 
+        start_scene = task.get_planning_scene_msg(env.physics)
+        print(abs(start_scene.robot_state.joint_state.position[8] - 0))
         # pose = Pose()
         # pose.position.x = 0.8
         # pose.position.y = -0.2

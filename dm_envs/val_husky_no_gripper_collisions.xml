@@ -83,14 +83,14 @@
                 <body name="drive42" pos="-0.174736 0 0.44399" quat="0.5 -0.5 -0.5 -0.5">
                     <inertial pos="-3.658e-05 0.00177045 0.00631346" quat="0.999687 -0.0245928 0.000670972 -0.00444195"
                               mass="1.39278" diaginertia="0.00159583 0.00151341 0.00105295"/>
-                    <joint name="joint41" pos="0 0 0" axis="0 1 0" limited="true" range="-6.2 6.2" damping="4"
-                           frictionloss="0.01"/>
+                    <joint name="joint41" pos="0 0 0" axis="0 1 0" limited="true" range="-6.2 6.2" damping="200"
+                           frictionloss="1"/>
                     <geom type="mesh" mesh="MK4_LT" name="joint41_goem"/>
                     <body name="leftshoulder" pos="0 0 -0.07526" quat="0.707107 0 0 -0.707107">
                         <inertial pos="8.25529e-06 -0.0822082 0.058682" quat="0.865182 0.501455 -0.00145709 0.000441505"
                                   mass="1.88276" diaginertia="0.0047155 0.00408548 0.00189263"/>
-                        <joint name="joint42" pos="0 0 0" axis="0 0 1" limited="true" range="-0.15 3.14159" damping="3"
-                               frictionloss="0.01"/>
+                        <joint name="joint42" pos="0 0 0" axis="0 0 1" limited="true" range="-0.15 3.14159" damping="200"
+                               frictionloss="1"/>
                         <geom type="mesh" mesh="SHOULDER_BRACKET" name="left_shoulder_bracket"/>
                         <body pos="0 -0.1 0.07526" quat="0.707107 -0.707107 0 0" name="joint42_geom">
                             <geom type="mesh" mesh="MK4_LT"/>
@@ -100,7 +100,7 @@
                                       quat="0.707443 -0.0157784 -0.0162832 0.706407" mass="1.69638"
                                       diaginertia="0.0054796 0.00493485 0.00172117"/>
                             <joint name="joint43" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2 6.2"
-                                   damping="1.5" frictionloss="0.01"/>
+                                   damping="100" frictionloss="1"/>
                             <body quat="0.707107 0 0.707107 0" name="lefttube">
                                 <geom type="mesh" mesh="PROXIMAL_TUBE"/>
                             </body>
@@ -112,7 +112,7 @@
                                           quat="0.790471 0.612292 0.00995154 -0.0124285" mass="0.592885"
                                           diaginertia="0.0040368 0.00403105 0.000235169"/>
                                 <joint name="joint44" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14159 1"
-                                       damping="1.1" frictionloss="0.01"/>
+                                       damping="50" frictionloss="0.5"/>
                                 <geom type="mesh" mesh="FOREARM_BRACKET" name="left_forearm_bracket"/>
                                 <body pos="0 -0.17 0.05749" quat="0.707107 -0.707107 0 0" name="joint44_geom">
                                     <geom type="mesh" mesh="A35_DRIVE"/>
@@ -129,14 +129,14 @@
                                                   quat="0.906199 0.42285 0.000311153 -0.000270308" mass="0.445298"
                                                   diaginertia="0.000511963 0.000440923 0.00020261"/>
                                         <joint name="joint46" pos="0 0 0" axis="0 0 -1" limited="true"
-                                               range="-1.5708 1.5708" damping="1.01" frictionloss="0.01"/>
+                                               range="-1.5708 1.5708" damping="0.5" frictionloss="0.1"/>
                                         <geom type="mesh" mesh="A35_BRACKET" name="joint46_geom"/>
                                         <body pos="0 -0.05 0.0566728" quat="0.707107 -0.707107 0 0" name="joint46_drive_geom">
                                             <geom type="mesh" mesh="A35_DRIVE"/>
                                         </body>
                                         <body name="drive50" pos="0 -0.086 0.0566728" quat="0 0 0.707107 -0.707107">
                                             <joint name="joint47" pos="0 0 0" axis="0 0 -1" limited="true"
-                                                   range="-6.2 6.2" damping="1.01" frictionloss="0.01"/>
+                                                   range="-6.2 6.2" damping="0.2" frictionloss="0.01"/>
                                             <geom type="mesh" mesh="PINCER_HOUSING2" name="PINCER_HOUSING2"/>
                                             <site name="left_tool" pos="0 0 0.181" type="sphere" size="0.002"/>
                                             <body name="left_tool" pos="0 0 0.181">
@@ -152,14 +152,14 @@
                 <body name="drive2" pos="0.250548 0 0.44399" quat="0.5 -0.5 0.5 0.5">
                     <inertial pos="-3.658e-05 0.00177045 0.00631346" quat="0.999687 -0.0245928 0.000670972 -0.00444195"
                               mass="1.39278" diaginertia="0.00159583 0.00151341 0.00105295"/>
-                    <joint name="joint1" pos="0 0 0" axis="0 -1 0" limited="true" range="-6.2 6.2" damping="4"
-                           frictionloss="0.01"/>
+                    <joint name="joint1" pos="0 0 0" axis="0 -1 0" limited="true" range="-6.2 6.2" damping="200"
+                           frictionloss="1"/>
                     <geom type="mesh" mesh="MK4_LT" name="joint1_drive_geom"/>
                     <body name="rightshoulder" pos="0 0 -0.07526" quat="0.707107 0 0 0.707107">
                         <inertial pos="8.25529e-06 -0.0822082 0.058682" quat="0.865182 0.501455 -0.00145709 0.000441505"
                                   mass="1.88276" diaginertia="0.0047155 0.00408548 0.00189263"/>
-                        <joint name="joint2" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14159 0.15" damping="3"
-                               frictionloss="0.01"/>
+                        <joint name="joint2" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14159 0.15" damping="200"
+                               frictionloss="1"/>
                         <geom type="mesh" mesh="SHOULDER_BRACKET" name="right_shoulder_bracket"/>
                         <body pos="0 -0.1 0.07526" quat="0.707107 -0.707107 0 0" name="joint2_drive_geom">
                             <geom type="mesh" mesh="MK4_LT"/>
@@ -168,8 +168,8 @@
                             <inertial pos="-0.00518912 -2.28137e-05 0.0276199"
                                       quat="0.707443 -0.0157784 -0.0162832 0.706407" mass="1.69638"
                                       diaginertia="0.0054796 0.00493485 0.00172117"/>
-                            <joint name="joint3" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2 6.2" damping="1.5"
-                                   frictionloss="0.01"/>
+                            <joint name="joint3" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2 6.2" damping="100"
+                                   frictionloss="1"/>
                             <body quat="0.707107 0 0.707107 0" name="righttube">
                                 <geom type="mesh" mesh="PROXIMAL_TUBE"/>
                             </body>
@@ -181,7 +181,7 @@
                                           quat="0.790471 0.612292 0.00995154 -0.0124285" mass="0.592885"
                                           diaginertia="0.0040368 0.00403105 0.000235169"/>
                                 <joint name="joint4" pos="0 0 0" axis="0 0 -1" limited="true" range="-3.14159 1"
-                                       damping="1.1" frictionloss="0.01"/>
+                                       damping="50" frictionloss="0.5"/>
                                 <geom type="mesh" mesh="FOREARM_BRACKET" name="right_forearm_bracket"/>
                                 <body pos="0 -0.17 0.05749" quat="0.707107 -0.707107 0 0" name="joint4_drive_geom">
                                     <geom type="mesh" mesh="A35_DRIVE"/>
@@ -198,14 +198,14 @@
                                                   quat="0.906199 0.42285 0.000311153 -0.000270308" mass="0.445298"
                                                   diaginertia="0.000511963 0.000440923 0.00020261"/>
                                         <joint name="joint6" pos="0 0 0" axis="0 0 -1" limited="true"
-                                               range="-1.5708 1.5708" damping="1.01" frictionloss="0.01"/>
+                                               range="-1.5708 1.5708" damping="0.5" frictionloss="0.1"/>
                                         <geom type="mesh" mesh="A35_BRACKET" name="joint6_geom"/>
                                         <body pos="0 -0.05 0.0566728" quat="0.707107 -0.707107 0 0" name="joint6_drive_geom">
                                             <geom type="mesh" mesh="A35_DRIVE"/>
                                         </body>
                                         <body name="drive10" pos="0 -0.086 0.0566728" quat="0.707107 0.707107 0 0">
                                             <joint name="joint7" pos="0 0 0" axis="0 0 -1" limited="true"
-                                                   range="-6.2 6.2" damping="1.01" frictionloss="0.01"/>
+                                                   range="-6.2 6.2" damping=".2" frictionloss="0.01"/>
                                             <geom type="mesh" mesh="PINCER_HOUSING2" name="joint7_housing_geom"/>
                                             <site name="right_tool" pos="0 0 0.181" type="sphere" size="0.002"/>
                                             <body name="right_tool" pos="0 0 0.181">
@@ -225,21 +225,21 @@
         <position name="joint56_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint56" kp="500"/>
         <position name="joint57_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint57" kp="10000"/>
 
-        <position name="joint1_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint1" kp="500"/>
-        <position name="joint2_pos" ctrllimited="true" ctrlrange="-3.14159 0.15" joint="joint2" kp="500"/>
-        <position name="joint3_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint3" kp="500"/>
-        <position name="joint4_pos" ctrllimited="true" ctrlrange="-3.14159 1" joint="joint4" kp="100"/>
+        <position name="joint1_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint1" kp="5000"/>
+        <position name="joint2_pos" ctrllimited="true" ctrlrange="-3.14159 0.15" joint="joint2" kp="5000"/>
+        <position name="joint3_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint3" kp="5000"/>
+        <position name="joint4_pos" ctrllimited="true" ctrlrange="-3.14159 1" joint="joint4" kp="1000"/>
         <position name="joint5_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint5" kp="100"/>
-        <position name="joint6_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint6" kp="10"/>
-        <position name="joint7_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint7" kp="10"/>
+        <position name="joint6_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint6" kp="50"/>
+        <position name="joint7_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint7" kp="50"/>
 
-        <position name="joint41_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint41" kp="500"/>
-        <position name="joint42_pos" ctrllimited="true" ctrlrange="-0.15 3.14159" joint="joint42" kp="500"/>
-        <position name="joint43_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint43" kp="500"/>
-        <position name="joint44_pos" ctrllimited="true" ctrlrange="-3.141 1" joint="joint44" kp="100"/>
+        <position name="joint41_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint41" kp="5000"/>
+        <position name="joint42_pos" ctrllimited="true" ctrlrange="-0.15 3.14159" joint="joint42" kp="5000"/>
+        <position name="joint43_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint43" kp="5000"/>
+        <position name="joint44_pos" ctrllimited="true" ctrlrange="-3.141 1" joint="joint44" kp="1000"/>
         <position name="joint45_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint45" kp="100"/>
-        <position name="joint46_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint46" kp="10"/>
-        <position name="joint47_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint47" kp="10"/>
+        <position name="joint46_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint46" kp="50"/>
+        <position name="joint47_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint47" kp="50"/>
 
         <intvelocity name="front_left_wheel_vel" actrange="-10 10" ctrllimited="true" ctrlrange="-1 1"
                      joint="front_left_wheel" kp="1"/>
