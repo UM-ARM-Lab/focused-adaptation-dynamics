@@ -39,7 +39,7 @@
   use_res3d: true
   grid_size: 3
   beta: 2
-  num_gp_training_points: 80 #should be higher if the GPU can handle it
+  num_gp_training_points: 10 #should be higher if the GPU can handle it
   is_heteroskedastic: 0
   gp_input_dim: 16
   use_prev_error: true
