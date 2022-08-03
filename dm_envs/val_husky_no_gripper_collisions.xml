@@ -36,7 +36,7 @@
             <body pos="-0.412 0 0.068" quat="1.32679e-06 0 0 1" name="back_lidar">
                 <geom type="mesh" mesh="ark_lidar"/>
             </body>
-            <body pos="0.275 0.0047 0.315" quat="0.492 -0.507 0.4926 -0.5072" name="pedestal_assembly">
+            <body pos="0.275 0.0047 0.315" quat="0.500024 -0.500024 0.499976 -0.499976" name="pedestal_assembly">
                 <geom type="mesh" mesh="PEDESTAL_ASSEMBLY"/>
             </body>
             <body pos="0.3641 0.00470858 0.315" quat="0 -0.707141 0.707073 0" name="Drive56_mujoco">
