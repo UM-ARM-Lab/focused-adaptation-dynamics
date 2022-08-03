@@ -71,7 +71,7 @@
             <body name="torso" pos="0 0 -0.04085" quat="0.5 0.5 -0.5 0.5">
                 <inertial pos="0.0332308 -0.0061371 0.388941" quat="0.705398 0.0444203 0.118989 0.697339" mass="3.95853"
                           diaginertia="0.147072 0.0906095 0.059602"/>
-                <joint name="joint57" pos="0 0 0" axis="-1 0 0" limited="true" range="-1.5708 1.5708" damping="50"
+                <joint name="joint57" pos="0 0 0" axis="-1 0 0" limited="true" range="-1.5708 1.5708" damping="1000"
                        frictionloss="0.01"/>
                 <geom type="mesh" mesh="TORSO" name="torso"/>
                 <body pos="-0.092094 0 0.44399" quat="0.5 -0.5 0.5 -0.5" name="left_MK4_MT">
@@ -223,7 +223,7 @@
     </worldbody>
     <actuator>
         <position name="joint56_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint56" kp="500"/>
-        <position name="joint57_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint57" kp="800"/>
+        <position name="joint57_pos" ctrllimited="true" ctrlrange="-1.5707 1.5707" joint="joint57" kp="10000"/>
 
         <position name="joint1_pos" ctrllimited="true" ctrlrange="-6.2 6.2" joint="joint1" kp="500"/>
         <position name="joint2_pos" ctrllimited="true" ctrlrange="-3.14159 0.15" joint="joint2" kp="500"/>

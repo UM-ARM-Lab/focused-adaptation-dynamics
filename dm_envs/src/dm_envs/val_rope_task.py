@@ -332,23 +332,57 @@ def main():
     val.set_execute(False)
 
     while True:
-        env.step(None)
-        # start_scene = task.get_planning_scene_msg(env.physics)
-        # plan = val.plan_to_joint_config(group_name='both_arms',
-        #                                 joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        #                                 start_state=start_scene.robot_state)
-        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-        #
-        # rospy.sleep(5)
-        #
-        # start_scene = task.get_planning_scene_msg(env.physics)
-        # plan = val.plan_to_joint_config(group_name='both_arms',
-        #                                 joint_config=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        #                                 start_state=start_scene.robot_state)
-        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-        #
-        # rospy.sleep(5)
+        start_scene = task.get_planning_scene_msg(env.physics)
+        plan = val.plan_to_joint_config(group_name='both_arms',
+                                        joint_config=[0, .3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                        start_state=start_scene.robot_state)
+        task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 
+        for i in range(100):
+            env.step(None)
+
+        start_scene = task.get_planning_scene_msg(env.physics)
+        print(abs(start_scene.robot_state.joint_state.position[1] - 0.3))
+        rospy.sleep(5)
+
+
+        start_scene = task.get_planning_scene_msg(env.physics)
+        plan = val.plan_to_joint_config(group_name='both_arms',
+                                        joint_config=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                        start_state=start_scene.robot_state)
+        task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+
+        rospy.sleep(5)
+
+        # pose = Pose()
+        # pose.position.x = 0.8
+        # pose.position.y = -0.2
+        # pose.position.z = 0.4
+        # q = quaternion_from_euler(0, 0, 0)
+        # pose.orientation.x = q[0]
+        # pose.orientation.y = q[1]
+        # pose.orientation.z = q[2]
+        # pose.orientation.w = q[3]
+        # start_scene = task.get_planning_scene_msg(env.physics)
+        # plan = val.plan_to_pose(group_name='right_side',
+        #                         ee_link_name='right_tool',
+        #                         target_pose=pose,
+        #                         start_state=start_scene.robot_state)
+        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+        #
+        # rospy.sleep(5)
+        #
+        # start_scene = task.get_planning_scene_msg(env.physics)
+        # val.store_current_tool_orientations([val.right_tool_name])
+        # plan = val.follow_jacobian_to_position_from_scene_and_state(start_scene,
+        #                                                             start_scene.robot_state.joint_state,
+        #                                                             'both_arms',
+        #                                                             [val.right_tool_name],
+        #                                                             [[[0.8, -0.2, 0.6]]],
+        #                                                             vel_scaling=1.0)
+        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+        #
+        # rospy.sleep(5)
 
 if __name__ == "__main__":
     main()
