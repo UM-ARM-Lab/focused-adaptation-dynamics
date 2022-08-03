@@ -146,8 +146,8 @@ class MDE(pl.LightningModule):
                 self.debug.plot_pred_state_rviz(inputs, b, t, 'pred_inputs')
                 for i in range(voxel_grids.shape[2]):
                     raster_dict = {
-                        'env': voxel_grids[b, t, i].cpu().numpy(),
-                        'res': inputs['res'][b].cpu().numpy(),
+                        'env':          voxel_grids[b, t, i].cpu().numpy(),
+                        'res':          inputs['res'][b].cpu().numpy(),
                         'origin_point': local_origin_point[b].cpu().numpy(),
                     }
 
@@ -160,15 +160,21 @@ class MDE(pl.LightningModule):
             import tensorflow as tf
             from moonshine.gpu_config import limit_gpu_mem
             from moonshine.tfa_sdf import build_sdf_3d
-            #limit_gpu_mem(None)
+            try:
+                limit_gpu_mem(None)
+            except RuntimeError:
+                pass
 
             res = tf.convert_to_tensor(inputs['res'].cpu().numpy())
             voxel_grids_tf = tf.convert_to_tensor(voxel_grids.cpu().numpy())
             sdf_tf = voxel_grids.clone()
             for t in range(2):
-                for c in range(5):
-                    sdf_tf[:, t, c] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, c], res).numpy())
-
+                if self.hparams.get('env_only_sdf', False):
+                    # 0 is the channel for the environment
+                    sdf_tf[:, t, 0] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, 0], res).numpy())
+                else:
+                    for c in range(5):
+                        sdf_tf[:, t, c] = torch.from_numpy(build_sdf_3d(voxel_grids_tf[:, t, c], res).numpy())
             voxel_grids = sdf_tf
 
         states = {k: inputs[add_predicted_hack(k)] for k in self.hparams.state_keys}
@@ -185,8 +191,9 @@ class MDE(pl.LightningModule):
         flat_conv_h = self.conv_encoder(flat_voxel_grids)
         conv_h = flat_conv_h.reshape(batch_size, time, -1)
         # NOTE: maybe we should be using the previous predicted error?
-        prev_pred_error = inputs['error'][:, 0].unsqueeze(-1).unsqueeze(-1)
-        padded_prev_pred_error = F.pad(prev_pred_error, [0, 0, 0, 1, 0, 0])
+        prev_pred_error = inputs['error'][:, 0]
+        prev_pred_error_time = prev_pred_error.unsqueeze(-1).unsqueeze(-1)
+        padded_prev_pred_error = F.pad(prev_pred_error_time, [0, 0, 0, 1, 0, 0])
         if self.hparams.get("use_prev_error", True):
             cat_args = [conv_h,
                         padded_prev_pred_error] + states_robot_frame_list + states_local_frame_list + padded_actions
