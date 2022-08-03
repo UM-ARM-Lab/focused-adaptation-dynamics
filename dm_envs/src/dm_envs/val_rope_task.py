@@ -16,6 +16,7 @@ from dm_envs.base_rope_task import BaseRopeManipulation
 from geometry_msgs.msg import Pose
 from moveit_msgs.msg import PlanningScene, CollisionObject
 from moveit_msgs.srv import GetPlanningScene
+from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory
 
@@ -24,6 +25,7 @@ def make_planning_scene_msg(physics, exclude, initial_msg):
     initial_msg.is_diff = False
     initial_msg.world.collision_objects = []
 
+    initial_msg.robot_state.joint_state.header.stamp = rospy.Time.now()
     initial_msg.robot_state.joint_state.position = []
     initial_msg.robot_state.joint_state.velocity = []
     initial_msg.robot_state.joint_state.effort = []
@@ -204,6 +206,8 @@ class ValRopeManipulation(BaseRopeManipulation):
         for obs_ in self._task_observables.values():
             obs_.enabled = True
 
+        self.js_pub = rospy.Publisher("/hdt_michigan/joint_states", JointState, queue_size=10)
+
     @property
     def joints(self):
         return self._val.joints
@@ -297,6 +301,7 @@ class ValRopeManipulation(BaseRopeManipulation):
     def before_step(self, physics, action, random_state):
         self.psp.update(physics)
         super().before_step(physics, action, random_state)
+        self.js_pub.publish(self.get_planning_scene_msg(physics).robot_state.joint_state)
         self.tfw.send_transform(parent='world', child='robot_root', is_static=True,
                                 translation=self.val_init_pos, quaternion=[0, 0, 0, 1])
         self.tfw.send_transform(parent='world', child='base_link', is_static=True,
@@ -327,17 +332,22 @@ def main():
     val.set_execute(False)
 
     while True:
-        start_scene = task.get_planning_scene_msg(env.physics)
-        plan = val.plan_to_joint_config(group_name='both_arms',
-                                        joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                        start_state=start_scene.robot_state)
-        task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
-
-        start_scene = task.get_planning_scene_msg(env.physics)
-        plan = val.plan_to_joint_config(group_name='both_arms',
-                                        joint_config=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                        start_state=start_scene.robot_state)
-        task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+        env.step(None)
+        # start_scene = task.get_planning_scene_msg(env.physics)
+        # plan = val.plan_to_joint_config(group_name='both_arms',
+        #                                 joint_config=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #                                 start_state=start_scene.robot_state)
+        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+        #
+        # rospy.sleep(5)
+        #
+        # start_scene = task.get_planning_scene_msg(env.physics)
+        # plan = val.plan_to_joint_config(group_name='both_arms',
+        #                                 joint_config=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #                                 start_state=start_scene.robot_state)
+        # task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
+        #
+        # rospy.sleep(5)
 
 
 if __name__ == "__main__":

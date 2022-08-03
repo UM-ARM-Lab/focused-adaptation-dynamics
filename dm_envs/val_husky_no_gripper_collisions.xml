@@ -23,7 +23,6 @@
     <worldbody>
         <body name="base">
             <inertial pos="0 0 0" quat="0.707107 0 0 0.707107" mass="50" diaginertia="8.333 8.333 8.333"/>
-            <!--      <geom pos="1 0 0" type="mesh" mesh="box" name="box"/>-->
             <body name="base_link">
                 <geom type="mesh" mesh="base_link"/>
             </body>
@@ -63,7 +62,7 @@
             <joint name="rear_right_wheel" pos="0 0 0" axis="0 1 0" damping="20"/>
             <geom type="mesh" mesh="wheel" name="rear_right_wheel"/>
         </body>
-        <body name="drive57" pos="0.3641 0.00470858 0.393" quat="3.40567e-05 -3.40567e-05 0.707107 -0.707107">
+        <body name="drive57" pos="0.3641 0.00470858 0.397642" quat="3.40567e-05 -3.40567e-05 0.707107 -0.707107">
             <inertial pos="-3.658e-05 0.00177045 0.00631346" quat="0.999687 -0.0245928 0.000670972 -0.00444195"
                       mass="1.39278" diaginertia="0.00159583 0.00151341 0.00105295"/>
             <joint name="joint56" pos="0 0 0" axis="0 -1 0" limited="true" range="-6.2 6.2" damping="50"
