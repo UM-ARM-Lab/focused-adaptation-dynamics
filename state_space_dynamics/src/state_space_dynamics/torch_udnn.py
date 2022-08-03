@@ -5,7 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from torchmeta.modules import MetaModule, MetaLinear, MetaSequential
+from torch.nn import Linear, Sequential
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_pycommon.get_scenario import get_scenario
@@ -21,7 +21,7 @@ def segment_lengths(inputs):
     return initial_rope_segment_lengths
 
 
-class UDNN(MetaModule, pl.LightningModule):
+class UDNN(pl.LightningModule):
     def __init__(self, with_joint_positions=False, **hparams):
         super().__init__()
         self.save_hyperparameters()
@@ -44,12 +44,12 @@ class UDNN(MetaModule, pl.LightningModule):
 
         layers = []
         for fc_layer_size in self.hparams.fc_layer_sizes:
-            layers.append(MetaLinear(in_size, fc_layer_size))
+            layers.append(Linear(in_size, fc_layer_size))
             layers.append(torch.nn.ReLU())
             in_size = fc_layer_size
-        layers.append(MetaLinear(fc_layer_size, self.total_state_dim))
+        layers.append(Linear(fc_layer_size, self.total_state_dim))
 
-        self.mlp = MetaSequential(*layers)
+        self.mlp = Sequential(*layers)
 
         if self.hparams.get('planning_mask', False):
             torch_ref_dataset = TorchDynamicsDataset(fetch_udnn_dataset(pathlib.Path('known_good_4')), mode='test')
@@ -107,7 +107,7 @@ class UDNN(MetaModule, pl.LightningModule):
         states_and_actions = list(s_t_local.values()) + list(local_action_t.values())
         z_t = torch.cat(states_and_actions, -1)
 
-        z_t = self.mlp(z_t, params=self.get_subdict(params, 'mlp'))
+        z_t = self.mlp(z_t)
         delta_s_t = vector_to_dict(self.state_description, z_t, self.device)
         s_t_plus_1 = self.scenario.integrate_dynamics(s_t, delta_s_t)
         return s_t_plus_1
