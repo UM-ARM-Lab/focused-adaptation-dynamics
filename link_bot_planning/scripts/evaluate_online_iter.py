@@ -34,7 +34,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('planner_params', type=pathlib.Path, help='planner params hjson file')
     parser.add_argument("test_scenes_dir", type=pathlib.Path)
-    parser.add_argument("outdir", type=pathlib.Path, help='used in making the output directory')
     parser.add_argument('online_dir', type=pathlib.Path)
     parser.add_argument('iter', type=int)
     parser.add_argument("--trials", type=int_set_arg)
@@ -44,7 +43,7 @@ def main():
 
     args = parser.parse_args()
 
-    outdir = args.outdir
+    outdir = pathlib.Path(f"/media/shared/planning_results/{args.online_dir.name}_iter{args.iter}")
 
     dynamics, mde = get_dynamics_and_mde(args.online_dir, args.iter)
 
