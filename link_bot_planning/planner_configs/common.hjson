@@ -6,14 +6,6 @@
     filter_trials/none/none
   ]
   fwd_model_dir: /media/shared/dy_trials/gt_rope_w_robot_ensemble/none
-  termination_criteria: {
-    total_timeout: 600
-    timeout: 600
-    max_extensions: 4500
-    attempted_extensions_threshold: 128
-    max_attempts: 1
-    max_planning_attempts: 1
-  }
   recovery: {
     recovery_model_dir: recovery_trials/random/none
     use_recovery: true

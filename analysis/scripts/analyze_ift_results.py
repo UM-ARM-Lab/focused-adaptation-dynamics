@@ -82,15 +82,24 @@ def metrics_main(args):
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 
+    fig, ax = lineplot(df, iter_key, 'total_extensions', 'Total # Extensions in Planning', hue='method_name')
+    plt.savefig(outdir / f'total_extensions.png')
+
+    fig, ax = lineplot(df, iter_key, 'max_extensions', 'Max # Extensions in Planning', hue='method_name')
+    plt.savefig(outdir / f'max_extensions.png')
+
+    fig, ax = lineplot(df, iter_key, 'max_planning_time', 'Max Planning Time', hue='method_name')
+    plt.savefig(outdir / f'max_planning_time.png')
+
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
     plt.savefig(outdir / f'normalized_model_error.png')
 
-    fig, ax = lineplot(df_r, iter_key, 'success', f'Rope Manipulation, Rolling Avg. Success', hue='method_name', ci=ci)
-    ax.set_ylim(-0.01, 1.01)
-    ax.set_xlabel("Iteration")
-    ax.legend()
-    plt.show()
-    plt.savefig(outdir / f'success_rate_rolling.png', dpi=180)
+    # fig, ax = lineplot(df_r, iter_key, 'success', f'Rope Manipulation, Rolling Avg. Success', hue='method_name', ci=ci)
+    # ax.set_ylim(-0.01, 1.01)
+    # ax.set_xlabel("Iteration")
+    # ax.legend()
+    # plt.show()
+    # plt.savefig(outdir / f'success_rate_rolling.png', dpi=180)
 
     # fig, ax = lineplot(df, iter_key, 'any_solved', 'Any Solved', hue='method_name')
     # plt.savefig(outdir / f'any_solved.png')
@@ -100,14 +109,14 @@ def metrics_main(args):
     # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
     # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
 
-    fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='method_name', ci=ci)
-    ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
-    ax.legend()
-    plt.savefig(outdir / f'task_error_rolling.png')
+    # fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='method_name', ci=ci)
+    # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
+    # ax.legend()
+    # plt.savefig(outdir / f'task_error_rolling.png')
 
-    fig, ax = lineplot(df_r, iter_key, 'normalized_model_error', f'Normalized Model Error (rolling={w})',
-                       hue='method_name')
-    plt.savefig(outdir / f'normalized_model_error_rolling.png')
+    # fig, ax = lineplot(df_r, iter_key, 'normalized_model_error', f'Normalized Model Error (rolling={w})',
+    #                    hue='method_name')
+    # plt.savefig(outdir / f'normalized_model_error_rolling.png')
 
     if not args.no_plot:
         plt.show()
