@@ -86,6 +86,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
 
         self.bag = None
         self.final_execution_to_goal_errors = []
+        self.trial_times = []
 
     def randomize_environment(self):
         if self.verbose >= 1:
@@ -124,16 +125,19 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
         goal = trial_data['planning_queries'][0].goal
         final_actual_state = numpify(trial_data['end_state'])
         final_execution_to_goal_error = self.planner.scenario.distance_to_goal(final_actual_state, goal)
+        trial_time = trial_data['total_time']
         self.final_execution_to_goal_errors.append(final_execution_to_goal_error)
+        self.trial_times.append(trial_time)
         goal_threshold = self.planner_params['goal_params']['threshold']
         n = len(self.final_execution_to_goal_errors)
         n_success = np.count_nonzero(np.array(self.final_execution_to_goal_errors) < goal_threshold)
         success_percentage = n_success / n * 100
         current_mean_error = np.mean(np.array(self.final_execution_to_goal_errors))
+        current_mean_trial_time = np.mean(np.array(self.trial_times))
         update_msg = [
             f"Success={success_percentage:.2f}% [{n_success}/{n}]",
             f"Mean Error={current_mean_error:.3f}",
-            f"Trial Time={trial_data['total_time']:.3f}s",
+            f"Mean Trial Time={current_mean_trial_time:.3f}s",
         ]
         rospy.loginfo(Fore.LIGHTBLUE_EX + f"[{self.outdir.name}] " + Fore.RESET + ', '.join(update_msg))
 
