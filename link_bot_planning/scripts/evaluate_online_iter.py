@@ -33,9 +33,9 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('planner_params', type=pathlib.Path, help='planner params hjson file')
-    parser.add_argument("test_scenes_dir", type=pathlib.Path)
     parser.add_argument('online_dir', type=pathlib.Path)
     parser.add_argument('iter', type=int)
+    parser.add_argument("--scenes", type=pathlib.Path, default=pathlib.Path('test_scenes/car4_alt'))
     parser.add_argument("--trials", type=int_set_arg)
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
@@ -48,7 +48,7 @@ def main():
     dynamics, mde = get_dynamics_and_mde(args.online_dir, args.iter)
 
     planner_params = load_planner_params(args.planner_params)
-    planner_params['method_name'] = args.outdir.name
+    planner_params['method_name'] = outdir.name
     planner_params['fwd_model_dir'] = dynamics
     planner_params["classifier_model_dir"] = [mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
 
