@@ -35,7 +35,6 @@ def analyze_planning_results(args):
 
     _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
-    ax.set_ylim([0, 0.7])
     plt.savefig(outdir / f'task_error.png')
 
     boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))
@@ -48,12 +47,11 @@ def analyze_planning_results(args):
 
     _, ax = boxplot(df, outdir, hue, 'task_error_given_solved', "Task Error (given solved)", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
-    ax.set_ylim([0, 0.4])
     plt.savefig(outdir / f'task_error_given_solved.png')
 
     barplot_with_values(df, 'success_given_solved', hue, outdir, figsize=(12, 8))
 
-    boxplot(df, outdir, hue, 'planning_time', "Total Planning Time", figsize=(12, 8))
+    boxplot(df, outdir, hue, 'total_time', "Total Time", figsize=(12, 8))
 
     # boxplot(df, outdir, hue, 'num_actions', "# Actions", figsize=(12, 8))
 
