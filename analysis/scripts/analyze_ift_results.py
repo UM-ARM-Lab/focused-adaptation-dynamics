@@ -19,6 +19,10 @@ limit_gpu_mem(0.1)
 def metrics_main(args):
     outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
 
+    # manually add the results for what iter0 would do, which are currently based on:
+    unadapted_path = pathlib.Path(
+        "media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
+
     w = 5
     max_iter = 15
     x_max = max_iter + 0.01

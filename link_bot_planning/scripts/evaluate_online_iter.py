@@ -17,9 +17,8 @@ from moonshine.gpu_config import limit_gpu_mem
 limit_gpu_mem(None)
 
 
-def get_dynamics_and_mde(online_dir: pathlib.Path, iter: int):
-    log = load_hjson(online_dir / 'logfile.hjson')
-    iter_log = log[f'iter{iter}']
+def get_dynamics_and_mde(log, i: int):
+    iter_log = log[f'iter{i}']
     dynamics_run_id = iter_log['dynamics_run_id']
     mde_run_id = iter_log['mde_run_id']
     return f'p:{dynamics_run_id}', f'p:{mde_run_id}'
@@ -43,9 +42,19 @@ def main():
 
     args = parser.parse_args()
 
-    outdir = pathlib.Path(f"/media/shared/planning_results/{args.online_dir.name}_iter{args.iter}")
+    online_learning_log = load_hjson(args.online_dir / 'logfile.hjson')
 
-    dynamics, mde = get_dynamics_and_mde(args.online_dir, args.iter)
+    planning_params_name = pathlib.Path(online_learning_log['planner_params_filename']).stem
+    nickname = f"{args.online_dir.name}_iter{args.iter}-{planning_params_name}"
+    outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
+
+    if outdir.exists():
+        k = input(f"{outdir.as_posix()} exists, do you want to resume? [Y/n]")
+        if k in ['n', 'N']:
+            print("Aborting")
+            return
+
+    dynamics, mde = get_dynamics_and_mde(online_learning_log, args.iter)
 
     planner_params = load_planner_params(args.planner_params)
     planner_params['method_name'] = outdir.name
