@@ -52,12 +52,12 @@ def main():
     planner_params['fwd_model_dir'] = dynamics
     planner_params["classifier_model_dir"] = [mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
 
-    if not args.test_scenes_dir.exists():
-        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
+    if not args.scenes.exists():
+        print(f"Test scenes dir {args.scenes} does not exist")
         return
 
     if args.trials is None:
-        args.trials = list(get_all_scene_indices(args.test_scenes_dir))
+        args.trials = list(get_all_scene_indices(args.scenes))
         print(args.trials)
 
     evaluate_multiple_planning(outdir=outdir,
@@ -65,7 +65,7 @@ def main():
                                trials=args.trials,
                                how_to_handle=args.on_exception,
                                verbose=args.verbose,
-                               test_scenes_dir=args.test_scenes_dir,
+                               test_scenes_dir=args.scenes,
                                seed=args.seed)
 
 
