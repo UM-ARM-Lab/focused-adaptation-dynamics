@@ -15,10 +15,8 @@ from moonshine.torchify import torchify
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 
-def segment_lengths(inputs):
-    initial_rope_points = inputs['rope'].reshape(inputs['rope'].shape[:-1] + (25, 3))
-    initial_rope_segment_lengths = (initial_rope_points[..., 1:, :] - initial_rope_points[..., :-1, :]).norm(dim=-1)
-    return initial_rope_segment_lengths
+def soft_mask(global_step, mask_threshold, error):
+    return 1 - torch.sigmoid(global_step * (error - mask_threshold))
 
 
 class UDNN(pl.LightningModule):
@@ -132,7 +130,7 @@ class UDNN(pl.LightningModule):
         batch_loss = batch_time_loss.sum(-1)
 
         return {
-            'loss':          batch_loss,
+            'loss': batch_loss,
         }
 
     def low_error_mask(self, inputs, outputs):
@@ -176,7 +174,7 @@ class UDNN(pl.LightningModule):
         return mask_padded
 
     def soft_mask(self, error):
-        low_error_mask = 1 - torch.sigmoid(self.global_step * (error - self.hparams['mask_threshold']))
+        low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error)
         return low_error_mask
 
     def compute_loss(self, inputs, outputs, use_mask: bool):
