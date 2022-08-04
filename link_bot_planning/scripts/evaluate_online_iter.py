@@ -44,7 +44,7 @@ def main():
 
     online_learning_log = load_hjson(args.online_dir / 'logfile.hjson')
 
-    planning_params_name = pathlib.Path(online_learning_log['planner_params_filename']).stem
+    planning_params_name = args.planner_params.stem
     nickname = f"{args.online_dir.name}_iter{args.iter}-{planning_params_name}"
     outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
 
