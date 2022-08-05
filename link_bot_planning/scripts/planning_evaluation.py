@@ -52,9 +52,12 @@ def main():
     planner_params['method_name'] = args.outdir.name
     if args.dynamics:
         planner_params['fwd_model_dir'] = args.dynamics
+
+    classifiers = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
     if args.classifier:
-        planner_params["classifier_model_dir"] = [args.classifier,
-                                                  pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+        classifiers.append(args.classifier)
+    planner_params["classifier_model_dir"] = classifiers
+
     if args.recovery:
         planner_params["recovery"]["recovery_model_dir"] = args.recovery
 
