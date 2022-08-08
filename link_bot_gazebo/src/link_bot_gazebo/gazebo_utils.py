@@ -1,8 +1,8 @@
 import contextlib
+import os
 import pathlib
 
 import halo
-import os
 import psutil
 
 import rospy
@@ -24,7 +24,7 @@ def save_gazebo_pids(pids):
 def get_gazebo_pids():
     look_up_new_pids = False
     gazebo_uri_key = "GAZEBO_MASTER_URI"
-    this_process_gazebo_uri = os.environ[gazebo_uri_key]
+    this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
     if not GAZEBO_PIDS_FILENAME.exists():
         look_up_new_pids = True
     else:
@@ -41,8 +41,10 @@ def get_gazebo_pids():
         pids = []
         for proc in psutil.process_iter(['name', 'pid']):
             if proc.info['name'] == 'gzserver' or proc.info['name'] == 'gzclient':
-                if proc.environ()[gazebo_uri_key] != this_process_gazebo_uri:
-                    continue #Necessary when running multiple gzserver instances
+                proc_environ = proc.environ()
+                if this_process_gazebo_uri is not None and gazebo_uri_key in proc_environ and proc_environ[
+                    gazebo_uri_key] != this_process_gazebo_uri:
+                    continue  # Necessary when running multiple gzserver instances
                 pids.append(proc.info['pid'])
 
     save_gazebo_pids(pids)
