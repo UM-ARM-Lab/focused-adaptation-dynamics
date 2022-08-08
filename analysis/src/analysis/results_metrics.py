@@ -32,47 +32,6 @@ def ift_uuid(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___:
 
 
 @metrics_funcs
-def used_augmentation(path: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
-    try:
-        classifier_hparams = trial_metadata_to_classifier_hparams(path, trial_metadata)
-        if 'augmentation' in classifier_hparams:
-            return True
-
-        _used_augmentation = has_keys(classifier_hparams, ['dataset_hparams', 'used_augmentation'], None)
-        if _used_augmentation:
-            return True
-
-        n_augmentations = has_keys(trial_metadata, ['ift_config', 'n_augmentations'], None)
-        if n_augmentations is not None:
-            return True
-
-        ift_config_filename = has_keys(trial_metadata, ['ift_config', 'ift_config_filename'], None)
-        if ift_config_filename is not None and 'full_method' in ift_config_filename:
-            return True
-
-        return False
-    except RuntimeError:
-        print("error!")
-        return False
-
-
-@metrics_funcs
-def augmentation_type(path: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
-    try:
-        classifier_hparams = trial_metadata_to_classifier_hparams(path, trial_metadata)
-        if 'augmentation' in classifier_hparams:
-            aug_params = classifier_hparams['augmentation']
-            if 'type' and 'on_invalid_aug' in aug_params:
-                aug_type_str = f"{aug_params['type']}-{aug_params['on_invalid_aug']}"
-                return aug_type_str
-            else:
-                return None
-        return None
-    except RuntimeError:
-        return None
-
-
-@metrics_funcs
 def starts_with_recovery(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_datum: Dict):
     try:
         first_step = trial_datum['steps'][0]
@@ -128,22 +87,22 @@ def mean_error_accept_agreement(_: pathlib.Path, scenario: ExperimentScenario, _
     return total / n_actions
 
 
-@metrics_funcs
-def cumulative_task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
-    goal = trial_datum['goal']
-    cumulative_error = 0
-    for _, _, actual_state_t, _, _, _ in get_paths(trial_datum):
-        cumulative_error += numpify(scenario.distance_to_goal(actual_state_t, goal))
-    return cumulative_error
-
-
-@metrics_funcs
-def cumulative_planning_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
-    goal = trial_datum['goal']
-    cumulative_error = 0
-    for _, _, actual_state_t, _, _, _ in get_paths(trial_datum, full_path=True):
-        cumulative_error += numpify(scenario.distance_to_goal(actual_state_t, goal))
-    return cumulative_error
+# @metrics_funcs
+# def cumulative_task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
+#     goal = trial_datum['goal']
+#     cumulative_error = 0
+#     for _, _, actual_state_t, _, _, _ in get_paths(trial_datum):
+#         cumulative_error += numpify(scenario.distance_to_goal(actual_state_t, goal))
+#     return cumulative_error
+#
+#
+# @metrics_funcs
+# def cumulative_planning_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
+#     goal = trial_datum['goal']
+#     cumulative_error = 0
+#     for _, _, actual_state_t, _, _, _ in get_paths(trial_datum, full_path=True):
+#         cumulative_error += numpify(scenario.distance_to_goal(actual_state_t, goal))
+#     return cumulative_error
 
 
 @metrics_funcs
@@ -192,17 +151,6 @@ def task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_da
     final_execution_to_goal_error = scenario.distance_to_goal(final_actual_state, goal)
     return numpify(final_execution_to_goal_error)
 
-
-@metrics_funcs
-def is_fine_tuned(path: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
-    try:
-        classifier_hparams = trial_metadata_to_classifier_hparams(path, trial_metadata)
-        for k in list(classifier_hparams.keys()):
-            if 'fine_tune' in k:
-                return True
-        return False
-    except RuntimeError:
-        return None
 
 
 @metrics_funcs
@@ -291,6 +239,7 @@ def extensions_per_second(_: pathlib.Path, __: ExperimentScenario, ___: Dict, tr
     avg_extensions_per_second = total_num_extensions / total_planning_time
     return avg_extensions_per_second
 
+
 @metrics_funcs
 def total_extensions(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_datum: Dict):
     attempted_extensions = []
@@ -298,6 +247,7 @@ def total_extensions(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_d
         attempted_extensions.append(step['planning_result'].attempted_extensions)
     total_num_extensions = sum(attempted_extensions)
     return total_num_extensions
+
 
 @metrics_funcs
 def max_extensions(_: pathlib.Path, __: ExperimentScenario, ___: Dict, trial_datum: Dict):
@@ -375,6 +325,26 @@ def normalized_model_error(_: pathlib.Path, scenario: ExperimentScenario, __: Di
 
 
 @metrics_funcs
+def max_extensions_param(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
+    return trial_metadata['planner_params']['termination_criteria']['max_extensions']
+
+
+@metrics_funcs
+def online_iter(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
+    return trial_metadata['planner_params'].get('online_iter', None)
+
+
+@metrics_funcs
+def max_attempts(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
+    return trial_metadata['planner_params']['termination_criteria']['max_attempts']
+
+
+@metrics_funcs
+def max_planning_attempts(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
+    return trial_metadata['planner_params']['termination_criteria']['max_planning_attempts']
+
+
+@metrics_funcs
 def recovery_name(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
     r = trial_metadata['planner_params']['recovery']
     use_recovery = r.get('use_recovery', False)
@@ -416,19 +386,6 @@ def classifier_dataset(_: pathlib.Path, __: ExperimentScenario, trial_metadata: 
             if 'checkpoint' in representative_classifier_model_dir.as_posix():
                 return representative_classifier_model_dir
         return "no-learned-classifiers"
-    except RuntimeError:
-        return None
-
-
-@metrics_funcs
-def classifier_source_env(path: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
-    try:
-        classifier_hparams = trial_metadata_to_classifier_hparams(path, trial_metadata)
-        scene_name = has_keys(classifier_hparams, ['classifier_dataset_hparams', 'scene_name'], None)
-        if scene_name is None:
-            return "no-scene-name"
-        else:
-            return scene_name
     except RuntimeError:
         return None
 

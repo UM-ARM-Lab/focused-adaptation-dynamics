@@ -1,3 +1,4 @@
+import multiprocessing
 import pathlib
 import pickle
 import re
@@ -25,32 +26,44 @@ column_names = [
                ] + metrics_names
 
 
-def load_planning_results(results_dirs: List[pathlib.Path], regenerate: bool = False, progressbar: bool = True):
-    dfs = []
-    results_dirs_gen = tqdm(results_dirs, desc='results dirs') if progressbar else results_dirs
-    for d in results_dirs_gen:
-        data_filenames = list(d.glob("*_metrics.pkl.gz"))
-        df_filename = d / 'df.pkl'
-        metadata_filename = d / 'metadata.hjson'
-        metadata = load_hjson(metadata_filename)
-        if not df_filename.exists() or regenerate:
-            scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
-            scenario = get_scenario_cached(metadata['planner_params']['scenario'],
-                                           params=scenario_params)
-            data = []
-            data_gen = tqdm(data_filenames, desc='results files') if progressbar else data_filenames
-            for data_filename in data_gen:
-                datum = load_gzipped_pickle(data_filename)
-                row = make_row(datum, data_filename, metadata, scenario)
+def make_row_worker(args):
+    data_filename, metadata, scenario_params = args
+    scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
+    datum = load_gzipped_pickle(data_filename)
+    row = make_row(datum, data_filename, metadata, scenario)
+    return row
 
-                data.append(row)
-            df_i = pd.DataFrame(data)
-            with df_filename.open("wb") as f:
-                pickle.dump(df_i, f)
-        else:
-            with df_filename.open("rb") as f:
-                df_i = pickle.load(f)
-        dfs.append(df_i)
+
+def make_dataframe_worker(args):
+    d, regenerate = args
+    data_filenames = list(d.glob("*_metrics.pkl.gz"))
+    df_filename = d / 'df.pkl'
+    metadata_filename = d / 'metadata.hjson'
+    metadata = load_hjson(metadata_filename)
+    if not df_filename.exists() or regenerate:
+        scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
+
+        scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
+        data = []
+        for data_filename in data_filenames:
+            datum = load_gzipped_pickle(data_filename)
+            row = make_row(datum, data_filename, metadata, scenario)
+            data.append(row)
+
+        df_i = pd.DataFrame(data)
+        with df_filename.open("wb") as f:
+            pickle.dump(df_i, f)
+    else:
+        with df_filename.open("rb") as f:
+            df_i = pickle.load(f)
+
+    return df_i
+
+
+def load_planning_results(results_dirs: List[pathlib.Path], regenerate: bool = False):
+    args = [(results_dir, regenerate) for results_dir in results_dirs]
+    with multiprocessing.get_context("spawn").Pool() as p:
+        dfs = list(tqdm(p.imap_unordered(make_dataframe_worker, args), total=len(results_dirs)))
 
     df = pd.concat(dfs, ignore_index=True)
     df.columns = column_names

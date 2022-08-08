@@ -16,10 +16,11 @@ def lineplot(df,
              hue: Optional[str] = None,
              style: Optional[str] = None,
              figsize=None,
+             scatt=False,
              ci=100):
     fig = plt.figure(figsize=figsize)
     ax = sns.lineplot(
-        data=df,
+        data=df.sort_values(hue),
         x=x,
         y=metric,
         hue=hue,
@@ -28,6 +29,14 @@ def lineplot(df,
         ci=ci,
         estimator='mean',
     )
+    df_for_scatt = df.groupby([hue, x]).agg("mean").reset_index()
+    if scatt:
+        sns.scatterplot(
+            data=df_for_scatt.sort_values(hue),
+            x=x,
+            y=metric,
+            hue=hue,
+            ax=ax)
     plt.plot([], [], ' ', label=f"shaded {ci}% c.i.")
     ax.set_title(title)
     return fig, ax
