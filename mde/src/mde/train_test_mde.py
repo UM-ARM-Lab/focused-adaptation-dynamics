@@ -17,7 +17,6 @@ from link_bot_data.wandb_datasets import get_dataset_with_version
 from link_bot_pycommon.load_wandb_model import load_model_artifact, model_artifact_path
 from mde.mde_data_module import MDEDataModule
 from mde.torch_mde import MDE
-from mde.gp_mde import GPRMDE
 from mde.torch_mde_dataset import TorchMDEDataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.filepath_tools import load_hjson
@@ -94,6 +93,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     if is_nn_mde:
         model = MDE(**params)
     else:
+        from mde.gp_mde import GPRMDE
         model = GPRMDE(data_module.train_dataset, **params)
         callbacks.append(TrainingDataSaveCB(model))
 
@@ -150,6 +150,7 @@ def eval_main(dataset_dir: pathlib.Path,
     if is_nn_mde:
         model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
     else:
+        from mde.gp_mde import GPRMDE
         model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)
         model.beta = beta
 

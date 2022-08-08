@@ -4,12 +4,9 @@ from typing import Optional
 from link_bot_classifiers.base_constraint_checker import BaseConstraintChecker, ConstraintCheckerEnsemble
 from link_bot_classifiers.feasibility_checker import RobotFeasibilityChecker, FastRobotFeasibilityChecker
 from link_bot_classifiers.gripper_distance_checker import GripperDistanceChecker
-from link_bot_classifiers.nn_classifier_wrapper import NNClassifierWrapper
-from link_bot_classifiers.points_collision_checker import PointsCollisionChecker, PointsSDFCollisionChecker
 from link_bot_pycommon.experiment_scenario import ExperimentScenario
 from link_bot_pycommon.get_scenario import get_scenario
 from mde.torch_mde import MDEConstraintChecker
-from mde.gp_mde import GPMDEConstraintChecker
 from moonshine.filepath_tools import load_trial
 
 
@@ -44,6 +41,7 @@ def load_generic_model(path: pathlib.Path, scenario: Optional[ExperimentScenario
     if is_torch_model(path):  # this is a pytorch model, not a old TF model
         return MDEConstraintChecker(strip_torch_model_prefix(path))
     if is_gpytorch_model(path):
+        from mde.gp_mde import GPMDEConstraintChecker
         return GPMDEConstraintChecker(strip_gpytorch_model_prefix(path))
 
     _, params = load_trial(path.parent.absolute())
@@ -52,6 +50,7 @@ def load_generic_model(path: pathlib.Path, scenario: Optional[ExperimentScenario
         scenario = get_scenario(scenario_name)
     model_type = params['model_class']
     if model_type in ['rnn', 'nn_classifier', 'nn_classifier2']:
+        from link_bot_classifiers.nn_classifier_wrapper import NNClassifierWrapper
         return NNClassifierWrapper(path, batch_size=1, scenario=scenario)
     elif model_type == 'ensemble':
         const_keys_for_classifier = []
@@ -59,8 +58,10 @@ def load_generic_model(path: pathlib.Path, scenario: Optional[ExperimentScenario
         ensemble = ConstraintCheckerEnsemble(path, models, const_keys_for_classifier)
         return ensemble
     elif model_type == 'collision':
+        from link_bot_classifiers.points_collision_checker import PointsCollisionChecker
         return PointsCollisionChecker(path, scenario=scenario)
     elif model_type == 'sdf_collision':
+        from link_bot_classifiers.points_collision_checker import PointsSDFCollisionChecker
         return PointsSDFCollisionChecker(path, scenario=scenario)
     elif model_type == 'gripper_distance':
         return GripperDistanceChecker(path, scenario=scenario)

@@ -1,19 +1,14 @@
 import pathlib
 from typing import Dict, List
 
-import gpytorch
 import numpy as np
 import pytorch_lightning as pl
-import rospy
 import torch
 import torch.nn.functional as F
 import torchmetrics
-from botorch.models import HeteroskedasticSingleTaskGP
-from botorch.models.gp_regression import SingleTaskGP
-from gpytorch.mlls import ExactMarginalLogLikelihood
 from torch import nn
 
-from autolab_core import YamlConfig
+import rospy
 from link_bot_data.dataset_utils import add_predicted_hack, add_predicted
 from link_bot_data.local_env_helper import LocalEnvHelper
 from link_bot_data.visualization import DebuggingViz
@@ -202,7 +197,6 @@ class MDE(pl.LightningModule):
         fc_in = torch.cat(cat_args, -1)
         return batch_size, fc_in
 
-
     def forward(self, inputs: Dict[str, torch.Tensor]):
         if not self.has_checked_training_mode:
             self.has_checked_training_mode = True
@@ -220,9 +214,6 @@ class MDE(pl.LightningModule):
             # for every timestep's output, map down to a single scalar, the logit for accept probability
             predicted_errors = self.output_layer(out_h)  # [b, 1]
             predicted_error = predicted_errors[:, 1:].squeeze(1).squeeze(1)  # [b]
-
-        if self.hparams.get("use_prev_error", True) and self.hparams.get('prev_error_res', False):
-            predicted_error = prev_pred_error + predicted_error
 
         return predicted_error
 
@@ -331,39 +322,6 @@ class MDE(pl.LightningModule):
         return torch.optim.Adam(self.parameters(),
                                 lr=self.hparams.learning_rate,
                                 weight_decay=self.hparams.get('weight_decay', 0))
-
-
-class GPRMDE():
-    def __init__(self, **hparams):
-        super().__init__()
-
-    def load_model(self, model_fn, data_fn):
-        self._model_heter = np.load(model_fn, allow_pickle=True)
-        data = np.load(data_fn, allow_pickle=True)
-        self.nonzero_std_dims = data["nonzero_std"]
-        train_x = torch.from_numpy(data["datas_scaled"]).cuda()
-        train_y = torch.from_numpy(data["labels_scaled"]).cuda()
-        covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.MaternKernel(
-                nu=2.5,
-            ),
-        )
-        model = SingleTaskGP(train_X=train_x, train_Y=train_y, covar_module=covar_module).cuda()
-        with torch.no_grad():
-            observed_var = torch.pow(model.posterior(train_x).mean - train_y, 2)
-        self._model_heter = HeteroskedasticSingleTaskGP(train_x, train_y, observed_var)
-        state_dict = torch.load(model_fn)
-        self._model_heter.load_state_dict(state_dict)
-        self._likelihood = ExactMarginalLogLikelihood(self._model_heter.likelihood, self._model_heter)
-
-    def eval(self):
-        self._model_heter.eval()
-
-    def predict(self, test_x):
-        self._likelihood.eval()
-        with torch.no_grad(), gpytorch.settings.fast_pred_var():
-            pred = self._model_heter.posterior(test_x, observation_noise=True)
-        return pred
 
 
 class MDEConstraintChecker:

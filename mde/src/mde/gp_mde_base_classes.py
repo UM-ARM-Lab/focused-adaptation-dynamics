@@ -6,7 +6,6 @@ from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.models import ExactGP
 from gpytorch.models.exact_prediction_strategies import prediction_strategy
 from gpytorch.models.gp import GP
-from botorch.models import HeteroskedasticSingleTaskGP
 
 from moonshine.gpytorch_tools import custom_combine_batches, _fix_env2, mutate_dict_to_cuda
 
@@ -103,7 +102,6 @@ class DictExactGP(gpytorch.models.ExactGP):
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
             return full_output.__class__(predictive_mean, predictive_covar)
-
 
 
 class DeepExactGP(DictExactGP):
