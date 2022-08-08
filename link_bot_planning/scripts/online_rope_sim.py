@@ -194,10 +194,10 @@ def main():
                 dt = perf_counter() - t0
                 planning_job_chunker.store_result('fine_tune_dynamics_dt', dt)
 
-        mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
-        if mde_dataset_name is None or method_name == 'all_data_no_mde':
+        mde_dataset_name = sub_chunker_i.get('mde_dataset_name')
+        if mde_dataset_name is None and method_name != 'all_data_no_mde':
             t0 = perf_counter()
-            mde_dataset_name = pathlib.Path(f'{args.nickname}_mde_dataset_{i}')
+            mde_dataset_name = f'{args.nickname}_mde_dataset_{i}'
             mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
             mde_dataset_outdir.mkdir(parents=True, exist_ok=True)
             make_mde_dataset(dataset_dir=fetch_udnn_dataset(dynamics_dataset_name),
@@ -210,7 +210,7 @@ def main():
         mde_dataset_dirs.append(mde_dataset_name)
 
         mde_run_id = sub_chunker_i.get('mde_run_id')
-        if mde_run_id is None or method_name == 'all_data_no_mde':
+        if mde_run_id is None and method_name != 'all_data_no_mde':
             t0 = perf_counter()
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
