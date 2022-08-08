@@ -77,10 +77,8 @@ def main():
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
-    elif method_name == 'all_data':
+    elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
-    elif method_name == 'no_adaptation':
-        dynamics_params_filename = None
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
@@ -103,9 +101,12 @@ def main():
         classifiers = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
         if i != 0:
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
-            prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
-            classifiers.append(f'p:model-{prev_mde_run_id}:latest')
+            if method_name == 'all_data_no_mde':
+                print("Not using an MDE!")
+            else:
+                prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
+                classifiers.append(f'p:model-{prev_mde_run_id}:latest')
         else:
             prev_dynamics_run_id = unadapted_run_id
 
@@ -194,7 +195,7 @@ def main():
                 planning_job_chunker.store_result('fine_tune_dynamics_dt', dt)
 
         mde_dataset_name = pathify(sub_chunker_i.get('mde_dataset_name'))
-        if mde_dataset_name is None:
+        if mde_dataset_name is None or method_name == 'all_data_no_mde':
             t0 = perf_counter()
             mde_dataset_name = pathlib.Path(f'{args.nickname}_mde_dataset_{i}')
             mde_dataset_outdir = outdir / 'mde_datasets' / mde_dataset_name
@@ -209,7 +210,7 @@ def main():
         mde_dataset_dirs.append(mde_dataset_name)
 
         mde_run_id = sub_chunker_i.get('mde_run_id')
-        if mde_run_id is None:
+        if mde_run_id is None or method_name == 'all_data_no_mde':
             t0 = perf_counter()
             mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                    params_filename=mde_params_filename,
