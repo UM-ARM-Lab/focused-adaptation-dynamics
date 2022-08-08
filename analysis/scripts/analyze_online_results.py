@@ -19,9 +19,9 @@ def metrics_main(args):
     outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
 
     # Filter the rows to keep only the trails with the same planning conditions
-    df = df_where(df, 'max_extensions_param', 4_000)
-    df = df_where(df, 'max_attempts', 1)
-    df = df_where(df, 'max_planning_attempts', 1)
+    df = df_where(df, 'max_extensions_param', 5_000)
+    df = df_where(df, 'max_attempts', 3)
+    df = df_where(df, 'max_planning_attempts', 3)
 
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {

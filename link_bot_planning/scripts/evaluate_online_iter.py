@@ -57,6 +57,7 @@ def main():
     dynamics, mde = get_dynamics_and_mde(online_learning_log, args.iter)
 
     planner_params = load_planner_params(args.planner_params)
+    planner_params['online_iter'] = args.iter
     planner_params['method_name'] = outdir.name
     planner_params['fwd_model_dir'] = dynamics
     planner_params["classifier_model_dir"] = [mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
