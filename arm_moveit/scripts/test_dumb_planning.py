@@ -78,30 +78,16 @@ def test_rope_reset():
     right_tool_pose.position.z = 0.6
 
     right_tool_grasp_pose = Pose()
-    right_tool_grasp_pose.position.x = 0.9
-    right_tool_grasp_pose.position.y = 0.1
-    right_tool_grasp_pose.position.z = 1.2
+    right_tool_grasp_pose.position.x = 0.7
+    right_tool_grasp_pose.position.y = -0.25
+    right_tool_grasp_pose.position.z = 1.25
     right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, quaternion_from_euler(0, -np.pi / 2, np.pi))
 
     left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-    left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.8
+    left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.9
     left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, quaternion_from_euler(0, np.pi / 2, -np.pi / 2))
 
     while True:
-        # while True:
-        #     left_tool_pose.position.x += rng.uniform(-0.1, 0.1)
-        #     left_tool_pose.position.y += rng.uniform(-0.1, 0.1)
-        #     left_tool_pose.position.z += rng.uniform(-0.1, 0.1)
-        #     right_tool_pose.position.x += rng.uniform(-0.1, 0.1)
-        #     right_tool_pose.position.y += rng.uniform(-0.1, 0.1)
-        #     right_tool_pose.position.z += rng.uniform(-0.1, 0.1)
-        #     try:
-        #         val.plan_to_pose('left_side', 'left_tool', left_tool_pose, position_tol=0.1, orientation_tol=0.1)
-        #         val.plan_to_pose('right_side', 'right_tool', right_tool_pose, position_tol=0.1, orientation_tol=0.1)
-        #         break
-        #     except (moveit_commander.exception.MoveItCommanderException, arm_robots.robot.RobotPlanningError):
-        #         pass
-
         # plan to a start config with the right tool orientations
         val.plan_to_poses('both_arms', ['left_tool', 'right_tool'], [left_tool_pose, right_tool_pose])
 
