@@ -20,8 +20,11 @@ limit_gpu_mem(None)
 def get_dynamics_and_mde(log, i: int):
     iter_log = log[f'iter{i}']
     dynamics_run_id = iter_log['dynamics_run_id']
-    mde_run_id = iter_log['mde_run_id']
-    return f'p:{dynamics_run_id}', f'p:{mde_run_id}'
+    mde_run_id = iter_log.get('mde_run_id', None)
+    if mde_run_id is None:
+        return f'p:{dynamics_run_id}', None
+    else:
+        return f'p:{dynamics_run_id}', f'p:{mde_run_id}'
 
 
 @ros_init.with_ros("planning_evaluation")
@@ -60,7 +63,10 @@ def main():
     planner_params['online_iter'] = args.iter
     planner_params['method_name'] = outdir.name
     planner_params['fwd_model_dir'] = dynamics
-    planner_params["classifier_model_dir"] = [mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+    if mde is None:
+        planner_params["classifier_model_dir"] = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+    else:
+        planner_params["classifier_model_dir"] = [mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
 
     if not args.scenes.exists():
         print(f"Test scenes dir {args.scenes} does not exist")
