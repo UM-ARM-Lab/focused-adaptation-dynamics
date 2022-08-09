@@ -22,7 +22,6 @@ from moonshine.filepath_tools import load_params
 from moonshine.geometry_tf import transformation_jacobian, euler_angle_diff
 from moonshine.numpify import numpify
 from moonshine.tensorflow_utils import to_list_of_strings
-from moonshine.torch_and_tf_utils import remove_batch, add_batch
 from moveit_msgs.msg import RobotState, RobotTrajectory, PlanningScene
 from tf.transformations import quaternion_from_euler
 from trajectory_msgs.msg import JointTrajectoryPoint

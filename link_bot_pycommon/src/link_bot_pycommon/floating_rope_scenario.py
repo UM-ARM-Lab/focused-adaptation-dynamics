@@ -909,16 +909,15 @@ class FloatingRopeScenario(ScenarioWithVisualization, MoveitPlanningSceneScenari
         register_right_req.fixed_rot = True
         self.pos3d.register(register_right_req)
 
-    def make_rope_endpoints_follow_gripper(self):
-        left_follow_req = Position3DFollowRequest()
-        left_follow_req.scoped_link_name = gz_scope(self.params['rope_name'], "left_gripper")
-        left_follow_req.frame_id = "left_tool"
-        self.pos3d.follow(left_follow_req)
+    def make_rope_endpoint_follow_gripper(self, side: str):
+        follow_req = Position3DFollowRequest()
+        follow_req.scoped_link_name = gz_scope(self.params['rope_name'], f"{side}_gripper")
+        follow_req.frame_id = f"{side}_tool"
+        self.pos3d.follow(follow_req)
 
-        right_follow_req = Position3DFollowRequest()
-        right_follow_req.scoped_link_name = gz_scope(self.params['rope_name'], "right_gripper")
-        right_follow_req.frame_id = "right_tool"
-        self.pos3d.follow(right_follow_req)
+    def make_rope_endpoints_follow_gripper(self):
+        self.make_rope_endpoint_follow_gripper('left')
+        self.make_rope_endpoint_follow_gripper('right')
 
     def make_simple_grippers_marker(self, example: Dict, id: int):
         msg = Marker()

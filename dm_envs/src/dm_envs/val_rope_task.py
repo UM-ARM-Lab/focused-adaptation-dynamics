@@ -359,9 +359,7 @@ def main():
         pose.orientation.z = q[2]
         pose.orientation.w = q[3]
         start_scene = task.get_planning_scene_msg(env.physics)
-        plan = val.plan_to_pose(group_name='right_side',
-                                ee_link_name='right_tool',
-                                target_pose=pose,
+        plan = val.plan_to_pose(group_name='right_side', ee_link_name='right_tool', target_pose=pose,
                                 start_state=start_scene.robot_state)
         task.follow_trajectory(env, plan.planning_result.plan.joint_trajectory)
 

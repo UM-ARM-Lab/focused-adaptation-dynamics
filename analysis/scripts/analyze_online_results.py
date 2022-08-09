@@ -26,6 +26,7 @@ def metrics_main(args):
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {
         # order here matters
+        'all_data_no_mde': 'all_data_no_mde',
         'all_data': 'all_data',
         '':         'adaptation',
     }
@@ -41,6 +42,10 @@ def metrics_main(args):
 
     fig, ax = lineplot(df, 'online_iter', 'success', 'Success', hue='method_name', ci=None, scatt=True)
     plt.savefig(outdir / "success.png")
+    fig, ax = lineplot(df, 'online_iter', 'success_given_solved', 'Success (given solved)', hue='method_name', ci=None, scatt=True)
+    plt.savefig(outdir / "success_given_solved.png")
+    fig, ax = lineplot(df, 'online_iter', 'total_time', 'Total Time', hue='method_name', ci=None, scatt=True)
+    plt.savefig(outdir / "total_time.png")
     fig, ax = lineplot(df, 'online_iter', 'normalized_model_error', 'Model Error', hue='method_name', scatt=True)
     plt.savefig(outdir / "normalzed_model_error.png")
     plt.show()
