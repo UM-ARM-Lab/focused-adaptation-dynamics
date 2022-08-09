@@ -2,8 +2,6 @@ from copy import deepcopy
 
 import numpy as np
 
-import arm_robots.robot
-import moveit_commander.exception
 import ros_numpy
 from arc_utilities import ros_init
 from arm_robots.hdt_michigan import Val
@@ -15,9 +13,10 @@ from tf.transformations import quaternion_from_euler
 
 def test_rope_reset():
     scenario = get_scenario('dual_arm_rope_sim_val_with_robot_feasibility_checking', {'rope_name': 'rope_3d_alt'})
+
     scenario.on_before_get_state_or_execute_action()
 
-    val = scenario.robot
+    val: Val = scenario.robot
 
     scenario.grasp_rope_endpoints()
 
@@ -61,18 +60,60 @@ def test_rope_reset():
         'joint7':  0.08609730005264282,
     }
 
+    left_preferred_tool_orientation = quaternion_from_euler(-1.779, -1.043, -2.0)
+    right_preferred_tool_orientation = quaternion_from_euler(np.pi, -1.408, 0.9)
+    val.store_tool_orientations({
+        'left_tool':  left_preferred_tool_orientation,
+        'right_tool': right_preferred_tool_orientation,
+    })
+    left_tool_pose = Pose()
+    left_tool_pose.orientation = ros_numpy.msgify(Quaternion, left_preferred_tool_orientation)
+    left_tool_pose.position.x = 1.0
+    left_tool_pose.position.y = 0.2
+    left_tool_pose.position.z = 0.6
+    right_tool_pose = Pose()
+    right_tool_pose.orientation = ros_numpy.msgify(Quaternion, right_preferred_tool_orientation)
+    right_tool_pose.position.x = 1.0
+    right_tool_pose.position.y = -0.2
+    right_tool_pose.position.z = 0.6
+
+    right_tool_grasp_pose = Pose()
+    right_tool_grasp_pose.position.x = 0.9
+    right_tool_grasp_pose.position.y = 0.1
+    right_tool_grasp_pose.position.z = 1.2
+    right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, quaternion_from_euler(0, -np.pi / 2, np.pi))
+
+    left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
+    left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.8
+    left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, quaternion_from_euler(0, np.pi / 2, -np.pi / 2))
+
     while True:
-        plan_to_random_config(grasp_rope_config.keys(), val, rng)
+        # while True:
+        #     left_tool_pose.position.x += rng.uniform(-0.1, 0.1)
+        #     left_tool_pose.position.y += rng.uniform(-0.1, 0.1)
+        #     left_tool_pose.position.z += rng.uniform(-0.1, 0.1)
+        #     right_tool_pose.position.x += rng.uniform(-0.1, 0.1)
+        #     right_tool_pose.position.y += rng.uniform(-0.1, 0.1)
+        #     right_tool_pose.position.z += rng.uniform(-0.1, 0.1)
+        #     try:
+        #         val.plan_to_pose('left_side', 'left_tool', left_tool_pose, position_tol=0.1, orientation_tol=0.1)
+        #         val.plan_to_pose('right_side', 'right_tool', right_tool_pose, position_tol=0.1, orientation_tol=0.1)
+        #         break
+        #     except (moveit_commander.exception.MoveItCommanderException, arm_robots.robot.RobotPlanningError):
+        #         pass
+
+        # plan to a start config with the right tool orientations
+        val.plan_to_poses('both_arms', ['left_tool', 'right_tool'], [left_tool_pose, right_tool_pose])
 
         scenario.detach_rope_from_gripper('left_gripper')
 
         # move to reset position
         timeout = 30
-        val.plan_to_joint_config("both_arms", grasp_rope_config, timeout=timeout)
+        val.plan_to_poses('both_arms', ['left_tool', 'right_tool'], [left_tool_grasp_pose, right_tool_grasp_pose])
+        # val.plan_to_joint_config("both_arms", grasp_rope_config, timeout=timeout)
 
         tool_names = ['left_tool', 'right_tool']
 
-        old_tool_orientations = deepcopy(val.stored_tool_orientations)
         val.store_current_tool_orientations(tool_names)
         current_right_pos = ros_numpy.numpify(val.get_link_pose('right_tool').position)
 
@@ -85,19 +126,11 @@ def test_rope_reset():
         # go to the start config
         val.plan_to_joint_config("both_arms", reset_config, timeout=timeout)
 
-        # restore old tool orientations
-        if old_tool_orientations is not None:
-            val.store_tool_orientations(old_tool_orientations)
-
-
-def plan_to_random_config(joint_names, val, rng):
-    while True:
-        random_config = dict(zip(joint_names, rng.uniform(-1, 1, len(joint_names))))
-        try:
-            val.plan_to_joint_config("both_arms", random_config)
-            break
-        except (moveit_commander.exception.MoveItCommanderException, arm_robots.robot.RobotPlanningError):
-            pass
+        print("done")
+        val.store_tool_orientations({
+            'left_tool':  left_preferred_tool_orientation,
+            'right_tool': right_preferred_tool_orientation,
+        })
 
 
 @ros_init.with_ros("test_dumb_planning")

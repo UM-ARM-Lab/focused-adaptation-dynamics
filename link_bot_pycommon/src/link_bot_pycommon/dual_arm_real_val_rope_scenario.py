@@ -6,7 +6,6 @@ import numpy as np
 import ros_numpy
 import rosbag
 import rospy
-from arm_robots.robot import RobotPlanningError
 from link_bot_pycommon.base_dual_arm_rope_scenario import BaseDualArmRopeScenario
 from link_bot_pycommon.base_services import BaseServices
 from link_bot_pycommon.dual_arm_rope_action import dual_arm_rope_execute_action
