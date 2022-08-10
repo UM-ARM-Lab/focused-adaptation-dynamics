@@ -41,8 +41,10 @@ def metrics_main(args):
     df['method_name'] = method_names
 
     fig, ax = lineplot(df, 'online_iter', 'success', 'Success', hue='method_name', ci=None, scatt=True)
+    ax.set_ylim(0, 1.02)
     plt.savefig(outdir / "success.png")
     fig, ax = lineplot(df, 'online_iter', 'success_given_solved', 'Success (given solved)', hue='method_name', ci=None, scatt=True)
+    ax.set_ylim(0, 1.02)
     plt.savefig(outdir / "success_given_solved.png")
     fig, ax = lineplot(df, 'online_iter', 'total_time', 'Total Time', hue='method_name', ci=None, scatt=True)
     plt.savefig(outdir / "total_time.png")
