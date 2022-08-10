@@ -38,7 +38,7 @@ def main(args):
         print("starting sim", process_idx)
         subprocess.Popen(sim_cmd, env=env, stdout=sim_stdout_file, stderr=sim_stderr_file)
 
-        time.sleep(5)
+        time.sleep(30)
 
         trial_start_idx = process_idx * trials_per_thread
         trial_end_idx = min(trial_start_idx + trials_per_thread - 1, len(trial_idxs) + 1)
