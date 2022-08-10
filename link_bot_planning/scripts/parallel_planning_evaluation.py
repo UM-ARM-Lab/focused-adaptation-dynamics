@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import more_itertools
 import argparse
 import math
 import os
@@ -13,11 +14,10 @@ from link_bot_pycommon.args import int_set_arg
 def main(args):
     planning_processes = []
     trial_idxs = args.trials
-    trials_per_thread = math.ceil(len(trial_idxs) / args.p)
 
     port_num = 11320
 
-    for process_idx in range(args.p):
+    for process_idx, trials_iterable in enumerate(more_itertools.divide(, range(args.parallel))):
         outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir, args.iter)
         outdir.mkdir(exist_ok=True)
 
@@ -39,13 +39,12 @@ def main(args):
 
         time.sleep(30)
 
-        trial_start_idx = process_idx * trials_per_thread
-        trial_end_idx = min(trial_start_idx + trials_per_thread - 1, len(trial_idxs) + 1)
-        trials_set = f"{trial_idxs[trial_start_idx]}-{trial_idxs[trial_end_idx]}"
+        trials_strs = [str(trials_i) for trials_i in trials_iterable]
+        traisl_set = ','.join(trial_strs)
         planning_cmd = ["python", "scripts/evaluate_online_iter.py", args.planner_params, args.online_dir,
                         str(args.iter), f"--trials={trials_set}", "--on-exception=retry", '-y']
         port_num += 2
-        print("starting planning", process_idx)
+        print(f"starting planning {process_idx} for trials {trials_set}")
         planning_process = subprocess.Popen(planning_cmd, env=env, stdout=stdout_file, stderr=stderr_file)
 
         time.sleep(10)
@@ -65,6 +64,5 @@ if __name__ == "__main__":
     parser.add_argument('online_dir', type=pathlib.Path)
     parser.add_argument('iter', type=int)
     parser.add_argument('--parallel', '-p', type=int, default=10)
-    parser.add_argument("--trials", type=int_set_arg, default="1-9")
     args = parser.parse_args()
     main(args)

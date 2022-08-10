@@ -9,6 +9,7 @@ if __name__ == '__main__':
             proc.info['name'] == 'gzserver',
             proc.info['name'] == 'gzclient',
             'ros' in c,
+            'evaluate' in c,
         ]
         if any(conds):
             print('killed', c)
