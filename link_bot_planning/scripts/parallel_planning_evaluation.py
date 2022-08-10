@@ -12,13 +12,12 @@ from link_bot_pycommon.args import int_set_arg
 
 def main(args):
     planning_processes = []
-    num_parallel_data_collection_threads = 1
     trial_idxs = args.trials
-    trials_per_thread = math.ceil(len(trial_idxs) / num_parallel_data_collection_threads)
+    trials_per_thread = math.ceil(len(trial_idxs) / args.p)
 
     port_num = 11320
 
-    for process_idx in range(num_parallel_data_collection_threads):
+    for process_idx in range(args.p):
         outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir, args.iter)
         outdir.mkdir(exist_ok=True)
 
@@ -65,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument('world', type=str)
     parser.add_argument('online_dir', type=pathlib.Path)
     parser.add_argument('iter', type=int)
+    parser.add_argument('--parallel', '-p', type=int, default=10)
     parser.add_argument("--trials", type=int_set_arg, default="1-9")
     args = parser.parse_args()
     main(args)
