@@ -36,7 +36,7 @@ def main():
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
-    parser.add_argument('--yes', '-y', action='storee_true')
+    parser.add_argument('--yes', '-y', action='store_true')
 
     args = parser.parse_args()
 
