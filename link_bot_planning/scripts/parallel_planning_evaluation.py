@@ -44,7 +44,7 @@ def main(args):
         trial_end_idx = min(trial_start_idx + trials_per_thread - 1, len(trial_idxs) + 1)
         trials_set = f"{trial_idxs[trial_start_idx]}-{trial_idxs[trial_end_idx]}"
         planning_cmd = ["python", "scripts/evaluate_online_iter.py", args.planner_params, args.online_dir,
-                        str(args.iter), f"--trials={trials_set}", "--on-exception=raise", '-y']
+                        str(args.iter), f"--trials={trials_set}", "--on-exception=retry", '-y']
         port_num += 2
         print("starting planning", process_idx)
         planning_process = subprocess.Popen(planning_cmd, env=env, stdout=stdout_file, stderr=stderr_file)
