@@ -187,6 +187,9 @@ class WaterSimScenario(ScenarioWithVisualization):
     def robot_name():
         return "control_box"
 
+    def reset(self):
+        self._scene.reset()
+
     def randomize_environment(self, env_rng, params: Dict):
         self._scene.reset()
 
@@ -213,7 +216,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         # self._get_current_water_height(), in_poured_glass, in_control_glass])
         state = {"controlled_container_pos":   state_vector[:2],
                  "controlled_container_angle": state_vector[2],
-                 "target_container_pos":       np.array([-1, -1]),  # need to check this one
+                 "target_container_pos":       np.array([state_vector[6],0]),  # need to check this one
                  "control_volume":             state_vector[-1],
                  "target_volume":              state_vector[-2]}
         return state
