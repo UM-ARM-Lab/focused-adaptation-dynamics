@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from arc_utilities import ros_init
+from link_bot_planning.eval_online_utils import evaluate_online_iter_outdir, get_dynamics_and_mde
 from link_bot_planning.planning_evaluation import evaluate_multiple_planning, load_planner_params
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.args import int_set_arg
@@ -15,16 +16,6 @@ from moonshine.filepath_tools import load_hjson
 from moonshine.gpu_config import limit_gpu_mem
 
 limit_gpu_mem(None)
-
-
-def get_dynamics_and_mde(log, i: int):
-    iter_log = log[f'iter{i}']
-    dynamics_run_id = iter_log['dynamics_run_id']
-    mde_run_id = iter_log.get('mde_run_id', None)
-    if mde_run_id is None:
-        return f'p:{dynamics_run_id}', None
-    else:
-        return f'p:{dynamics_run_id}', f'p:{mde_run_id}'
 
 
 @ros_init.with_ros("planning_evaluation")
@@ -81,13 +72,6 @@ def main():
                                verbose=args.verbose,
                                test_scenes_dir=args.scenes,
                                seed=args.seed)
-
-
-def evaluate_online_iter_outdir(planner_params: pathlib.Path, online_dir: pathlib.Path):
-    planning_params_name = planner_params.stem
-    nickname = f"{online_dir.name}_iter{iter}-{planning_params_name}"
-    outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
-    return outdir
 
 
 if __name__ == '__main__':

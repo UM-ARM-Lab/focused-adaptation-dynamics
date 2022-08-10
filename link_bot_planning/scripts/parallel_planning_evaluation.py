@@ -6,7 +6,7 @@ import pathlib
 import subprocess
 import time
 
-from link_bot.link_bot_planning.scripts.evaluate_online_iter import evaluate_online_iter_outdir
+from link_bot_planning.eval_online_utils import evaluate_online_iter_outdir
 from link_bot_pycommon.args import int_set_arg
 
 
@@ -36,7 +36,7 @@ def main(args):
         trial_start_idx = process_idx * trials_per_thread
         trial_end_idx = min(trial_start_idx + trials_per_thread - 1, len(trial_idxs) + 1)
         trials_set = f"{trial_idxs[trial_start_idx]}-{trial_idxs[trial_end_idx]}"
-        planning_cmd = ["python", "scripts/evaluate_online_iter.py", args.planner_params, args.online_dir args.iter,
+        planning_cmd = ["python", "scripts/evaluate_online_iter.py", args.planner_params, args.online_dir, args.iter,
                         f"--trials={trials_set}", "--on-exception=raise"]
         port_num += 2
         planning_process = subprocess.Popen(planning_cmd, env=env, stdout=stdout_file, stderr=stderr_file)
