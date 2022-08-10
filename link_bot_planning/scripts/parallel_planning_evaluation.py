@@ -1,23 +1,25 @@
 #!/usr/bin/env python
-import more_itertools
 import argparse
-import math
 import os
 import pathlib
 import subprocess
 import time
 
+import more_itertools
+
 from link_bot_planning.eval_online_utils import evaluate_online_iter_outdir
-from link_bot_pycommon.args import int_set_arg
 
 
 def main(args):
     planning_processes = []
-    trial_idxs = args.trials
+    n_trials = 64
 
     port_num = 11320
 
-    for process_idx, trials_iterable in enumerate(more_itertools.divide(, range(args.parallel))):
+    for process_idx, trials_iterable in enumerate(more_itertools.divide(args.parallel, range(n_trials))):
+        trials_strs = [str(trials_i) for trials_i in trials_iterable]
+        trials_set = ','.join(trials_strs)
+        print(process_idx, trials_set)
         outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir, args.iter)
         outdir.mkdir(exist_ok=True)
 
@@ -39,8 +41,6 @@ def main(args):
 
         time.sleep(30)
 
-        trials_strs = [str(trials_i) for trials_i in trials_iterable]
-        traisl_set = ','.join(trial_strs)
         planning_cmd = ["python", "scripts/evaluate_online_iter.py", args.planner_params, args.online_dir,
                         str(args.iter), f"--trials={trials_set}", "--on-exception=retry", '-y']
         port_num += 2
