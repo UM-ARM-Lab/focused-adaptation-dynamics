@@ -2,6 +2,7 @@
 import argparse
 import logging
 import pathlib
+import time
 
 import colorama
 import numpy as np
@@ -17,8 +18,10 @@ from moonshine.gpu_config import limit_gpu_mem
 
 limit_gpu_mem(None)
 
+now = int(time.time())
 
-@ros_init.with_ros("planning_evaluation")
+
+@ros_init.with_ros(f"planning_evaluation_{now}")
 def main():
     colorama.init(autoreset=True)
     np.set_printoptions(suppress=True, precision=5, linewidth=250)
@@ -33,7 +36,7 @@ def main():
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
-    parser.add_argument('--yes', '-y', action='store_true')
+    parser.add_argument('--yes', '-y', action='storee_true')
 
     args = parser.parse_args()
 
