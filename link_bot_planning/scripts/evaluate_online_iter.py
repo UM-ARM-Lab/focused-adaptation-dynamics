@@ -47,9 +47,7 @@ def main():
 
     online_learning_log = load_hjson(args.online_dir / 'logfile.hjson')
 
-    planning_params_name = args.planner_params.stem
-    nickname = f"{args.online_dir.name}_iter{args.iter}-{planning_params_name}"
-    outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
+    outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir)
 
     if outdir.exists():
         k = input(f"{outdir.as_posix()} exists, do you want to resume? [Y/n]")
@@ -83,6 +81,13 @@ def main():
                                verbose=args.verbose,
                                test_scenes_dir=args.scenes,
                                seed=args.seed)
+
+
+def evaluate_online_iter_outdir(planner_params: pathlib.Path, online_dir: pathlib.Path):
+    planning_params_name = planner_params.stem
+    nickname = f"{online_dir.name}_iter{iter}-{planning_params_name}"
+    outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
+    return outdir
 
 
 if __name__ == '__main__':
