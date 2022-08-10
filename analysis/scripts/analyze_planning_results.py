@@ -57,6 +57,9 @@ def analyze_planning_results(args):
 
     boxplot(df, outdir, hue, 'max_extensions', "Max Extensions", figsize=(12, 8))
 
+    boxplot(df, outdir, hue, 'num_planning_attempts', "Num Planning Attempts", figsize=(12, 8))
+
+
     boxplot(df, outdir, hue, 'total_extensions', "Total Extensions", figsize=(12, 8))
 
     if not args.no_plot:
