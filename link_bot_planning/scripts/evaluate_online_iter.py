@@ -33,14 +33,15 @@ def main():
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
+    parser.add_argument('--yes', '-y', action='store_true')
 
     args = parser.parse_args()
 
     online_learning_log = load_hjson(args.online_dir / 'logfile.hjson')
 
-    outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir)
+    outdir = evaluate_online_iter_outdir(args.planner_params, args.online_dir, args.iter)
 
-    if outdir.exists():
+    if outdir.exists() and not args.yes:
         k = input(f"{outdir.as_posix()} exists, do you want to resume? [Y/n]")
         if k in ['n', 'N']:
             print("Aborting")

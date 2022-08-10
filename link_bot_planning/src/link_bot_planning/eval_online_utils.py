@@ -1,9 +1,9 @@
 import pathlib
 
 
-def evaluate_online_iter_outdir(planner_params: pathlib.Path, online_dir: pathlib.Path):
+def evaluate_online_iter_outdir(planner_params: pathlib.Path, online_dir: pathlib.Path, online_iter: int):
     planning_params_name = planner_params.stem
-    nickname = f"{online_dir.name}_iter{iter}-{planning_params_name}"
+    nickname = f"{online_dir.name}_iter{online_iter}-{planning_params_name}"
     outdir = pathlib.Path(f"/media/shared/planning_results/{nickname}")
     return outdir
 
