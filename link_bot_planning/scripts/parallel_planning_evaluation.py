@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import subprocess, os, math
 import numpy as np
 import pathlib
