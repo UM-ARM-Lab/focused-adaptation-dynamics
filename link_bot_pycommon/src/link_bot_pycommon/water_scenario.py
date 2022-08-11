@@ -90,8 +90,6 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['render'] = 1  # True
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self._params['gui']
-        self._n_envs = 1
-        self._env_idxs = [0]
         self._save_cfg = self._params["save_cfg"]
 
         if not env_kwargs['use_cached_states']:
@@ -126,12 +124,12 @@ class WaterSimScenario(ScenarioWithVisualization):
                                             img_size=self._save_cfg["img_size"])
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
-        target_pos = action["controlled_container_target_pos"]
-        target_angle = action["controlled_container_target_angle"]
+        target_pos = action["controlled_container_target_pos"].flatten()
+        target_angle = action["controlled_container_target_angle"].flatten()
         curr_state = state
         for i in range(self._params["controller_max_horizon"]):
-            curr_pos = curr_state["controlled_container_pos"]
-            curr_angle = curr_state["controlled_container_angle"]
+            curr_pos = curr_state["controlled_container_pos"].flatten()
+            curr_angle = curr_state["controlled_container_angle"].flatten()
             pos_error = target_pos - curr_pos
             pos_control = self._params["k_pos"] * (pos_error)
             angle_error = target_angle - curr_angle
@@ -161,17 +159,17 @@ class WaterSimScenario(ScenarioWithVisualization):
         for _ in range(self.max_action_attempts):
             is_pour = action_rng.randint(2)
             if is_pour:
-                random_angle = action_rng.uniform(low=self._params["action_range"]["angle"][0],
-                                                  high=self._params["action_range"]["angle"][1])
+                random_angle = np.array(action_rng.uniform(low=self._params["action_range"]["angle"][0],
+                                                  high=self._params["action_range"]["angle"][1]), dtype=np.float32)
                 action = {"controlled_container_target_pos":   current_controlled_container_pos,
-                          "controlled_container_target_angle": random_angle}
+                          "controlled_container_target_angle": random_angle.reshape(-1,1)}
             else:
                 random_x = action_rng.uniform(low=self._params["action_range"]["x"][0],
                                               high=self._params["action_range"]["x"][1])
                 random_z = action_rng.uniform(low=self._params["action_range"]["z"][0],
                                               high=self._params["action_range"]["z"][1])
-                action = {"controlled_container_target_pos":   np.array([random_x, random_z]),
-                          "controlled_container_target_angle": 0}
+                action = {"controlled_container_target_pos":   np.array([random_x, random_z], dtype=np.float32),
+                          "controlled_container_target_angle": np.array(0, dtype=np.float32).reshape(-1,1)}
             return action, False
 
     def is_action_valid(self, environment: Dict, state: Dict, action: Dict, action_params: Dict):
@@ -198,16 +196,57 @@ class WaterSimScenario(ScenarioWithVisualization):
         return NotImplementedError
 
     @staticmethod
-    def apply_local_action_at_state(state, local_action):
-        raise NotImplementedError
-
-    @staticmethod
     def add_action_noise(action: Dict, noise_rng: np.random.RandomState):
         raise NotImplementedError
 
     @staticmethod
     def put_action_local_frame(state: Dict, action: Dict):
-        raise NotImplementedError
+        target_pos = action["controlled_container_target_pos"]
+        target_angle = action["controlled_container_target_angle"]
+        current_pos = state["controlled_container_pos"]
+        current_angle = state["controlled_container_angle"]
+        delta_pos = target_pos - current_pos
+        delta_angle = target_angle.flatten() - current_angle.flatten()
+        return {
+            'delta_pos':   delta_pos,
+            'delta_angle': delta_angle.reshape(-1, 1)
+        }
+
+    @staticmethod
+    def apply_local_action_at_state(state, local_action):
+        delta_pos = state['delta_pos']
+        delta_angle = state['delta_angle']
+
+        local_action = {"controlled_container_target_pos":   state["current_controlled_container_pos"] + delta_pos,
+                        "controlled_container_target_angle": (
+                                    state["current_controlled_container_angle"] + delta_angle)}
+        return local_action
+
+    @staticmethod
+    def put_state_local_frame_torch(state: Dict):
+        target_pos = state["target_container_pos"]
+        current_pos = state["controlled_container_pos"]
+        current_angle = state["controlled_container_angle"]
+        delta_pos = target_pos - current_pos
+
+        local_dict = {
+            'controlled_container_pos_local':   delta_pos,
+            'controlled_container_angle_local': current_angle.reshape(-1, 1),
+        }
+        local_dict["target_volume"] = state["target_volume"].reshape(-1, 1)
+        local_dict["control_volume"] = state["control_volume"].reshape(-1, 1)
+        local_dict["target_container_pos"] = 0 * state["target_container_pos"]
+        return local_dict
+
+    @staticmethod
+    def integrate_dynamics(s_t: Dict, delta_s_t: Dict):
+        integrated_dynamics = {}
+        for key in s_t.keys():
+            if s_t[key].shape == delta_s_t[key].shape:
+                integrated_dynamics[key] = s_t[key] + delta_s_t[key]
+            else:
+                integrated_dynamics[key] = s_t[key].reshape(delta_s_t[key].shape) + delta_s_t[key]
+        return integrated_dynamics
 
     def get_state(self):
         state_vector = self._saved_data[0][0]
@@ -215,10 +254,10 @@ class WaterSimScenario(ScenarioWithVisualization):
         # self.glass_distance + self.glass_x, self.poured_height, self.poured_glass_dis_x, self.poured_glass_dis_z,
         # self._get_current_water_height(), in_poured_glass, in_control_glass])
         state = {"controlled_container_pos":   state_vector[:2],
-                 "controlled_container_angle": state_vector[2],
-                 "target_container_pos":       np.array([state_vector[6],0]),  # need to check this one
-                 "control_volume":             state_vector[-1],
-                 "target_volume":              state_vector[-2]}
+                 "controlled_container_angle": state_vector[2].reshape(-1,1),
+                 "target_container_pos":       np.array([state_vector[6], 0]),  # need to check this one
+                 "control_volume":             state_vector[-1].reshape(-1,1),
+                 "target_volume":              state_vector[-2].reshape(-1,1)}
         return state
 
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
@@ -258,10 +297,6 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def plot_action_rviz(self, state: Dict, action: Dict, label: str = 'action', **kwargs):
         state_action = {}
-        raise NotImplementedError
-
-    @staticmethod
-    def put_state_local_frame_torch(state: Dict):
         raise NotImplementedError
 
     def simple_name(self):

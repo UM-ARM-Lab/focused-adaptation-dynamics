@@ -2,8 +2,8 @@
   name: watering 
   scenario: watering 
   real_time_rate: 1
-  max_step_size: 0.01
-  steps_per_traj: 100
+  max_step_size: 100000
+  steps_per_traj: 20
   randomize_n: null
   scenario_params: {
     gui: 1
@@ -11,9 +11,9 @@
       save_frames: 0
       img_size: 64
     }
-    k_pos: 0.02
-    k_angle: 0.1
-    controller_max_horizon: 10
+    k_pos: 0.5
+    k_angle: 0.5
+    controller_max_horizon: 30
     action_range : {
       x : [-0.3, 1.5]
       z : [0.05, 1.4]
@@ -23,6 +23,7 @@
   service_provider: softgym
   state_description: {
     controlled_container_pos: 2
+    controlled_container_angle: 1
     target_container_pos: 2
     control_volume: 1
     target_volume: 1
