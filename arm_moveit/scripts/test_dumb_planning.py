@@ -70,32 +70,32 @@ def test_rope_reset():
     left_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, left_preferred_tool_orientation)
     left_tool_post_planning_pose.position.x = 1.0
     left_tool_post_planning_pose.position.y = 0.2
-    left_tool_post_planning_pose.position.z = 0.6
+    left_tool_post_planning_pose.position.z = 0.5
     right_tool_post_planning_pose = Pose()
     right_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, right_preferred_tool_orientation)
     right_tool_post_planning_pose.position.x = 1.0
     right_tool_post_planning_pose.position.y = -0.2
-    right_tool_post_planning_pose.position.z = 0.6
+    right_tool_post_planning_pose.position.z = 0.5
 
     left_start_pose = Pose()
     left_start_pose.orientation = ros_numpy.msgify(Quaternion, left_preferred_tool_orientation)
-    left_start_pose.position.x = 1.0
+    left_start_pose.position.x = 0.8
     left_start_pose.position.y = 0.2
-    left_start_pose.position.z = 0.6
+    left_start_pose.position.z = 0.9
     right_start_pose = Pose()
     right_start_pose.orientation = ros_numpy.msgify(Quaternion, right_preferred_tool_orientation)
-    right_start_pose.position.x = 1.0
+    right_start_pose.position.x = 0.8
     right_start_pose.position.y = -0.2
-    right_start_pose.position.z = 0.6
+    right_start_pose.position.z = 0.9
 
     right_tool_grasp_pose = Pose()
-    right_tool_grasp_pose.position.x = 0.65
-    right_tool_grasp_pose.position.y = -0.25
-    right_tool_grasp_pose.position.z = 1.25
+    right_tool_grasp_pose.position.x = 0.6
+    right_tool_grasp_pose.position.y = -0.2
+    right_tool_grasp_pose.position.z = 1.2
     right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_preferred_tool_orientation)
 
     left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-    left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.85
+    left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.8
     left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, quaternion_from_euler(0, np.pi / 2, -np.pi / 2))
 
     both_tools = ['left_tool', 'right_tool']
@@ -108,7 +108,7 @@ def test_rope_reset():
         # right_tool_post_planning_pose.position.x += rng.uniform(-0.01, 0.01)
         # right_tool_post_planning_pose.position.y += rng.uniform(-0.01, 0.01)
         # right_tool_post_planning_pose.position.z += rng.uniform(-0.01, 0.01)
-        val.plan_to_poses('both_arms', both_tools, [left_tool_post_planning_pose, right_tool_post_planning_pose])
+        # val.plan_to_poses('both_arms', both_tools, [left_tool_post_planning_pose, right_tool_post_planning_pose])
 
         scenario.detach_rope_from_gripper('left_gripper')
 
