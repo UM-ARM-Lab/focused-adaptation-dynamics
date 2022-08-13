@@ -96,7 +96,7 @@ def main():
 
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
 
-        prev_mde = None
+        prev_mde = "None"
         if i != 0:
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
