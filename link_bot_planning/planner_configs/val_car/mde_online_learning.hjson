@@ -7,9 +7,9 @@
   termination_criteria: {
     total_timeout: 99999
     timeout: 99999
-    max_extensions: 2000
-    max_attempts: 5
-    max_planning_attempts: 5
+    max_extensions: 1600
+    max_attempts: 4
+    max_planning_attempts: 4
     attempted_extensions_threshold: 128
   }
   dmax: 0.04
