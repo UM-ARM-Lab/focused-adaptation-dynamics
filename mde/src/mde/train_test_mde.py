@@ -72,10 +72,10 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
 
     callbacks = []
     if is_nn_mde:
-        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
+        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user, **params)
     else:
         from mde.gp_mde import GPRMDE
-        model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)
+        model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint, **params)
         callbacks.append(TrainingDataSaveCB(model))
 
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', entity=user)

@@ -30,7 +30,6 @@ def online_parallel_planning(planner_params: Dict,
         print(process_idx, trials_set)
 
         stdout_filename = outdir / f'{process_idx}.stdout'
-        stdout_file = stdout_filename.open("w")
         print(f"Writing stdout/stderr to {stdout_filename}")
 
         env = os.environ.copy()
@@ -38,8 +37,6 @@ def online_parallel_planning(planner_params: Dict,
         env["ROS_MASTER_URI"] = f"http://localhost:{port_num + 1}"
         roslaunch_process = gazebo_utils.launch_gazebo(world, stdout_filename, env=env)
         print(f"PID: {roslaunch_process.pid}")
-
-        sleep(30)
 
         planning_cmd = [
             "python",
@@ -56,7 +53,9 @@ def online_parallel_planning(planner_params: Dict,
         ]
         port_num += 2
         print(f"starting planning {process_idx} for trials {trials_set}")
-        planning_process = subprocess.Popen(planning_cmd, env=env, stdout=stdout_file, stderr=stdout_file)
+        eval_stdout_filename = outdir / f'{process_idx}_eval.stdout'
+        eval_stdout_file = eval_stdout_filename.open("w")
+        planning_process = subprocess.Popen(planning_cmd, env=env, stdout=eval_stdout_file, stderr=eval_stdout_file)
         print(f"PID: {planning_process.pid}")
 
         planning_processes.append(planning_process)

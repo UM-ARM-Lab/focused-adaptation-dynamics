@@ -7,6 +7,8 @@ import colorama
 import numpy as np
 import tensorflow as tf
 
+import rospy
+from actionlib_msgs.msg import GoalStatusArray
 from arc_utilities import ros_init
 from link_bot_classifiers.classifier_utils import strip_torch_model_prefix
 from link_bot_planning.planning_evaluation import load_planner_params, evaluate_planning
@@ -47,6 +49,7 @@ def main():
     parser.add_argument("--trials", type=int_set_arg)
     parser.add_argument("--method-name", type=str)
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
+    parser.add_argument("--yes", '-y', help='override the dynamics/mde check')
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
 
@@ -67,7 +70,8 @@ def main():
     #  - get the dataset it was trained on
     #  - get the checkpoint used to generate that MDE dataset
     #  - check if it matches the dynamics
-    check_mde_and_dynamics_match(args.dynamics, args.mde)
+    if not args.yes:
+        check_mde_and_dynamics_match(args.dynamics, args.mde)
 
     if not args.test_scenes_dir.exists():
         print(f"Test scenes dir {args.test_scenes_dir} does not exist")
@@ -76,6 +80,8 @@ def main():
     if args.trials is None:
         args.trials = list(get_all_scene_indices(args.test_scenes_dir))
     print(args.trials)
+
+    rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
 
     job_chunker = JobChunker(logfile_name=outdir / 'logfile.hjson')
     evaluate_planning(outdir=outdir,

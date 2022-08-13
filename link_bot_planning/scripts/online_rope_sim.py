@@ -96,7 +96,7 @@ def main():
 
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
 
-        mde = None
+        prev_mde = None
         if i != 0:
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
@@ -104,7 +104,7 @@ def main():
                 print("Not using an MDE!")
             else:
                 prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
-                mde = f'p:model-{prev_mde_run_id}:latest'
+                prev_mde = f'p:model-{prev_mde_run_id}:latest'
         else:
             prev_dynamics_run_id = unadapted_run_id
 
@@ -143,7 +143,7 @@ def main():
                 online_parallel_planning(planner_params=planner_params_filename,
                                          method_name=method_name,
                                          dynamics=f'p:model-{prev_dynamics_run_id}:latest',
-                                         mde=mde,
+                                         mde=prev_mde,
                                          n_parallel=n_parallel,
                                          outdir=planning_outdir,
                                          test_scenes_dir=test_scenes_dir,
@@ -226,6 +226,7 @@ def main():
                                                        steps=-1,
                                                        epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                        train_mode='all',
+                                                       val_mode='all',  # yes needed env if no_val=True
                                                        no_val=True,
                                                        seed=seed,
                                                        user='armlab',
@@ -242,6 +243,7 @@ def main():
                                                            steps=-1,
                                                            epochs=mde_init_epochs + i * mde_scale_epochs,
                                                            train_mode='all',
+                                                           val_mode='all',
                                                            no_val=True,
                                                            seed=seed,
                                                            user='armlab',
