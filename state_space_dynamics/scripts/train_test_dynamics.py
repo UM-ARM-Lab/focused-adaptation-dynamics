@@ -54,6 +54,7 @@ def main():
     train_parser.add_argument('--repeat', type=int)
     train_parser.add_argument('--epochs', type=int, default=-1)
     train_parser.add_argument('--steps', type=int, default=1_000_000)
+    train_parser.add_argument('--no-val', action='store_true')
     train_parser.add_argument('--seed', type=int, default=None)
     train_parser.set_defaults(func=_train_main)
 
@@ -63,6 +64,7 @@ def main():
     fine_tune_parser.add_argument('params_filename', type=pathlib.Path)
     fine_tune_parser.add_argument('--nickname', '-n', type=str)
     fine_tune_parser.add_argument('--user', '-u', type=str, default='armlab')
+    fine_tune_parser.add_argument('--no-val', action='store_true')
     fine_tune_parser.add_argument('--batch-size', type=int, default=64)
     fine_tune_parser.add_argument('--take', type=int)
     fine_tune_parser.add_argument('--skip', type=int)

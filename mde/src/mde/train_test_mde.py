@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
+import os
 import pathlib
 from datetime import datetime
 from typing import Optional, Union, List
 
 import git
-import os
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning.loggers import WandbLogger
@@ -20,13 +20,89 @@ from mde.torch_mde import MDE
 from mde.torch_mde_dataset import TorchMDEDataset
 from merrrt_visualization.rviz_animation_controller import RvizAnimationController
 from moonshine.filepath_tools import load_hjson
+from moonshine.gpytorch_tools import TrainingDataSaveCB
 from moonshine.my_pl_callbacks import HeartbeatCallback
 from moonshine.torch_and_tf_utils import add_batch, remove_batch
 from moonshine.torch_datasets_utils import dataset_skip
 from moonshine.torchify import torchify
-from moonshine.gpytorch_tools import TrainingDataSaveCB
 
 PROJECT = 'mde'
+
+
+def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
+                   checkpoint: str,
+                   params_filename: pathlib.Path,
+                   batch_size: int,
+                   epochs: int,
+                   seed: int,
+                   user: str,
+                   steps: int = -1,
+                   dryrun: bool = False,
+                   is_nn_mde: Optional[bool] = True,
+                   nickname: Optional[str] = None,
+                   take: Optional[int] = None,
+                   skip: Optional[int] = None,
+                   repeat: Optional[int] = None,
+                   train_mode='train',
+                   val_mode='val',
+                   no_val: Optional[bool] = False,
+                   project=PROJECT,
+                   **kwargs):
+    pl.seed_everything(seed, workers=True)
+    if dryrun:
+        print("OFFLINE MODE")
+        os.environ['WANDB_MODE'] = "offline"
+
+    run_id = generate_id(length=5)
+    if nickname is not None:
+        run_id = nickname + '-' + run_id
+
+    params = load_hjson(params_filename)
+    params.update(kwargs)
+
+    data_module = MDEDataModule(dataset_dir,
+                                batch_size=batch_size,
+                                take=take,
+                                skip=skip,
+                                repeat=repeat,
+                                train_mode=train_mode,
+                                val_mode=val_mode)
+    data_module.add_dataset_params(params)
+    data_module.setup()
+
+    callbacks = []
+    if is_nn_mde:
+        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
+    else:
+        from mde.gp_mde import GPRMDE
+        model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)
+        callbacks.append(TrainingDataSaveCB(model))
+
+    wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', entity=user)
+    if no_val:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(save_last=True, filename='{epoch:02d}', save_on_train_epoch_end=True)
+    else:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
+    hearbeat_callback = HeartbeatCallback(model.scenario)
+    callbacks.extend([ckpt_cb, hearbeat_callback])
+    max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
+    print(f"{max_steps=}")
+    trainer = pl.Trainer(gpus=1,
+                         logger=wb_logger,
+                         enable_model_summary=False,
+                         max_epochs=epochs,
+                         max_steps=max_steps,
+                         log_every_n_steps=1,
+                         check_val_every_n_epoch=999 if no_val else 1,
+                         callbacks=callbacks,
+                         default_root_dir='wandb',
+                         detect_anomaly=True,
+                         )
+    wb_logger.watch(model)
+    trainer.fit(model, data_module)
+    wandb.finish()
+
+    return run_id
 
 
 def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
@@ -45,10 +121,12 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                repeat: Optional[int] = None,
                train_mode='train',
                val_mode='val',
+               no_val: Optional[bool] = False,
                project=PROJECT,
                **kwargs):
     pl.seed_everything(seed, workers=True)
     if dryrun:
+        print("OFFLINE MODE")
         os.environ['WANDB_MODE'] = "offline"
 
     params = load_hjson(params_filename)
@@ -101,7 +179,10 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     print(f"# params: {num_params}")
 
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', **wandb_kargs)
-    ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
+    if no_val:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(save_last=True, filename='{epoch:02d}', save_on_train_epoch_end=True)
+    else:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
     callbacks.extend([ckpt_cb, hearbeat_callback])
     max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
@@ -113,7 +194,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          max_epochs=epochs,
                          max_steps=max_steps,
                          log_every_n_steps=1,
-                         check_val_every_n_epoch=1,
+                         check_val_every_n_epoch=999 if no_val else 1,
                          callbacks=callbacks,
                          default_root_dir='wandb')
     wb_logger.watch(model)
@@ -145,6 +226,7 @@ def eval_main(dataset_dir: pathlib.Path,
               project=PROJECT,
               **kwargs):
     if dryrun:
+        print("OFFLINE MODE")
         os.environ['WANDB_MODE'] = "offline"
 
     if is_nn_mde:

@@ -167,6 +167,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
             self.service_provider.stop_record_trial()
 
     def on_complete(self):
+        super().on_complete()
         self.job_chunker.store_result('planning_results_dir', self.outdir.as_posix())
 
 
@@ -184,7 +185,6 @@ def evaluate_planning(planner_params: Dict,
                       recovery_seed: int = 0,
                       log_full_tree: bool = True,
                       how_to_handle: str = 'retry',
-                      eval_class_type=EvaluatePlanning,
                       on_scenario_cb=empty_callable,
                       ):
     # override some arguments
@@ -211,20 +211,20 @@ def evaluate_planning(planner_params: Dict,
 
     planner.scenario.on_before_get_state_or_execute_action()
 
-    runner = eval_class_type(planner=planner,
-                             service_provider=service_provider,
-                             job_chunker=job_chunker,
-                             trials=trials,
-                             verbose=verbose,
-                             planner_params=planner_params,
-                             outdir=outdir,
-                             use_gt_rope=use_gt_rope,
-                             record=record,
-                             no_execution=no_execution,
-                             test_scenes_dir=test_scenes_dir,
-                             seed=seed,
-                             recovery_seed=recovery_seed,
-                             )
+    runner = EvaluatePlanning(planner=planner,
+                              service_provider=service_provider,
+                              job_chunker=job_chunker,
+                              trials=trials,
+                              verbose=verbose,
+                              planner_params=planner_params,
+                              outdir=outdir,
+                              use_gt_rope=use_gt_rope,
+                              record=record,
+                              no_execution=no_execution,
+                              test_scenes_dir=test_scenes_dir,
+                              seed=seed,
+                              recovery_seed=recovery_seed,
+                              )
 
     def _on_exception():
         pass
@@ -234,7 +234,6 @@ def evaluate_planning(planner_params: Dict,
                          exception_callback=_on_exception,
                          )
     planner.scenario.robot.disconnect()
-
 
 
 def evaluate_multiple_planning(outdir: pathlib.Path,

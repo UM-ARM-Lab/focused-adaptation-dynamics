@@ -44,6 +44,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                    user: str,
                    steps: int = -1,
                    nickname: Optional[str] = None,
+                   no_val: Optional[bool] = False,
                    take: Optional[int] = None,
                    skip: Optional[int] = None,
                    repeat: Optional[int] = None,
@@ -72,7 +73,10 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     model = load_model_artifact(checkpoint, UDNN, project=project, version='latest', user=user, **params)
 
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', entity=user)
-    ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
+    if no_val:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(save_last=True, filename='{epoch:02d}', save_on_train_epoch_end=True)
+    else:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
 
     trainer = pl.Trainer(gpus=1,
@@ -81,7 +85,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                          max_epochs=epochs,
                          max_steps=int(steps / batch_size) if steps != -1 else steps,
                          log_every_n_steps=1,
-                         check_val_every_n_epoch=1,
+                         check_val_every_n_epoch=999 if no_val else 1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
                          detect_anomaly=True,
@@ -100,6 +104,7 @@ def train_main(dataset_dir: pathlib.Path,
                user: str,
                steps: int = -1,
                nickname: Optional[str] = None,
+               no_val: Optional[bool] = False,
                checkpoint: Optional = None,
                take: Optional[int] = None,
                skip: Optional[int] = None,
@@ -145,7 +150,10 @@ def train_main(dataset_dir: pathlib.Path,
 
     model = UDNN(**params)
     wb_logger = WandbLogger(project=project, name=run_id, id=run_id, log_model='all', **wandb_kargs)
-    ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
+    if no_val:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(save_last=True, filename='{epoch:02d}', save_on_train_epoch_end=True)
+    else:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
     trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,
@@ -153,7 +161,7 @@ def train_main(dataset_dir: pathlib.Path,
                          max_epochs=epochs,
                          max_steps=int(steps / batch_size) if steps != -1 else steps,
                          log_every_n_steps=1,
-                         check_val_every_n_epoch=1,
+                         check_val_every_n_epoch=999 if no_val else 1,
                          callbacks=[ckpt_cb, hearbeat_callback],
                          default_root_dir='wandb',
                          gradient_clip_val=0.01)

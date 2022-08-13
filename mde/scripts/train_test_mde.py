@@ -22,6 +22,9 @@ def main():
 
         train_test_mde.train_main(**vars(args))
 
+    def _fine_tune_main(args):
+        train_test_mde.fine_tune_main(**vars(args))
+
     def _eval_main(args):
         train_test_mde.eval_main(**vars(args))
 
@@ -46,11 +49,32 @@ def main():
     train_parser.add_argument('--repeat', type=int)
     train_parser.add_argument('--skip', type=int)
     train_parser.add_argument('--epochs', type=int, default=150)
+    train_parser.add_argument('--no-val', action='store_true')
     train_parser.add_argument('--is_nn_mde', type=int, default=1)
-    train_parser.add_argument('--dryrun', type=int, default=1)
+    train_parser.add_argument('--dryrun', type=int)
     train_parser.add_argument('--steps', type=int, default=-1)
     train_parser.add_argument('--seed', type=int, default=None)
     train_parser.set_defaults(func=_train_main)
+
+    fine_tune_parser = subparsers.add_parser('fine_tune')
+    fine_tune_parser.add_argument('dataset_dir', type=pathlib.Path, nargs='+')
+    fine_tune_parser.add_argument('checkpoint', type=str)
+    fine_tune_parser.add_argument('params_filename', type=pathlib.Path)
+    fine_tune_parser.add_argument('--nickname', '-n', type=str)
+    fine_tune_parser.add_argument('--user', '-u', type=str, default='armlab')
+    fine_tune_parser.add_argument('--batch-size', type=int, default=32)
+    fine_tune_parser.add_argument('--take', type=int)
+    fine_tune_parser.add_argument('--repeat', type=int)
+    fine_tune_parser.add_argument('--skip', type=int)
+    fine_tune_parser.add_argument('--train-mode')
+    fine_tune_parser.add_argument('--val-mode')
+    fine_tune_parser.add_argument('--epochs', type=int, default=15)
+    fine_tune_parser.add_argument('--no-val', action='store_true')
+    fine_tune_parser.add_argument('--is_nn_mde', type=int, default=1)
+    fine_tune_parser.add_argument('--dryrun', type=int)
+    fine_tune_parser.add_argument('--steps', type=int, default=-1)
+    fine_tune_parser.add_argument('--seed', type=int, default=0)
+    fine_tune_parser.set_defaults(func=_fine_tune_main)
 
     viz_parser = subparsers.add_parser('viz')
     viz_parser.add_argument('dataset_dir', type=pathlib.Path)
@@ -70,7 +94,7 @@ def main():
     eval_parser.add_argument('--project', type=str, default="mde")
     eval_parser.add_argument('--is_nn_mde', type=int, default=1)
     eval_parser.add_argument('--beta', type=float, default=2)
-    eval_parser.add_argument('--dryrun', type=int, default=1)
+    eval_parser.add_argument('--dryrun')
 
 
     eval_parser.set_defaults(func=_eval_main)

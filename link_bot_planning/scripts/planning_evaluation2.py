@@ -75,7 +75,7 @@ def main():
 
     if args.trials is None:
         args.trials = list(get_all_scene_indices(args.test_scenes_dir))
-        print(args.trials)
+    print(args.trials)
 
     job_chunker = JobChunker(logfile_name=outdir / 'logfile.hjson')
     evaluate_planning(outdir=outdir,

@@ -6,6 +6,8 @@ from typing import Dict, List
 
 import more_itertools
 
+from link_bot_gazebo import gazebo_utils
+
 
 def online_parallel_planning(planner_params: Dict,
                              dynamics: str,
@@ -19,6 +21,7 @@ def online_parallel_planning(planner_params: Dict,
                              n_parallel: int,
                              world: str):
     planning_processes = []
+    roslaunch_processes = []
     port_num = 42000
 
     for process_idx, trials_iterable in enumerate(more_itertools.divide(n_parallel, trials)):
@@ -33,10 +36,8 @@ def online_parallel_planning(planner_params: Dict,
         env = os.environ.copy()
         env["GAZEBO_MASTER_URI"] = f"http://localhost:{port_num}"
         env["ROS_MASTER_URI"] = f"http://localhost:{port_num + 1}"
-
-        sim_cmd = ["roslaunch", "link_bot_gazebo", "val.launch", "gui:=false", f"world:={world}"]
-        print("starting sim", process_idx)
-        subprocess.Popen(sim_cmd, env=env, stdout=stdout_file, stderr=stdout_file)
+        roslaunch_process = gazebo_utils.launch_gazebo(world, stdout_filename, env=env)
+        print(f"PID: {roslaunch_process.pid}")
 
         sleep(30)
 
@@ -56,8 +57,13 @@ def online_parallel_planning(planner_params: Dict,
         port_num += 2
         print(f"starting planning {process_idx} for trials {trials_set}")
         planning_process = subprocess.Popen(planning_cmd, env=env, stdout=stdout_file, stderr=stdout_file)
+        print(f"PID: {planning_process.pid}")
 
         planning_processes.append(planning_process)
+        roslaunch_processes.append(roslaunch_process)
 
     for planning_process in planning_processes:
         planning_process.wait()
+
+    for roslaunch_process in roslaunch_processes:
+        gazebo_utils.kill_gazebo(roslaunch_process)

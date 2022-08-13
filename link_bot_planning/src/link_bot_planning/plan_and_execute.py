@@ -207,7 +207,6 @@ class PlanAndExecute:
             self.plan_and_execute(trial_idx)
 
         self.on_complete()
-        self.service_provider.play()
 
     def plan_and_execute(self, trial_idx: int):
         self.set_random_seeds_for_trial(trial_idx)
@@ -525,7 +524,7 @@ class PlanAndExecute:
         pass
 
     def on_complete(self):
-        pass
+        [p.suspend() for p in self.gazebo_processes]
 
     def on_after_planning(self, trial_idx, attempt_idx):
         pass
