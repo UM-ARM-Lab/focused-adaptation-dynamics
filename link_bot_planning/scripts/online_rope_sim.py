@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import itertools
+import multiprocessing
 import pathlib
 import warnings
 from time import perf_counter, sleep
@@ -24,7 +25,8 @@ from colorama import Fore
 from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_data.wandb_datasets import wandb_save_dataset
-from link_bot_planning.planning_evaluation import evaluate_planning, load_planner_params
+from link_bot_planning.planning_evaluation import load_planner_params
+from link_bot_planning.parallel_planning import online_parallel_planning
 from link_bot_planning.results_to_dynamics_dataset import ResultsToDynamicsDataset
 from link_bot_pycommon.job_chunking import JobChunker
 from mde import train_test_mde
@@ -66,7 +68,6 @@ def main():
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/val_car/mde_online_learning.hjson')
-    planner_params = load_planner_params(planner_params_filename)
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
     iterations = int(job_chunker.load_prompt('iterations', 100))
     n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
@@ -74,6 +75,7 @@ def main():
     udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 1))
     mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 3))
+    world = job_chunker.load_prompt('world', 'car5_alt.world')
 
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
@@ -87,8 +89,6 @@ def main():
     all_trial_indices = list(get_all_scene_indices(test_scenes_dir))
     trial_indices_generator = chunked(itertools.cycle(all_trial_indices), n_trials_per_iteration)
 
-    gazebo_utils.suspend()  # most code runs faster if gazebo is suspended
-
     # initialize with unadapted model
     dynamics_dataset_dirs = []
     mde_dataset_dirs = []
@@ -98,7 +98,7 @@ def main():
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
         planning_job_chunker = sub_chunker_i.sub_chunker("planning")
 
-        classifiers = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+        mde = None
         if i != 0:
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
@@ -106,7 +106,7 @@ def main():
                 print("Not using an MDE!")
             else:
                 prev_mde_run_id = prev_sub_chunker.get("mde_run_id")
-                classifiers.append(f'p:model-{prev_mde_run_id}:latest')
+                mde = f'p:model-{prev_mde_run_id}:latest'
         else:
             prev_dynamics_run_id = unadapted_run_id
 
@@ -119,11 +119,12 @@ def main():
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
-            planner_params['method_name'] = method_name
-            planner_params["classifier_model_dir"] = classifiers
-            planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
-            gazebo_utils.resume()
             if i == 0:
+                # launch gazebo?
+                stdout_filename = outdir / f'collect_dynamics_data.stdout'
+                print(f"starting sim to collect data with random actions. Logging to {stdout_filename}")
+                result = gazebo_utils.launch_gazebo(world, stdout_filename)
+
                 dynamics_dataset_dir_i = None
                 for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
                                                                        n_trajs=10,
@@ -133,18 +134,25 @@ def main():
                                                                        test_split=0,
                                                                        seed=seed):
                     pass
+
+                gazebo_utils.kill_gazebo(result)
                 wandb_save_dataset(dynamics_dataset_dir_i, 'udnn', entity='armlab')
                 dynamics_dataset_name = dynamics_dataset_dir_i.name
                 sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
             else:
-                evaluate_planning(planner_params=planner_params,
-                                  job_chunker=planning_job_chunker,
-                                  outdir=planning_outdir,
-                                  test_scenes_dir=test_scenes_dir,
-                                  trials=planning_trials,
-                                  seed=seed,
-                                  how_to_handle=args.on_exception)
-            gazebo_utils.suspend()
+                n_parallel = int(multiprocessing.cpu_count() / 6)
+                print(f"{n_parallel=}")
+                online_parallel_planning(planner_params=planner_params_filename,
+                                         method_name=method_name,
+                                         dynamics=f'p:model-{prev_dynamics_run_id}:latest',
+                                         mde=mde,
+                                         n_parallel=n_parallel,
+                                         outdir=planning_outdir,
+                                         test_scenes_dir=test_scenes_dir,
+                                         trials=planning_trials,
+                                         world=world,
+                                         seed=seed,
+                                         how_to_handle=args.on_exception)
             planning_job_chunker.store_result('planning_outdir', planning_outdir.as_posix())
             dt = perf_counter() - t0
             planning_job_chunker.store_result('planning_outdir_dt', dt)

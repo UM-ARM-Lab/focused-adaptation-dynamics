@@ -1,12 +1,27 @@
 import contextlib
 import os
 import pathlib
+import subprocess
 
 import halo
 import psutil
 
 import rospy
 from gazebo_msgs.srv import GetModelState, GetModelStateResponse, GetModelStateRequest
+
+
+def launch_gazebo(world, stdout_filename):
+    stdout_file = stdout_filename.open("w")
+    sim_cmd = ["roslaunch", "link_bot_gazebo", "val.launch", "gui:=false", f"world:={world}"]
+    popen_result = subprocess.Popen(sim_cmd, stdout=stdout_file, stderr=stdout_file)
+    roslaunch_process = psutil.Process(popen_result.pid)
+    return roslaunch_process
+
+
+def kill_gazebo(roslaunch_process):
+    for proc in roslaunch_process.children(recursive=True):
+        proc.kill()
+    roslaunch_process.kill()
 
 
 def get_gazebo_kinect_pose(model_name="kinect2"):
