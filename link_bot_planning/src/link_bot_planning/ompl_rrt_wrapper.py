@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 from arc_utilities.algorithms import zip_repeat_shorter
 from link_bot_planning.trajectory_optimizer_torch import TrajectoryOptimizerTorch
-from link_bot_pycommon.spinners import SynchronousSpinner
+from link_bot_pycommon.spinners import StatSpinner
 from state_space_dynamics.torch_udnn_dynamics_wrapper import TorchUDNNDynamicsWrapper
 
 with warnings.catch_warnings():
@@ -271,7 +271,8 @@ class OmplRRTWrapper(MyPlanner):
         self.progagate_dts.append(dt)
         self.last_propagate_time = now
 
-        self.spinner.update()
+        mean_propagate_time = float(np.mean(self.progagate_dts))
+        self.spinner.update(f"{mean_propagate_time:.3f}s")
 
         # Convert from OMPL -> Numpy
         previous_states, previous_actions = self.motions_to_numpy(motions)
@@ -364,7 +365,7 @@ class OmplRRTWrapper(MyPlanner):
         return TimeoutOrNotProgressing(planning_query, self.params['termination_criteria'], self.verbose)
 
     def plan(self, planning_query: PlanningQuery):
-        self.spinner = SynchronousSpinner('Planning')
+        self.spinner = StatSpinner('Planning')
         self.cleanup_before_plan(planning_query.seed)
 
         self.sps.environment = planning_query.environment

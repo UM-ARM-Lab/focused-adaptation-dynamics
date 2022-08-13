@@ -37,20 +37,20 @@ def save_gazebo_pids(pids):
 
 
 def get_gazebo_pids():
-    look_up_new_pids = False
+    look_up_new_pids = True
     gazebo_uri_key = "GAZEBO_MASTER_URI"
     this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
-    if not GAZEBO_PIDS_FILENAME.exists():
-        look_up_new_pids = True
-    else:
-        with GAZEBO_PIDS_FILENAME.open("r") as f:
-            pids = [int(l.strip('\n')) for l in f.readlines()]
-        if len(pids) == 0:
-            look_up_new_pids = True
-        else:
-            for pid in pids:
-                if not psutil.pid_exists(pid):
-                    look_up_new_pids = True
+    # if not GAZEBO_PIDS_FILENAME.exists():
+    #     look_up_new_pids = True
+    # else:
+    #     with GAZEBO_PIDS_FILENAME.open("r") as f:
+    #         pids = [int(l.strip('\n')) for l in f.readlines()]
+    #     if len(pids) == 0:
+    #         look_up_new_pids = True
+    #     else:
+    #         for pid in pids:
+    #             if not psutil.pid_exists(pid):
+    #                 look_up_new_pids = True
 
     if look_up_new_pids:
         pids = []

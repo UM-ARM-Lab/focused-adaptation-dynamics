@@ -33,6 +33,20 @@ class SynchronousSpinner:
         print('', flush=True)
 
 
+class StatSpinner:
+
+    def __init__(self, message: str):
+        self.message = message
+
+    def update(self, value: str):
+        total_len = len(self.message) + len(value) + 1
+        backspaces = '\b' * total_len
+        print(f'{backspaces}{value} {self.message}', end='', flush=True)
+
+    def stop(self):
+        print('', flush=True)
+
+
 def main():
     s = SynchronousSpinner("Loading")
     for i in range(100):
