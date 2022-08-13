@@ -458,6 +458,7 @@ class PlanAndExecute:
         if stop_on_error_above is not None:
             model_error = self.scenario.classifier_distance(predicted_after_state, after_state)
             if model_error > stop_on_error_above:
+                print("Stopping because error is too high!")
                 return True
         else:
             return False
