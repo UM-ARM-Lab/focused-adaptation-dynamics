@@ -138,7 +138,7 @@ def main():
                 dynamics_dataset_name = dynamics_dataset_dir_i.name
                 sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
             else:
-                n_parallel = int(multiprocessing.cpu_count() / 6)
+                n_parallel = int(multiprocessing.cpu_count() / 8)
                 print(f"{n_parallel=}")
                 online_parallel_planning(planner_params=planner_params_filename,
                                          method_name=method_name,
@@ -188,6 +188,7 @@ def main():
                                                                      steps=-1,
                                                                      epochs=int(udnn_init_epochs + i * udnn_scale_epochs),
                                                                      repeat=100,
+                                                                     no_val=True,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab',
