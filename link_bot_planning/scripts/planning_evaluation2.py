@@ -77,7 +77,7 @@ def main():
     if args.mde == 'None':
         args.mde = None
 
-    if not args.yes and args.mde is not None:
+    if not args.yes or args.mde is not None:
         check_mde_and_dynamics_match(args.dynamics, args.mde)
 
     if not args.test_scenes_dir.exists():
