@@ -74,7 +74,10 @@ def main():
     #  - get the dataset it was trained on
     #  - get the checkpoint used to generate that MDE dataset
     #  - check if it matches the dynamics
-    if not args.yes and args.mde != 'None':
+    if args.mde == 'None':
+        args.mde = None
+
+    if not args.yes and args.mde is not None:
         check_mde_and_dynamics_match(args.dynamics, args.mde)
 
     if not args.test_scenes_dir.exists():
