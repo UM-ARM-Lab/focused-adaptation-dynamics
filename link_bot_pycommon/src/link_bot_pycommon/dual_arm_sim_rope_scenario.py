@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 
 import numpy as np
@@ -166,6 +167,67 @@ class SimDualArmRopeScenario(BaseDualArmRopeScenario):
         self.service_provider.pause()
         self.service_provider.restore_from_bag(bagfile_name, excluded_models=[self.robot_name()])
         self.service_provider.play()
+
+    def reset_to_start(self, planner_params: Dict, start: Dict):
+        # NOTE: the start joint config in the .bag file is currently unused, since we hard-code the start here
+        rope_length = 0.8
+        rope_start_midpoint = np.array([0.8, 0, 0.6])
+
+        left_start_pose = Pose()
+        left_start_pose.orientation = ros_numpy.msgify(Quaternion, self.left_preferred_tool_orientation)
+        left_start_pose.position.x = 0.8
+        left_start_pose.position.y = 0.2
+        left_start_pose.position.z = 0.9
+        right_start_pose = Pose()
+        right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
+        right_start_pose.position.x = 0.8
+        right_start_pose.position.y = -0.2
+        right_start_pose.position.z = 0.9
+
+        right_tool_grasp_pose = Pose()
+        right_tool_grasp_pose.position.x = 0.7
+        right_tool_grasp_pose.position.y = -0.1
+        right_tool_grasp_pose.position.z = 1.1
+        right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
+
+        left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - rope_length - 0.05
+        left_tool_grasp_quat = quaternion_from_euler(0, np.pi / 2 + 0.2, -np.pi / 2)
+        left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, left_tool_grasp_quat)
+
+        both_tools = ['left_tool', 'right_tool']
+
+        self.grasp_rope_endpoints()
+
+        while True:
+            self.detach_rope_from_gripper('left_gripper')
+
+            # move to reset position
+            self.robot.plan_to_poses('both_arms', both_tools, [left_tool_grasp_pose, right_tool_grasp_pose])
+
+            # move up
+            self.grasp_rope_endpoints()
+            right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
+            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0, 0.08])
+            self.robot.store_current_tool_orientations(both_tools)
+            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
+
+            self.grasp_rope_endpoints()
+
+            # go to the start config
+            self.robot.plan_to_poses("both_arms", both_tools, [left_start_pose, right_start_pose])
+
+            self.robot.store_tool_orientations({
+                'left_tool':  self.left_preferred_tool_orientation,
+                'right_tool': self.right_preferred_tool_orientation,
+            })
+
+            state = self.get_state()
+            rope_points = state['rope'].reshape([-1, 3])
+            midpoint = rope_points[12]
+            rope_is_in_box = np.linalg.norm(midpoint - rope_start_midpoint) < 0.1
+            if not self.is_rope_overstretched() and rope_is_in_box:
+                break
 
     @Halo(text='Restoring', spinner='dots')
     def restore_from_bag(self, service_provider: BaseServices, params: Dict, bagfile_name, force=False):
