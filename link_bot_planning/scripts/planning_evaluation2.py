@@ -49,7 +49,7 @@ def main():
     parser.add_argument("--trials", type=int_set_arg)
     parser.add_argument("--method-name", type=str)
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
-    parser.add_argument("--yes", '-y', help='override the dynamics/mde check')
+    parser.add_argument("--yes", '-y', action='store_true', help='override the dynamics/mde check')
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
 
@@ -63,14 +63,18 @@ def main():
     else:
         planner_params['method_name'] = args.outdir.name
     planner_params['fwd_model_dir'] = args.dynamics
-    planner_params["classifier_model_dir"] = [args.mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+
+    if args.mde == 'None':
+        planner_params["classifier_model_dir"] = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+    else:
+        planner_params["classifier_model_dir"] = [args.mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
 
     # NOTE: check that MDE and Dynamics are compatible
     #  - load the MDE
     #  - get the dataset it was trained on
     #  - get the checkpoint used to generate that MDE dataset
     #  - check if it matches the dynamics
-    if not args.yes:
+    if not args.yes and args.mde != 'None':
         check_mde_and_dynamics_match(args.dynamics, args.mde)
 
     if not args.test_scenes_dir.exists():

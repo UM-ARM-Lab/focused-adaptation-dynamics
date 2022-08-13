@@ -2,7 +2,7 @@ import os
 import pathlib
 import subprocess
 from time import sleep
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import more_itertools
 
@@ -11,7 +11,7 @@ from link_bot_gazebo import gazebo_utils
 
 def online_parallel_planning(planner_params: Dict,
                              dynamics: str,
-                             mde: str,
+                             mde: Optional[str],
                              outdir: pathlib.Path,
                              test_scenes_dir: pathlib.Path,
                              method_name: str,
@@ -45,7 +45,7 @@ def online_parallel_planning(planner_params: Dict,
             test_scenes_dir.as_posix(),
             outdir.as_posix(),
             dynamics,
-            mde,
+            str(mde),
             f"--trials={trials_set}",
             f"--on-exception={how_to_handle}",
             f"--seed={seed}",
