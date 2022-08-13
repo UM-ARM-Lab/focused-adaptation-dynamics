@@ -68,7 +68,7 @@ def main():
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/val_car/mde_online_learning.hjson')
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car4_alt')
-    iterations = int(job_chunker.load_prompt('iterations', 100))
+    iterations = int(job_chunker.load_prompt('iterations', 10))
     n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
     udnn_init_epochs = int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 0.25))
