@@ -62,7 +62,10 @@ def online_parallel_planning(planner_params: Dict,
         roslaunch_processes.append(roslaunch_process)
 
     for planning_process in planning_processes:
-        planning_process.wait()
+        return_code = planning_process.wait()
+        if return_code != 0:
+            raise RuntimeError("Planning process failed!")
+
 
     for roslaunch_process in roslaunch_processes:
         gazebo_utils.kill_gazebo(roslaunch_process)
