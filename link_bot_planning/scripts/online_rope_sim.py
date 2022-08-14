@@ -9,6 +9,8 @@ from time import perf_counter, sleep
 import rospkg
 from more_itertools import chunked
 
+import rospy
+from actionlib_msgs.msg import GoalStatusArray
 from link_bot_data.base_collect_dynamics_data import collect_dynamics_data
 from link_bot_gazebo import gazebo_utils
 from link_bot_planning.test_scenes import get_all_scene_indices
@@ -122,6 +124,7 @@ def main():
                 stdout_filename = outdir / f'collect_dynamics_data.stdout'
                 print(f"starting sim to collect data with random actions. Logging to {stdout_filename}")
                 result = gazebo_utils.launch_gazebo(world, stdout_filename)
+                rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
 
                 dynamics_dataset_dir_i = None
                 for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
