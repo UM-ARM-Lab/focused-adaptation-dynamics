@@ -15,6 +15,11 @@ def resume(args):
     print(gazebo_processes)
 
 
+def statuses(args):
+    for s in gazebo_utils.statuses():
+        print(s)
+
+
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
@@ -22,6 +27,8 @@ def main():
     suspend_parser.set_defaults(func=suspend)
     resume_parser = subparsers.add_parser('resume')
     resume_parser.set_defaults(func=resume)
+    statuses_parser = subparsers.add_parser('statuses')
+    statuses_parser.set_defaults(func=statuses)
 
     run_subparsers(parser)
 

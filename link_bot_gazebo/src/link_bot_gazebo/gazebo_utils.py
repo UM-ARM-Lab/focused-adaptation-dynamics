@@ -28,13 +28,13 @@ def get_gazebo_kinect_pose(model_name="kinect2"):
     return res.pose
 
 
-def get_gazebo_pids():
+def get_gazebo_processes():
     gazebo_uri_key = "GAZEBO_MASTER_URI"
     this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
 
     disks = subprocess.run(["pgrep", "gzserver"], capture_output=True, text=True)
     output = disks.stdout
-    pids = []
+    processes = []
     for pid in output.split("\n"):
         try:
             pid = int(pid)
@@ -44,20 +44,18 @@ def get_gazebo_pids():
                 proc_gz_uri = proc_environ.get(gazebo_uri_key, None)
                 if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
                     continue  # Necessary when running multiple gzserver instances
-                pids.append(pid)
+                processes.append(proc)
             except psutil.NoSuchProcess:
                 pass
         except ValueError:
             pass
-    return pids
-
-
-def get_gazebo_processes():
-    pids = get_gazebo_pids()
-    processes = []
-    for pid in pids:
-        processes.append(psutil.Process(pid))
     return processes
+
+
+def statuses():
+    gazebo_processes = get_gazebo_processes()
+    statuses = [p.status() in ['stopped'] for p in gazebo_processes]
+    return statuses
 
 
 def is_suspended():
