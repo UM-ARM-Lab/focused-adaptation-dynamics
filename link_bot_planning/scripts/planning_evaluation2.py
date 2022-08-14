@@ -57,6 +57,14 @@ def main():
 
     outdir = args.outdir
 
+    if not args.test_scenes_dir.exists():
+        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
+        return
+
+    if args.trials is None:
+        args.trials = list(get_all_scene_indices(args.test_scenes_dir))
+    print(args.trials)
+
     planner_params = load_planner_params(args.planner_params)
     if args.method_name:
         planner_params['method_name'] = args.method_name
@@ -81,14 +89,6 @@ def main():
     if not args.yes and args.mde is not None:
         check_mde_and_dynamics_match(args.dynamics, args.mde)
 
-    if not args.test_scenes_dir.exists():
-        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
-        return
-
-    if args.trials is None:
-        args.trials = list(get_all_scene_indices(args.test_scenes_dir))
-    print(args.trials)
-
     rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
 
     job_chunker = JobChunker(logfile_name=outdir / 'logfile.hjson')
@@ -101,6 +101,7 @@ def main():
                       job_chunker=job_chunker,
                       seed=args.seed)
 
+    print("Done!")
 
 if __name__ == '__main__':
     main()

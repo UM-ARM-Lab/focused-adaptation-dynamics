@@ -3,7 +3,6 @@ import os
 import pathlib
 import subprocess
 
-import halo
 import psutil
 
 import rospy
@@ -37,40 +36,25 @@ def save_gazebo_pids(pids):
 
 
 def get_gazebo_pids():
-    look_up_new_pids = True
     gazebo_uri_key = "GAZEBO_MASTER_URI"
     this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
-    # if not GAZEBO_PIDS_FILENAME.exists():
-    #     look_up_new_pids = True
-    # else:
-    #     with GAZEBO_PIDS_FILENAME.open("r") as f:
-    #         pids = [int(l.strip('\n')) for l in f.readlines()]
-    #     if len(pids) == 0:
-    #         look_up_new_pids = True
-    #     else:
-    #         for pid in pids:
-    #             if not psutil.pid_exists(pid):
-    #                 look_up_new_pids = True
 
-    if look_up_new_pids:
-        pids = []
-        for proc in psutil.process_iter(['name', 'pid']):
-            if proc.info['name'] == 'gzserver' or proc.info['name'] == 'gzclient':
-                proc_environ = proc.environ()
-                if this_process_gazebo_uri is not None and gazebo_uri_key in proc_environ and proc_environ[
-                    gazebo_uri_key] != this_process_gazebo_uri:
-                    continue  # Necessary when running multiple gzserver instances
-                pids.append(proc.info['pid'])
-
-    save_gazebo_pids(pids)
-
+    output = subprocess.check_output(["pgrep", "gzserver"])
+    pids = []
+    for pid in output.decode("utf-8").strip("\n").split("\n"):
+        pid = int(pid)
+        proc = psutil.Process(pid)
+        proc_environ = proc.environ()
+        proc_gz_uri = proc_environ[gazebo_uri_key]
+        if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
+            continue  # Necessary when running multiple gzserver instances
+        pids.append(pid)
     return pids
 
 
 GAZEBO_PIDS_FILENAME = pathlib.Path("~/.gazebo_pids").expanduser()
 
 
-@halo.Halo("Getting gazebo processes")
 def get_gazebo_processes():
     pids = get_gazebo_pids()
     processes = []

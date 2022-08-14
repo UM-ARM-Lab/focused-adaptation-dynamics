@@ -215,7 +215,9 @@ class SimDualArmRopeScenario(BaseDualArmRopeScenario):
             self.grasp_rope_endpoints()
 
             # go to the start config
+            print("planning to start config")
             self.robot.plan_to_poses("both_arms", both_tools, [left_start_pose, right_start_pose])
+            print("done")
 
             self.robot.store_tool_orientations({
                 'left_tool':  self.left_preferred_tool_orientation,
