@@ -38,8 +38,12 @@ def metrics_main(args):
     # compute rolling average per run
 
     method_name_map = {
-        '/media/shared/online_adaptation/v7':          'Adaptation (ours)',
-        '/media/shared/online_adaptation/v7_all_data': 'All Data (baseline)',
+        '/media/shared/online_adaptation/v7':                 'Adaptation (ours)',
+        '/media/shared/online_adaptation/v7_all_data':        'All Data (baseline)',
+        '/media/shared/online_adaptation/v7_all_data_no_mde': 'No MDE (baseline)',
+        '/media/shared/online_adaptation/v8':                 'Adaptation (ours)',
+        '/media/shared/online_adaptation/v8_all_data':        'All Data (baseline)',
+        '/media/shared/online_adaptation/v8_all_data_no_mde': 'No MDE (baseline)',
     }
 
     for i, k in enumerate(method_name_map.keys()):
@@ -59,13 +63,11 @@ def metrics_main(args):
         'success':                'mean',
         'task_error':             'mean',
         'normalized_model_error': 'mean',
-        'used_augmentation':      rlast,
         'method_idx':             rlast,
         iter_key:                 rlast,
     }
 
     df_r = df.sort_values(iter_key).groupby('ift_uuid').rolling(w).agg(agg)
-    # hack for the fact that for iter=0 used_augmentation is always 0, even on runs where augmentation is used.
     method_name_values_r = []
     for method_idx in df_r['method_idx'].values:
         if np.isnan(method_idx):
@@ -82,41 +84,11 @@ def metrics_main(args):
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 
-    fig, ax = lineplot(df, iter_key, 'total_extensions', 'Total # Extensions in Planning', hue='method_name')
-    plt.savefig(outdir / f'total_extensions.png')
-
-    fig, ax = lineplot(df, iter_key, 'max_extensions', 'Max # Extensions in Planning', hue='method_name')
-    plt.savefig(outdir / f'max_extensions.png')
-
-    fig, ax = lineplot(df, iter_key, 'max_planning_time', 'Max Planning Time', hue='method_name')
-    plt.savefig(outdir / f'max_planning_time.png')
+    fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
+    plt.savefig(outdir / f'task_error.png')
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
     plt.savefig(outdir / f'normalized_model_error.png')
-
-    # fig, ax = lineplot(df_r, iter_key, 'success', f'Rope Manipulation, Rolling Avg. Success', hue='method_name', ci=ci)
-    # ax.set_ylim(-0.01, 1.01)
-    # ax.set_xlabel("Iteration")
-    # ax.legend()
-    # plt.show()
-    # plt.savefig(outdir / f'success_rate_rolling.png', dpi=180)
-
-    # fig, ax = lineplot(df, iter_key, 'any_solved', 'Any Solved', hue='method_name')
-    # plt.savefig(outdir / f'any_solved.png')
-    #
-    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error (separate)', hue='ift_uuid')
-
-    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
-    # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
-
-    # fig, ax = lineplot(df_r, iter_key, 'task_error', f'Task Error (rolling={w})', hue='method_name', ci=ci)
-    # ax.axhline(0.045, color='black', linewidth=3, label='goal threshold')
-    # ax.legend()
-    # plt.savefig(outdir / f'task_error_rolling.png')
-
-    # fig, ax = lineplot(df_r, iter_key, 'normalized_model_error', f'Normalized Model Error (rolling={w})',
-    #                    hue='method_name')
-    # plt.savefig(outdir / f'normalized_model_error_rolling.png')
 
     if not args.no_plot:
         plt.show()
