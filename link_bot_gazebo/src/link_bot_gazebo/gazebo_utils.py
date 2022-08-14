@@ -45,12 +45,15 @@ def get_gazebo_pids():
     for pid in output.split("\n"):
         try:
             pid = int(pid)
-            proc = psutil.Process(pid)
-            proc_environ = proc.environ()
-            proc_gz_uri = proc_environ[gazebo_uri_key]
-            if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
-                continue  # Necessary when running multiple gzserver instances
-            pids.append(pid)
+            try:
+                proc = psutil.Process(pid)
+                proc_environ = proc.environ()
+                proc_gz_uri = proc_environ[gazebo_uri_key]
+                if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
+                    continue  # Necessary when running multiple gzserver instances
+                pids.append(pid)
+            except psutil.NoSuchProcess:
+                pass
         except ValueError:
             pass
     return pids

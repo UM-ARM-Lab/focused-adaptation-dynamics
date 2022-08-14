@@ -29,6 +29,12 @@ from moonshine.filepath_tools import load_hjson
 from moonshine.numpify import numpify
 
 
+def get_results_filename(outdir: pathlib.Path, trial_idx: int):
+    data_filename = planning_trial_name(trial_idx)
+    full_data_filename = outdir / data_filename
+    return full_data_filename
+
+
 class EvaluatePlanning(plan_and_execute.PlanAndExecute):
 
     def __init__(self,
@@ -110,7 +116,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
             'uuid':           uuid.uuid4(),
         }
         trial_data.update(extra_trial_data)
-        full_data_filename = self.get_results_filename(trial_idx)
+        full_data_filename = get_results_filename(self.outdir, trial_idx)
         dump_gzipped_pickle(trial_data, full_data_filename)
 
         if self.record:
@@ -137,13 +143,8 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
         ]
         rospy.loginfo(Fore.LIGHTBLUE_EX + f"[{self.outdir.name}] " + Fore.RESET + ', '.join(update_msg))
 
-    def get_results_filename(self, trial_idx):
-        data_filename = planning_trial_name(trial_idx)
-        full_data_filename = self.outdir / data_filename
-        return full_data_filename
-
     def plan_and_execute(self, trial_idx: int):
-        full_data_filename = self.get_results_filename(trial_idx)
+        full_data_filename = get_results_filename(self.outdir, trial_idx)
         if full_data_filename.exists():
             rospy.loginfo(f"Found existing trial {trial_idx}, skipping.")
             return
@@ -178,6 +179,16 @@ def evaluate_planning(planner_params: Dict,
                       how_to_handle: str = 'retry',
                       on_scenario_cb=empty_callable,
                       ):
+    # first check if the outputs already exist
+    done = True
+    for trial_idx in trials:
+        full_data_filename = get_results_filename(outdir, trial_idx)
+        if not full_data_filename.exists():
+            done = False
+    if done:
+        print("Nothing to do!")
+        return outdir
+
     # override some arguments
     if timeout is not None:
         rospy.loginfo(f"Overriding with timeout {timeout}")
