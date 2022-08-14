@@ -14,7 +14,6 @@ from link_bot_classifiers.classifier_utils import strip_torch_model_prefix
 from link_bot_planning.planning_evaluation import load_planner_params, evaluate_planning
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.args import int_set_arg
-from link_bot_pycommon.job_chunking import JobChunker
 from link_bot_pycommon.load_wandb_model import load_model_artifact
 from mde.torch_mde import MDE
 from moonshine.gpu_config import limit_gpu_mem
@@ -91,14 +90,12 @@ def main():
 
     rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
 
-    job_chunker = JobChunker(logfile_name=outdir / 'logfile.hjson')
     evaluate_planning(outdir=outdir,
                       planner_params=planner_params,
                       trials=args.trials,
                       how_to_handle=args.on_exception,
                       verbose=args.verbose,
                       test_scenes_dir=args.test_scenes_dir,
-                      job_chunker=job_chunker,
                       seed=args.seed)
 
     print("Done!")

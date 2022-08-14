@@ -39,16 +39,20 @@ def get_gazebo_pids():
     gazebo_uri_key = "GAZEBO_MASTER_URI"
     this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
 
-    output = subprocess.check_output(["pgrep", "gzserver"])
+    disks = subprocess.run(["pgrep", "gzserver"], capture_output=True, text=True)
+    output = disks.stdout
     pids = []
-    for pid in output.decode("utf-8").strip("\n").split("\n"):
-        pid = int(pid)
-        proc = psutil.Process(pid)
-        proc_environ = proc.environ()
-        proc_gz_uri = proc_environ[gazebo_uri_key]
-        if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
-            continue  # Necessary when running multiple gzserver instances
-        pids.append(pid)
+    for pid in output.split("\n"):
+        try:
+            pid = int(pid)
+            proc = psutil.Process(pid)
+            proc_environ = proc.environ()
+            proc_gz_uri = proc_environ[gazebo_uri_key]
+            if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
+                continue  # Necessary when running multiple gzserver instances
+            pids.append(pid)
+        except ValueError:
+            pass
     return pids
 
 

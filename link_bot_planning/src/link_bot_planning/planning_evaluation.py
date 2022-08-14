@@ -23,7 +23,6 @@ from link_bot_planning import plan_and_execute
 from link_bot_planning.get_planner import get_planner
 from link_bot_planning.my_planner import MyPlanner
 from link_bot_pycommon.base_services import BaseServices
-from link_bot_pycommon.job_chunking import JobChunker
 from link_bot_pycommon.pycommon import deal_with_exceptions, empty_callable
 from link_bot_pycommon.serialization import dump_gzipped_pickle, my_hdump
 from moonshine.filepath_tools import load_hjson
@@ -35,7 +34,6 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
     def __init__(self,
                  planner: MyPlanner,
                  service_provider: BaseServices,
-                 job_chunker: JobChunker,
                  verbose: int,
                  planner_params: Dict,
                  outdir: pathlib.Path,
@@ -55,7 +53,6 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
                          recovery_seed=recovery_seed)
         self.record = record
         self.outdir = outdir
-        self.job_chunker = job_chunker
 
         self.outdir.mkdir(parents=True, exist_ok=True)
         rospy.loginfo(Fore.BLUE + f"Output directory: {self.outdir.as_posix()}")
@@ -113,8 +110,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
             'uuid':           uuid.uuid4(),
         }
         trial_data.update(extra_trial_data)
-        data_filename = planning_trial_name(trial_idx)
-        full_data_filename = self.outdir / data_filename
+        full_data_filename = self.get_results_filename(trial_idx)
         dump_gzipped_pickle(trial_data, full_data_filename)
 
         if self.record:
@@ -141,18 +137,15 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
         ]
         rospy.loginfo(Fore.LIGHTBLUE_EX + f"[{self.outdir.name}] " + Fore.RESET + ', '.join(update_msg))
 
-        jobkey = self.jobkey(trial_idx)
-        self.job_chunker.store_result(jobkey, {'data_filename': data_filename})
-
-    @staticmethod
-    def jobkey(trial_idx):
-        jobkey = f'{trial_idx}'
-        return jobkey
+    def get_results_filename(self, trial_idx):
+        data_filename = planning_trial_name(trial_idx)
+        full_data_filename = self.outdir / data_filename
+        return full_data_filename
 
     def plan_and_execute(self, trial_idx: int):
-        jobkey = self.jobkey(trial_idx)
-        if self.job_chunker.has_result(jobkey):
-            rospy.loginfo(f"Found existing trial {jobkey}, skipping.")
+        full_data_filename = self.get_results_filename(trial_idx)
+        if full_data_filename.exists():
+            rospy.loginfo(f"Found existing trial {trial_idx}, skipping.")
             return
         super().plan_and_execute(trial_idx=trial_idx)
 
@@ -168,11 +161,9 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
 
     def on_complete(self):
         super().on_complete()
-        self.job_chunker.store_result('planning_results_dir', self.outdir.as_posix())
 
 
 def evaluate_planning(planner_params: Dict,
-                      job_chunker: JobChunker,
                       outdir: pathlib.Path,
                       use_gt_rope: bool = True,
                       trials: Optional[List[int]] = None,
@@ -213,7 +204,6 @@ def evaluate_planning(planner_params: Dict,
 
     runner = EvaluatePlanning(planner=planner,
                               service_provider=service_provider,
-                              job_chunker=job_chunker,
                               trials=trials,
                               verbose=verbose,
                               planner_params=planner_params,
@@ -259,7 +249,6 @@ def evaluate_multiple_planning(outdir: pathlib.Path,
         logfile_name = outdir / f'logfile.hjson'
 
     print(f'logfile: {logfile_name}')
-    job_chunker = JobChunker(logfile_name=logfile_name)
 
     rospy.loginfo(Fore.CYAN + "common output directory: {}".format(outdir))
     if not outdir.is_dir():
@@ -275,13 +264,9 @@ def evaluate_multiple_planning(outdir: pathlib.Path,
         if stop_idx != -1 and comparison_idx >= stop_idx:
             break
 
-        job_chunker.setup_key(method_name)
-        sub_job_chunker = job_chunker.sub_chunker(method_name)
-
         rospy.loginfo(Fore.GREEN + f"Running method {method_name}")
 
         evaluate_planning(planner_params=planner_params,
-                          job_chunker=sub_job_chunker,
                           use_gt_rope=use_gt_rope,
                           trials=trials,
                           outdir=outdir,
