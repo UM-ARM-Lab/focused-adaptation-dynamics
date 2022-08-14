@@ -54,7 +54,7 @@ def get_gazebo_processes():
 
 def statuses():
     gazebo_processes = get_gazebo_processes()
-    statuses = [p.status() in ['stopped'] for p in gazebo_processes]
+    statuses = [p.status() for p in gazebo_processes]
     return statuses
 
 
