@@ -35,8 +35,9 @@ def main():
                         dt_by_key[dt_k] = 0
                     dt_by_key[dt_k] += dt
                     iter_total_dt += dt
-            dts_by_iter[k] = iter_total_dt
-            total_dt += iter_total_dt
+            if iter_total_dt > 0:
+                dts_by_iter[k] = iter_total_dt
+                total_dt += iter_total_dt
 
     print(Fore.CYAN + "By Iteration" + Fore.RESET)
     print("         individual  cumulative")

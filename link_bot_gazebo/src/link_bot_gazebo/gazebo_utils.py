@@ -1,6 +1,5 @@
 import contextlib
 import os
-import pathlib
 import subprocess
 
 import psutil
@@ -29,12 +28,6 @@ def get_gazebo_kinect_pose(model_name="kinect2"):
     return res.pose
 
 
-def save_gazebo_pids(pids):
-    with GAZEBO_PIDS_FILENAME.open('w') as f:
-        for pid in pids:
-            f.write(f"{pid}\n")
-
-
 def get_gazebo_pids():
     gazebo_uri_key = "GAZEBO_MASTER_URI"
     this_process_gazebo_uri = os.environ.get(gazebo_uri_key, None)
@@ -48,7 +41,7 @@ def get_gazebo_pids():
             try:
                 proc = psutil.Process(pid)
                 proc_environ = proc.environ()
-                proc_gz_uri = proc_environ[gazebo_uri_key]
+                proc_gz_uri = proc_environ.get(gazebo_uri_key, None)
                 if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
                     continue  # Necessary when running multiple gzserver instances
                 pids.append(pid)
@@ -57,9 +50,6 @@ def get_gazebo_pids():
         except ValueError:
             pass
     return pids
-
-
-GAZEBO_PIDS_FILENAME = pathlib.Path("~/.gazebo_pids").expanduser()
 
 
 def get_gazebo_processes():
