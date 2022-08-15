@@ -62,6 +62,17 @@ def main():
     job_chunker = JobChunker(logfile_name)
 
     method_name = job_chunker.load_prompt('method_name', 'adaptation')
+    if method_name not in args.nickname:
+        print(f"{args.nickname=} doesn't make sense with {method_name=}, aborting!")
+        return
+    if method_name == 'adaptation':
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
+    elif method_name in ['all_data', 'all_data_no_mde']:
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
+    else:
+        raise NotImplementedError(f'Unknown method name {method_name}')
+
+
     unadapted_run_id = job_chunker.load_prompt('unadapted_run_id', 'sim_rope_unadapted-dme7l')
     seed = int(job_chunker.load_prompt('seed', 0))
     collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
@@ -77,13 +88,6 @@ def main():
     mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 0.25))
     world = job_chunker.load_prompt('world', 'car5_alt.world')
-
-    if method_name == 'adaptation':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
-    elif method_name in ['all_data', 'all_data_no_mde']:
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
-    else:
-        raise NotImplementedError(f'Unknown method name {method_name}')
 
     mde_params_filename = mde_pkg_dir / "hparams" / "rope.hjson"
 
@@ -189,7 +193,8 @@ def main():
                                                                      params_filename=dynamics_params_filename,
                                                                      batch_size=32,
                                                                      steps=-1,
-                                                                     epochs=int(udnn_init_epochs + i * udnn_scale_epochs),
+                                                                     epochs=int(
+                                                                         udnn_init_epochs + i * udnn_scale_epochs),
                                                                      repeat=100,
                                                                      no_val=True,
                                                                      seed=seed,
