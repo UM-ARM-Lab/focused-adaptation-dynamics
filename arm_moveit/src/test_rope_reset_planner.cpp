@@ -14,13 +14,25 @@ int main(int argc, char** argv) {
   right_tool_grasp_pose.orientation.w = -0.2815409651297376;
 
   auto left_tool_grasp_pose = geometry_msgs::Pose(right_tool_grasp_pose);
-  left_tool_grasp_pose.position.x = right_tool_grasp_pose.position.z - 0.8;
+  left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.8;
   left_tool_grasp_pose.orientation.x = 0.5474187909624268;
   left_tool_grasp_pose.orientation.y = 0.547418790962427;
   left_tool_grasp_pose.orientation.z = -0.44758537431559875;
   left_tool_grasp_pose.orientation.w = 0.4475853743155988;
 
+  ros::NodeHandle nh("test_rope_reset_planner");
+  auto pub = nh.advertise<moveit_msgs::DisplayTrajectory>("ompl_plan", 10);
+
   RopeResetPlanner rope_reset_planner;
-  auto const traj_msg = rope_reset_planner.planToReset(left_tool_grasp_pose, right_tool_grasp_pose, 1);
+  auto const traj_msg = rope_reset_planner.planToReset(left_tool_grasp_pose, right_tool_grasp_pose, 10);
+
+  moveit_msgs::DisplayTrajectory  display_msg;
+  display_msg.trajectory.emplace_back(traj_msg);
+
+  while (ros::ok()) {
+    pub.publish(display_msg);
+    ros::spinOnce();
+  }
+
   return 0;
 }

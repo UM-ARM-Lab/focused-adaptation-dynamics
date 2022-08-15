@@ -18,4 +18,7 @@
   <depend>roscpp</depend>
   <depend>rospy</depend>
   <depend>ompl</depend>
+  <depend>eigen_conversions</depend>
+  <depend>bio_ik</depend>
+  <depend>tf2_eigen</depend>
 </package>

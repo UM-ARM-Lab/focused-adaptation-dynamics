@@ -91,7 +91,7 @@ def main():
 
     rope_reset_planner = RopeResetPlanner()
 
-    traj_msg = rope_reset_planner.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, 30)
+    traj_msg = rope_reset_planner.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, 5)
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(traj_msg)
     pub = rospy.Publisher("ompl_plan", DisplayTrajectory, queue_size=10)

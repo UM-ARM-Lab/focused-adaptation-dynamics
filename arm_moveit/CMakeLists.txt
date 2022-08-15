@@ -9,6 +9,9 @@ set(CATKIN_DEPENDS
         moveit_visual_tools
         pybind11_catkin
         roscpp
+        eigen_conversions
+        bio_ik
+        tf2_eigen
         )
 
 find_package(catkin REQUIRED COMPONENTS ${CATKIN_DEPENDS})

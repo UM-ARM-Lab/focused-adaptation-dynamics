@@ -1,15 +1,18 @@
 #include <arm_moveit/rope_reset_planner.h>
+#include <bio_ik/bio_ik.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <ompl/base/SpaceInformation.h>
 #include <ompl/base/goals/GoalState.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
-#include <ompl/control/SimpleSetup.h>
-#include <ompl/control/SpaceInformation.h>
-#include <ompl/control/planners/sst/SST.h>
-#include <ompl/control/spaces/RealVectorControlSpace.h>
+#include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 #include <iostream>
 
 namespace ob = ompl::base;
-namespace oc = ompl::control;
+namespace og = ompl::geometric;
 
 namespace std {
 template <typename T>
@@ -46,98 +49,40 @@ std::vector<double> operator*(const T &scalar, const std::vector<T2> &vec) {
 }
 
 template <typename T>
-std::vector<double> values_to_vector(T *state_or_control, int size) {
+std::vector<double> values_to_vector(T *state, int size) {
   std::vector<double> vec;
   for (auto i{0}; i < size; ++i) {
-    vec.push_back((*state_or_control)[i]);
+    vec.push_back((*state)[i]);
   }
   return vec;
 }
 
-void copy_vector_to_values(ob::RealVectorStateSpace::StateType *state_or_control, std::vector<double> vec) {
+void copy_vector_to_values(ob::RealVectorStateSpace::StateType *state, std::vector<double> vec) {
   for (auto i{0u}; i < vec.size(); ++i) {
-    (*state_or_control)[i] = vec[i];
+    (*state)[i] = vec[i];
   }
 }
 
-class ArmStateSpace : public ob::CompoundStateSpace {
+class ArmStateSpace : public ob::RealVectorStateSpace {
  public:
   std::vector<std::string> joint_names_;
   ros::Publisher &display_robot_state_pub_;
-  class StateType : public CompoundStateSpace::StateType {
+  class StateType : public RealVectorStateSpace::StateType {
    public:
     StateType() = default;
 
-    [[nodiscard]] auto getPositionState() { return this->operator[](0)->as<ob::RealVectorStateSpace::StateType>(); }
-
-    [[nodiscard]] auto getPositionState() const {
-      return this->operator[](0)->as<ob::RealVectorStateSpace::StateType>();
-    }
-
-    [[nodiscard]] auto getPositionValues() const {
-      return this->operator[](0)->as<ob::RealVectorStateSpace::StateType>()->values;
-    }
-
-    [[nodiscard]] auto getVelocityState() { return this->operator[](1)->as<ob::RealVectorStateSpace::StateType>(); }
-
-    [[nodiscard]] auto getVelocityState() const {
-      return this->operator[](1)->as<ob::RealVectorStateSpace::StateType>();
-    }
-
-    [[nodiscard]] auto getVelocityValues() const {
-      return this->operator[](1)->as<ob::RealVectorStateSpace::StateType>()->values;
-    }
-
-    [[nodiscard]] auto getAccelerationState() { return this->operator[](2)->as<ob::RealVectorStateSpace::StateType>(); }
-
-    [[nodiscard]] auto getAccelerationState() const {
-      return this->operator[](2)->as<ob::RealVectorStateSpace::StateType>();
-    }
-
-    [[nodiscard]] auto getAccelerationValues() const {
-      return this->operator[](2)->as<ob::RealVectorStateSpace::StateType>()->values;
-    }
-
-    void setPositions(std::vector<double> const &positions) { copy_vector_to_values(getPositionState(), positions); }
-
-    void setVelocities(std::vector<double> const &velocities) { copy_vector_to_values(getVelocityState(), velocities); }
-    void setAccelerations(std::vector<double> const &accelerations) {
-      copy_vector_to_values(getAccelerationState(), accelerations);
-    }
+    void setPositions(std::vector<double> const &positions) { copy_vector_to_values(this, positions); }
   };
 
   explicit ArmStateSpace(std::vector<std::string> const &joint_names, ros::Publisher &publisher)
-      : joint_names_(joint_names), display_robot_state_pub_(publisher) {
+      : ob::RealVectorStateSpace(joint_names.size()), joint_names_(joint_names), display_robot_state_pub_(publisher) {
     auto const dim = joint_names.size();
-    auto const &position_subspace = std::make_shared<ob::RealVectorStateSpace>(dim);
-    position_subspace->setName("position");
-    auto const &velocity_subspace = std::make_shared<ob::RealVectorStateSpace>(dim);
-    velocity_subspace->setName("velocity");
-    auto const &acceleration_subspace = std::make_shared<ob::RealVectorStateSpace>(dim);
-    acceleration_subspace->setName("acceleration");
-
     for (auto i{0u}; i < dim; ++i) {
-      position_subspace->setDimensionName(i, joint_names[i]);
-      velocity_subspace->setDimensionName(i, joint_names[i]);
-      acceleration_subspace->setDimensionName(i, joint_names[i]);
+      setDimensionName(i, joint_names[i]);
     }
-
-    addSubspace(position_subspace, 1.0);
-    addSubspace(velocity_subspace, 0);
-    addSubspace(acceleration_subspace, 0);
-    lock();
   }
 
-  ob::RealVectorStateSpace *getPositionSpace() { return getSubspace("position")->as<ob::RealVectorStateSpace>(); }
-
-  ob::RealVectorStateSpace *getVelocitySpace() { return getSubspace("velocity")->as<ob::RealVectorStateSpace>(); }
-  ob::RealVectorStateSpace *getAccelerationSpace() {
-    return getSubspace("acceleration")->as<ob::RealVectorStateSpace>();
-  }
-
-  int getJointIndex(std::string const &joint_name) {
-    return getSubspace("position")->as<ob::RealVectorStateSpace>()->getDimensionIndex(joint_name);
-  }
+  int getJointIndex(std::string const &joint_name) { return getDimensionIndex(joint_name); }
 
   void displayRobotState(std::vector<double> const &positions) {
     moveit_msgs::DisplayRobotState display_msg;
@@ -147,46 +92,130 @@ class ArmStateSpace : public ob::CompoundStateSpace {
   }
 };
 
-bool isStateValid(const oc::SpaceInformation *si, const ob::State *state) {
+bool isStateValid(const ob::SpaceInformation *si, const ob::State *state) {
   //  const auto *real_state = state->as<ArmStateSpace::StateType>();
   // FIXME: define the other constraints
   return si->satisfiesBounds(state);
 }
 
-void propagate(const moveit_visual_tools::MoveItVisualTools &visual_tools, const std::shared_ptr<ArmStateSpace> &space,
-               const std::shared_ptr<oc::RealVectorControlSpace> &cspace, const ob::State *start,
-               const oc::Control *control, const double dt, ob::State *result) {
-  const auto arm_state = start->as<ArmStateSpace::StateType>();
-  const auto result_arm_state = result->as<ArmStateSpace::StateType>();
-  const auto real_control_ptr = control->as<oc::RealVectorControlSpace::ControlType>();
-
-  auto result_qddot_ptr = result_arm_state->getAccelerationState();
-  auto result_qdot_ptr = result_arm_state->getVelocityState();
-  auto result_q_ptr = result_arm_state->getPositionState();
-  auto const state_qddot_ptr = arm_state->getAccelerationState();
-  auto const state_qdot_ptr = arm_state->getVelocityState();
-  auto const state_q_ptr = arm_state->getPositionState();
-
-  auto const n_joints = cspace->getDimension();
-  auto const state_qddot = values_to_vector(state_qddot_ptr, n_joints);
-  auto const state_qdot = values_to_vector(state_qdot_ptr, n_joints);
-  auto const state_q = values_to_vector(state_q_ptr, n_joints);
-  auto const real_control = values_to_vector(real_control_ptr, n_joints);
-
-  auto const &result_qddot = real_control;
-  auto const result_qdot = state_qdot + dt * state_qddot;
-  auto const result_q = state_q + dt * state_qdot + 0.5 * dt * dt * state_qddot;
-
-  copy_vector_to_values(result_qddot_ptr, result_qddot);
-  copy_vector_to_values(result_qdot_ptr, result_qdot);
-  copy_vector_to_values(result_q_ptr, result_q);
-
-  space->displayRobotState(result_q);
-  //  std::cout << dt << std::endl;
-  //  std::cout << result_qddot;
-  //  std::cout << result_qdot;
-  //  std::cout << result_q;
+auto rotMatDist(const Eigen::Matrix3d P, const Eigen::Matrix3d Q) {
+  // http://www.boris-belousov.net/2016/12/01/quat-dist/#using-rotation-matrices
+  Eigen::Matrix3d R = P * Q.transpose();
+  auto const d = std::acos((R.trace() - 1) / 2);
+  return d;
 }
+
+auto eigenVectorTotf2Vector(Eigen::Vector3d const &v) { return tf2::Vector3{v.x(), v.y(), v.z()}; }
+
+auto eigenMatToQuaternion(Eigen::Matrix3d const &r) {
+  Eigen::Quaterniond q(r);
+  return tf2::Quaternion{q.x(), q.y(), q.z(), q.w()};
+}
+
+class PosesGoal : public ob::GoalSampleableRegion {
+ public:
+  moveit::core::RobotModelConstPtr const model_;
+  moveit::core::JointModelGroup const *group_;
+  moveit_visual_tools::MoveItVisualTools &visual_tools_;
+  Eigen::Isometry3d left_goal_pose_{Eigen::Isometry3d::Identity()};
+  Eigen::Isometry3d right_goal_pose_{Eigen::Isometry3d::Identity()};
+  double const translation_tolerance_;
+  double const orientation_tolerance_;
+
+  PosesGoal(moveit::core::RobotModelConstPtr const &model, moveit::core::JointModelGroup const *group,
+            moveit_visual_tools::MoveItVisualTools &visual_tools, const ob::SpaceInformationPtr &si,
+            geometry_msgs::Pose const &left_pose, geometry_msgs::Pose const &right_pose, double translation_tolerance,
+            double orientation_tolerance)
+      : ompl::base::GoalSampleableRegion(si),
+        model_(model),
+        group_(group),
+        visual_tools_(visual_tools),
+        translation_tolerance_(translation_tolerance),
+        orientation_tolerance_(orientation_tolerance) {
+    tf::poseMsgToEigen(left_pose, left_goal_pose_);
+    tf::poseMsgToEigen(right_pose, right_goal_pose_);
+  }
+
+  double distanceGoal(const ob::State *s) const override {
+    // TODO: reduce code duplication
+
+    // compute EE poses with FK using Moveit
+    robot_state::RobotState robot_state(model_);
+    robot_state.setVariablePositions(s->as<ob::RealVectorStateSpace::StateType>()->values);
+    const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
+    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+
+    // Compute error as sum of translation error and orientation (quaternion) error
+    auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
+    auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
+    auto const orientation_error = left_orientation_error + right_orientation_error;
+    auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
+    auto const right_translation_error = (right_goal_pose_.translation() - right_tool_pose.translation()).norm();
+    auto const translation_error = left_translation_error + right_translation_error;
+    return translation_error + orientation_error;
+  }
+
+  bool isSatisfied(const ob::State *s) const override {
+    // compute EE poses with FK using Moveit
+    robot_state::RobotState robot_state(model_);
+    robot_state.setVariablePositions(s->as<ob::RealVectorStateSpace::StateType>()->values);
+    const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
+    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+
+    // Compute error as sum of translation error and orientation (quaternion) error
+    auto const right_translation_error = (right_goal_pose_.translation() - right_tool_pose.translation()).norm();
+    auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
+    auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
+    auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
+    return (left_translation_error < translation_tolerance_) && (right_translation_error < translation_tolerance_) &&
+           (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_);
+  }
+
+  void sampleGoal(ob::State *s) const override {
+    bio_ik::BioIKKinematicsQueryOptions opts;
+    opts.replace = true;
+    opts.return_approximate_solution = false;
+
+    auto const left_position_tf2 = eigenVectorTotf2Vector(left_goal_pose_.translation());
+    auto const left_quat_tf2 = eigenMatToQuaternion(left_goal_pose_.rotation());
+    opts.goals.emplace_back(std::make_unique<bio_ik::PoseGoal>("left_tool", left_position_tf2, left_quat_tf2));
+
+    auto const right_position_tf2 = eigenVectorTotf2Vector(right_goal_pose_.translation());
+    auto const right_quat_tf2 = eigenMatToQuaternion(right_goal_pose_.rotation());
+    opts.goals.emplace_back(std::make_unique<bio_ik::PoseGoal>("right_tool", right_position_tf2, right_quat_tf2));
+
+    robot_state::RobotState robot_state_ik{model_};
+    robot_state_ik.update();
+
+    // run IK to sample goals satisfying the poses constraints
+    // Collision checking
+    moveit::core::GroupStateValidityCallbackFn empty_constraint_fn;
+
+    bool ok = false;
+    while (not ok) {
+      robot_state_ik.setToRandomPositionsNearBy(group_, robot_state_ik, 0.1);
+      ok = robot_state_ik.setFromIK(group_,                         // joints to be used for IK
+                                    EigenSTL::vector_Isometry3d(),  // this isn't used, goals are described in opts
+                                    std::vector<std::string>(),     // names of the end-effector links
+                                    0,                              // take values from YAML
+                                    empty_constraint_fn,
+                                    opts  // mostly empty
+      );
+    }
+
+    visual_tools_.publishRobotState(robot_state_ik);
+
+    // copy IK solution into OMPL state
+    auto *real_state = s->as<ob::RealVectorStateSpace::StateType>();
+    auto i{0u};
+    for (auto const &joint_name : group_->getActiveJointModelNames()) {
+      (*real_state)[i] = robot_state_ik.getVariablePosition(joint_name);
+      ++i;
+    }
+  }
+
+  [[nodiscard]] unsigned int maxSampleCount() const override { return 10u; }
+};
 
 RopeResetPlanner::RopeResetPlanner()
     : model_loader_(std::make_shared<robot_model_loader::RobotModelLoader>("hdt_michigan/robot_description")),
@@ -215,8 +244,8 @@ void RopeResetPlanner::QueueThread() {
   }
 }
 
-moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose const &, geometry_msgs::Pose const &,
-                                                           double timeout) {
+moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
+                                                           geometry_msgs::Pose const &right_pose, double timeout) {
   auto o = ros::AdvertiseOptions::create<moveit_msgs::DisplayRobotState>(
       "rope_reset_state", 10, ros::SubscriberStatusCallback(), ros::SubscriberStatusCallback(), ros::VoidConstPtr(),
       &queue_);
@@ -225,7 +254,7 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
   moveit_msgs::RobotTrajectory msg;
   msg.joint_trajectory.header.stamp = ros::Time::now();
 
-  auto const &group = model_->getJointModelGroup("both_arms");
+  auto const *group = model_->getJointModelGroup("both_arms");
   auto const &joint_names = group->getActiveJointModelNames();
   msg.joint_trajectory.joint_names = joint_names;
   std::cout << joint_names << "\n";
@@ -241,7 +270,6 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
   ob::RealVectorBounds position_bounds(n_joints);
   ob::RealVectorBounds velocity_bounds(n_joints);
   ob::RealVectorBounds acceleration_bounds(n_joints);
-  // TODO: get bounds from moveit
   auto const bounds = group->getActiveJointModelsBounds();
   auto joint_i{0u};
   for (auto const *joint_bounds : bounds) {
@@ -262,27 +290,10 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
       ++joint_i;
     }
   }
-  space->getPositionSpace()->setBounds(position_bounds);
-  space->getVelocitySpace()->setBounds(velocity_bounds);
-  space->getAccelerationSpace()->setBounds(acceleration_bounds);
+  space->setBounds(position_bounds);
 
-  auto cspace(std::make_shared<oc::RealVectorControlSpace>(space, n_joints));
-
-  ob::RealVectorBounds cbounds(n_joints);
-  // TODO: get bounds from moveit
-  cbounds.setLow(-1);
-  cbounds.setHigh(1);
-  cspace->setBounds(cbounds);
-
-  oc::SimpleSetup ss(cspace);
+  og::SimpleSetup ss(space);
   auto const &si = ss.getSpaceInformation();
-  si->setPropagationStepSize(0.01);
-
-  auto _propagate = [&](const ob::State *start, const oc::Control *control, const double dt, ob::State *result) {
-    propagate(visual_tools_, space, cspace, start, control, dt, result);
-  };
-
-  ss.setStatePropagator(_propagate);
 
   ss.setStateValidityChecker(
       [&ss](const ob::State *state) { return isStateValid(ss.getSpaceInformation().get(), state); });
@@ -290,47 +301,37 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
   ob::ScopedState<ArmStateSpace> start(space);
   for (auto const &joint_name : joint_names) {
     auto const i = space->getJointIndex(joint_name);
-    start->getPositionValues()[i] = start_robot_state.getVariablePosition(joint_name);
-    start->getVelocityValues()[i] = 0;
-    start->getAccelerationValues()[i] = 0;
+    start[i] = start_robot_state.getVariablePosition(joint_name);
   }
-
   std::cout << "Start State: \n";
   space->printState(start.get(), std::cout);
+  ss.setStartState(start);
 
-  ob::ScopedState<ArmStateSpace> goal(space);
   std::vector<double> zeros(n_joints, 0);
-  // FIXME: use IK to sample a bunch of goals in joint space? try to find ones near start joint config?
-  goal->setPositions(zeros);
-  // FIXME: ^^^^^^^^^^^^^^^^^^^^^ THIS IS TEMPORARY
-  goal->setVelocities(zeros);
-  goal->setAccelerations(zeros);
+  // TODO:
+  //  - use a GoalSampleableRegion to sample joint positions that obey the left and right pose constraints
+  //  - make a custom state sampler which ensure the right orientation constraint is satisfied
+  //  - add collision checking to isStateValid
+  //  - add "visiblity constraint" to isStateValid
+  //  - add "visiblity constraint" to isStateValid
 
-  ss.setStartAndGoalStates(start, goal, 0.1);
+  auto goal = std::make_shared<PosesGoal>(model_, group, visual_tools_, si, left_pose, right_pose, 0.01, 0.1);
+  ss.setGoal(goal);
 
-  ss.setPlanner(std::make_shared<oc::SST>(ss.getSpaceInformation()));
-  ss.getSpaceInformation()->setMinMaxControlDuration(1, 10);
+  auto const &planner = std::make_shared<og::RRTConnect>(ss.getSpaceInformation());
+  planner->setRange(0.1);
+  ss.setPlanner(planner);
   std::cout << "Starting..." << std::endl;
   ob::PlannerStatus solved = ss.solve(timeout);
 
   if (solved) {
-    auto time_from_start = ros::Duration(0);
-    auto j{0u};
     auto &path = ss.getSolutionPath();
     std::cout << "Solution has " << path.getStateCount() << " states\n";
     for (auto const &state : path.getStates()) {
-      const auto &arm_state = *state->as<ArmStateSpace::StateType>();
-      if (j < path.getControlCount()) {
-        const auto &dt = path.getControlDuration(j);
-        time_from_start += ros::Duration(dt);
-      }
+      const auto &arm_state = state->as<ArmStateSpace::StateType>();
       trajectory_msgs::JointTrajectoryPoint point_msg;
-      point_msg.time_from_start = time_from_start;
-      point_msg.positions = values_to_vector(arm_state.getPositionState(), n_joints);
-      point_msg.velocities = values_to_vector(arm_state.getVelocityState(), n_joints);
-      point_msg.accelerations = values_to_vector(arm_state.getAccelerationState(), n_joints);
+      point_msg.positions = values_to_vector(arm_state, n_joints);
       msg.joint_trajectory.points.push_back(point_msg);
-      ++j;
     }
   } else {
     std::cout << "No solution found" << std::endl;
