@@ -3,20 +3,30 @@
   scenario: watering 
   real_time_rate: 1
   max_step_size: 100000
-  steps_per_traj: 20
+  steps_per_traj: 7 
   randomize_n: null
+  res: 0.1
+  extent: [
+    0.3
+    1.3
+    -0.6
+    0.6
+    -0.1
+    1.1
+    ]
   scenario_params: {
-    gui: 1
+    gui: 0
     save_cfg: {
       save_frames: 0
       img_size: 64
     }
-    k_pos: 0.5
-    k_angle: 0.5
-    controller_max_horizon: 30
+
+    k_pos: 1.5
+    k_angle: 2.0
+    controller_max_horizon: 80
     action_range : {
-      x : [-0.3, 1.5]
-      z : [0.05, 1.4]
+      x : [0.10, 0.6]
+      z : [0.10, 0.8]
       angle: [0, 3.14]
     }
   }
