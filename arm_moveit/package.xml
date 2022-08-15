@@ -17,4 +17,5 @@
   <depend>jsk_recognition_msgs</depend>
   <depend>roscpp</depend>
   <depend>rospy</depend>
+  <depend>ompl</depend>
 </package>
