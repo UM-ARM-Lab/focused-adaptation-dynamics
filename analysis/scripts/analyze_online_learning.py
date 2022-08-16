@@ -50,7 +50,7 @@ def metrics_main(args):
             method_name_values.append(method_name_map[k])
     df['method_name'] = method_name_values
 
-    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=None)
+    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 

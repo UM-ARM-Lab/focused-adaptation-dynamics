@@ -61,6 +61,8 @@ def online_parallel_planning(planner_params: Dict,
         planning_processes.append(planning_process)
         roslaunch_processes.append(roslaunch_process)
 
+        sleep(1)
+
     for planning_process in planning_processes:
         return_code = planning_process.wait()
         if return_code != 0:

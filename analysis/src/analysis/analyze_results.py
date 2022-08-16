@@ -5,6 +5,7 @@ import re
 from typing import List, Dict
 
 import pandas as pd
+from hjson import HjsonDecodeError
 from tqdm import tqdm
 
 from analysis.results_metrics import metrics_funcs
@@ -39,7 +40,10 @@ def make_dataframe_worker(args):
     data_filenames = list(d.glob("*_metrics.pkl.gz"))
     df_filename = d / 'df.pkl'
     metadata_filename = d / 'metadata.hjson'
-    metadata = load_hjson(metadata_filename)
+    try:
+        metadata = load_hjson(metadata_filename)
+    except HjsonDecodeError:
+        print(f"Bad file {metadata_filename.as_posix()}")
     if not df_filename.exists() or regenerate:
         scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
 
