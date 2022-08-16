@@ -11,11 +11,11 @@ from analysis.results_figures import boxplot, barplot
 from arc_utilities import ros_init
 from moonshine.gpu_config import limit_gpu_mem
 
-limit_gpu_mem(0.1)
+limit_gpu_mem(None)
 
 
 def metrics_main(args):
-    outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
+    outdir, df = planning_results(args.results_dirs, args.regenerate)
 
     # Filter the rows to keep only the trails with the same planning conditions
     # df = df_where(df, 'max_extensions_param', 5_000)

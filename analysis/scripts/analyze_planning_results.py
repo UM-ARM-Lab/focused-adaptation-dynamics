@@ -15,7 +15,7 @@ limit_gpu_mem(None)
 
 
 def analyze_planning_results(args):
-    outdir, df, table_format = planning_results(args.results_dirs, args.regenerate)
+    outdir, df = planning_results(args.results_dirs, args.regenerate)
 
     def _shorten(c):
         return shorten(c.split('/')[0])[:16]

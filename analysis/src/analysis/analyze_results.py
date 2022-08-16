@@ -122,7 +122,7 @@ def planning_results(results_dirs, regenerate=False):
     df = load_planning_results(results_dirs, regenerate=regenerate)
     df.to_csv("/media/shared/analysis/tmp_results.csv")
 
-    return outdir, df, None
+    return outdir, df
 
 
 def try_split_model_name(checkpoint):

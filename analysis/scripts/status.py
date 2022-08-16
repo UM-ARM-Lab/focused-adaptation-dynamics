@@ -1,6 +1,9 @@
+#!/usr/bin/env python
 import argparse
 import pathlib
 import re
+
+from colorama import Fore, Style
 
 from moonshine.filepath_tools import load_hjson
 
@@ -70,7 +73,11 @@ def print_status(iterations_completed_map, post_learning_evaluations_map):
     for name, runs_for_name in iterations_completed_map.items():
         print(f"Run: {name}")
         for seed, (_, completed_iters) in runs_for_name.items():
-            print(f"\tSeed {seed} Completed: {completed_iters}/10")
+            if completed_iters == 10:
+                color = Style.DIM
+            else:
+                color = ''
+            print(color + f"\tSeed {seed} Completed: {completed_iters}/10" + Style.RESET_ALL)
     print('')
     for name, n_evals in post_learning_evaluations_map.items():
         print(f"Run: {name:20s} Total Post-Learning Evaluations: {n_evals:4d}")
@@ -102,6 +109,8 @@ def get_name_and_seed(run_dir):
     else:
         name_without_seed = run_dir.name
         seed = 0
+    if 'all_data' not in name_without_seed and "adaptation" not in name_without_seed:
+        name_without_seed += '_adaptation'
     return name_without_seed, seed
 
 

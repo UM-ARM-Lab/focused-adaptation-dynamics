@@ -11,14 +11,17 @@ from analysis.results_figures import lineplot
 from arc_utilities import ros_init
 from moonshine.gpu_config import limit_gpu_mem
 
-limit_gpu_mem(0.1)
+limit_gpu_mem(None)
 
 
 def metrics_main(args):
-    outdir, df, table_specs = planning_results(args.results_dirs, args.regenerate)
+    outdir, df = planning_results(args.results_dirs, args.regenerate)
 
     # manually add the results for what iter0 would do, which are currently based on:
-    unadapted_path = pathlib.Path("media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
+    unadapted_path = pathlib.Path("/media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
+
+    _, unadapted_df = planning_results([unadapted_path], args.regenerate)
+    unadapted_df['method_name'] = ['unadapted'] * len(unadapted_df)
 
     w = 5
     max_iter = 15
@@ -51,16 +54,24 @@ def metrics_main(args):
     df['method_name'] = method_name_values
 
     fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
+    ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 
     fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
+    ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
     plt.savefig(outdir / f'task_error.png')
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
+    ax.axhline(unadapted_df['normalized_model_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
     fig, ax = lineplot(df, iter_key, 'combined_error', 'Combined Error', hue='method_name')
+    ax.axhline(unadapted_df['combined_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
     plt.savefig(outdir / f'combined_error.png')
 
     if not args.no_plot:

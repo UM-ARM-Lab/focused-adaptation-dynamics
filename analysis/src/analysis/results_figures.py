@@ -37,7 +37,7 @@ def lineplot(df,
             y=metric,
             hue=hue,
             ax=ax)
-    plt.plot([], [], ' ', label=f"shaded {ci}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {ci}% c.i.")
     ax.set_title(title)
     return fig, ax
 
@@ -88,7 +88,7 @@ def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, c
         ci=ci,
         hue=hue,
     )
-    plt.plot([], [], ' ', label=f"shaded {ci}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {ci}% c.i.")
     ax.set_title(title)
     plt.savefig(outdir / f'{x}-vs-{y}.png')
     return fig, ax
