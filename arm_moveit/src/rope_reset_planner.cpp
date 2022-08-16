@@ -50,15 +50,6 @@ std::vector<double> operator*(const T &scalar, const std::vector<T2> &vec) {
   return newvec;
 }
 
-template <typename T>
-std::vector<double> values_to_vector(T *state, int size) {
-  std::vector<double> vec;
-  for (auto i{0}; i < size; ++i) {
-    vec.push_back((*state)[i]);
-  }
-  return vec;
-}
-
 void copy_vector_to_values(ob::RealVectorStateSpace::StateType *state, std::vector<double> vec) {
   for (auto i{0u}; i < vec.size(); ++i) {
     (*state)[i] = vec[i];
@@ -86,12 +77,6 @@ class ArmStateSpace : public ob::RealVectorStateSpace {
   int getJointIndex(std::string const &joint_name) { return getDimensionIndex(joint_name); }
 };
 
-bool isStateValid(const ob::SpaceInformation *si, const ob::State *state) {
-  //  const auto *real_state = state->as<ArmStateSpace::StateType>();
-  // FIXME: define the other constraints
-  return si->satisfiesBounds(state);
-}
-
 auto rotMatDist(const Eigen::Matrix3d P, const Eigen::Matrix3d Q) {
   // http://www.boris-belousov.net/2016/12/01/quat-dist/#using-rotation-matrices
   Eigen::Matrix3d R = P * Q.transpose();
@@ -99,11 +84,56 @@ auto rotMatDist(const Eigen::Matrix3d P, const Eigen::Matrix3d Q) {
   return d;
 }
 
+double quatDist(Eigen::Quaterniond const &q1, Eigen::Quaterniond const &q2) { return q1.angularDistance(q2); }
+
 auto eigenVectorTotf2Vector(Eigen::Vector3d const &v) { return tf2::Vector3{v.x(), v.y(), v.z()}; }
+
+auto eigenQuaternionTotf2Quaternion(Eigen::Quaterniond const &q) { return tf2::Quaternion{q.x(), q.y(), q.z(), q.w()}; }
 
 auto eigenMatToQuaternion(Eigen::Matrix3d const &r) {
   Eigen::Quaterniond q(r);
-  return tf2::Quaternion{q.x(), q.y(), q.z(), q.w()};
+  return eigenQuaternionTotf2Quaternion(q);
+}
+
+auto ik(moveit::core::RobotModelConstPtr const &model, moveit::core::JointModelGroup const *group, ob::State *s,
+        bio_ik::BioIKKinematicsQueryOptions const &opts) {
+  robot_state::RobotState robot_state_ik{model};
+  robot_state_ik.setToDefaultValues();
+
+  moveit::core::GroupStateValidityCallbackFn empty_constraint_fn;
+
+  bool ok = false;
+  while (not ok) {
+    robot_state_ik.setToRandomPositionsNearBy(group, robot_state_ik, 0.1);
+    ok = robot_state_ik.setFromIK(group, EigenSTL::vector_Isometry3d(), std::vector<std::string>(), 0,
+                                  empty_constraint_fn, opts);
+  }
+
+  return robot_state_ik;
+}
+
+void copy_robot_state_to_ompl_state(moveit::core::JointModelGroup const *group, moveit::core::RobotState robot_state,
+                                    ob::State *s) {
+  auto *real_state = s->as<ob::RealVectorStateSpace::StateType>();
+  auto i{0u};
+  for (auto const &joint_name : group->getActiveJointModelNames()) {
+    (*real_state)[i] = robot_state.getVariablePosition(joint_name);
+    ++i;
+  }
+}
+
+auto omplStateToRobotState(ob::State const *state, moveit::core::RobotModelConstPtr const &model,
+                           std::shared_ptr<ob::StateSpace> const &space) {
+  auto const &real_space = std::dynamic_pointer_cast<ob::RealVectorStateSpace>(space);
+  robot_state::RobotState robot_state(model);
+  robot_state.setToDefaultValues();
+  for (auto i{0u}; i < real_space->getDimension(); ++i) {
+    auto const joint_name = real_space->getDimensionName(i);
+    auto const position = (*state->as<ob::RealVectorStateSpace::StateType>())[i];
+    robot_state.setVariablePosition(joint_name, position);
+  }
+  robot_state.update();
+  return robot_state;
 }
 
 class PosesGoal : public ob::GoalSampleableRegion {
@@ -132,14 +162,11 @@ class PosesGoal : public ob::GoalSampleableRegion {
 
   double distanceGoal(const ob::State *s) const override {
     // TODO: reduce code duplication
-
-    // compute EE poses with FK using Moveit
-    robot_state::RobotState robot_state(model_);
-    robot_state.setVariablePositions(s->as<ob::RealVectorStateSpace::StateType>()->values);
+    auto const robot_state = omplStateToRobotState(s, model_, si_->getStateSpace());
     const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
     const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
 
-    // Compute error as sum of translation error and orientation (quaternion) error
+    // Compute error as sum of translation error and orientation error
     auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
     auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
     auto const orientation_error = left_orientation_error + right_orientation_error;
@@ -151,12 +178,11 @@ class PosesGoal : public ob::GoalSampleableRegion {
 
   bool isSatisfied(const ob::State *s) const override {
     // compute EE poses with FK using Moveit
-    robot_state::RobotState robot_state(model_);
-    robot_state.setVariablePositions(s->as<ob::RealVectorStateSpace::StateType>()->values);
+    auto const robot_state = omplStateToRobotState(s, model_, si_->getStateSpace());
     const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
     const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
 
-    // Compute error as sum of translation error and orientation (quaternion) error
+    // Compute error as sum of translation error and orientation error
     auto const right_translation_error = (right_goal_pose_.translation() - right_tool_pose.translation()).norm();
     auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
     auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
@@ -178,37 +204,53 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const right_quat_tf2 = eigenMatToQuaternion(right_goal_pose_.rotation());
     opts.goals.emplace_back(std::make_unique<bio_ik::PoseGoal>("right_tool", right_position_tf2, right_quat_tf2));
 
-    robot_state::RobotState robot_state_ik{model_};
-    robot_state_ik.update();
-
-    // run IK to sample goals satisfying the poses constraints
-    // Collision checking
-    moveit::core::GroupStateValidityCallbackFn empty_constraint_fn;
-
-    bool ok = false;
-    while (not ok) {
-      robot_state_ik.setToRandomPositionsNearBy(group_, robot_state_ik, 0.1);
-      ok = robot_state_ik.setFromIK(group_,                         // joints to be used for IK
-                                    EigenSTL::vector_Isometry3d(),  // this isn't used, goals are described in opts
-                                    std::vector<std::string>(),     // names of the end-effector links
-                                    0,                              // take values from YAML
-                                    empty_constraint_fn,
-                                    opts  // mostly empty
-      );
-    }
-
+    auto const robot_state_ik = ik(model_, group_, s, opts);
     visual_tools_.publishRobotState(robot_state_ik);
 
-    // copy IK solution into OMPL state
-    auto *real_state = s->as<ob::RealVectorStateSpace::StateType>();
-    auto i{0u};
-    for (auto const &joint_name : group_->getActiveJointModelNames()) {
-      (*real_state)[i] = robot_state_ik.getVariablePosition(joint_name);
-      ++i;
-    }
+    copy_robot_state_to_ompl_state(group_, robot_state_ik, s);
   }
 
   [[nodiscard]] unsigned int maxSampleCount() const override { return 10u; }
+};
+
+class GripperOrientationStateSampler : public ob::ValidStateSampler {
+ public:
+  moveit::core::RobotModelConstPtr const model_;
+  moveit::core::JointModelGroup const *group_;
+  moveit_visual_tools::MoveItVisualTools &visual_tools_;
+  Eigen::Quaterniond target_orientation_;
+
+  GripperOrientationStateSampler(const ob::SpaceInformation *si, moveit::core::RobotModelConstPtr const &model,
+                                 moveit::core::JointModelGroup const *group,
+                                 moveit_visual_tools::MoveItVisualTools &visual_tools,
+                                 geometry_msgs::Quaternion const &orientation)
+      : ValidStateSampler(si), model_(model), group_(group), visual_tools_(visual_tools) {
+    tf::quaternionMsgToEigen(orientation, target_orientation_);
+    name_ = "gripper_orientation_sampler";
+  }
+  bool sample(ob::State *s) override {
+    // sample a joint configuration which obeys the orientation constraint.
+    bio_ik::BioIKKinematicsQueryOptions opts;
+    opts.replace = true;
+    opts.return_approximate_solution = false;
+
+    auto const quat_tf2 = eigenQuaternionTotf2Quaternion(target_orientation_);
+    opts.goals.emplace_back(std::make_unique<bio_ik::OrientationGoal>("right_tool", quat_tf2));
+
+    auto const robot_state_ik = ik(model_, group_, s, opts);
+    visual_tools_.publishRobotState(robot_state_ik);
+
+    copy_robot_state_to_ompl_state(group_, robot_state_ik, s);
+
+    assert(si_->isValid(s));
+    return true;
+  }
+
+  // None of the RRT based planners use this... although I could probably implement it
+  bool sampleNear(ob::State * /*state*/, const ob::State * /*near*/, const double /*distance*/) override {
+    throw ompl::Exception("GripperOrientationStateSampler::sampleNear", "not implemented");
+    return false;
+  }
 };
 
 RopeResetPlanner::RopeResetPlanner()
@@ -226,10 +268,10 @@ RopeResetPlanner::RopeResetPlanner()
 }
 
 RopeResetPlanner::~RopeResetPlanner() {
-//  queue_.clear();
-//  queue_.disable();
-//  nh_.shutdown();
-//  ros_queue_thread_.join();
+  //  queue_.clear();
+  //  queue_.disable();
+  //  nh_.shutdown();
+  //  ros_queue_thread_.join();
 }
 
 void RopeResetPlanner::QueueThread() {
@@ -239,25 +281,16 @@ void RopeResetPlanner::QueueThread() {
   }
 }
 
-robot_state::RobotState omplStateToRobotState(ob::State const *state, moveit::core::RobotModelConstPtr const &model,
-                                              moveit::core::JointModelGroup const *group,
-                                              std::shared_ptr<ArmStateSpace> const &space) {
-  robot_state::RobotState robot_state(model);
-  for (auto i{0u}; i < space->getDimension(); ++i) {
-    auto const joint_name = space->getDimensionName(i);
-    auto const position = (*state->as<ob::RealVectorStateSpace::StateType>())[i];
-    robot_state.setVariablePosition(joint_name, position);
-  }
-  return robot_state;
-}
-
 moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
                                                            geometry_msgs::Pose const &right_pose, double timeout) {
-//  auto o = ros::AdvertiseOptions::create<moveit_msgs::DisplayRobotState>(
-//      "rope_reset_state", 10, ros::SubscriberStatusCallback(), ros::SubscriberStatusCallback(), ros::VoidConstPtr(),
-//      &queue_);
-//
-//  auto pub = nh_.advertise(o);
+  //  auto o = ros::AdvertiseOptions::create<moveit_msgs::DisplayRobotState>(
+  //      "rope_reset_state", 10, ros::SubscriberStatusCallback(), ros::SubscriberStatusCallback(), ros::VoidConstPtr(),
+  //      &queue_);
+  //
+  //  auto pub = nh_.advertise(o);
+
+  auto const orientation_tolerance = 0.1;
+
   std::string group_name = "both_arms";
   robot_trajectory::RobotTrajectory traj(model_, group_name);
 
@@ -301,8 +334,22 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
   og::SimpleSetup ss(space);
   auto const &si = ss.getSpaceInformation();
 
-  ss.setStateValidityChecker(
-      [&ss](const ob::State *state) { return isStateValid(ss.getSpaceInformation().get(), state); });
+  auto alloc = [&](const ob::SpaceInformation *si) {
+    return std::make_shared<GripperOrientationStateSampler>(si, model_, group, visual_tools_, right_pose.orientation);
+  };
+
+  si->setValidStateSamplerAllocator(alloc);
+  ss.setStateValidityChecker([&](const ob::State *s) {
+    auto const robot_state = omplStateToRobotState(s, model_, space);
+
+    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+
+    Eigen::Isometry3d right_target_pose;
+    tf::poseMsgToEigen(right_pose, right_target_pose);
+    auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
+    auto const right_orientation_satisfied = right_orientation_error < orientation_tolerance;
+    return si->satisfiesBounds(s) && right_orientation_satisfied;
+  });
 
   ob::ScopedState<ArmStateSpace> start(space);
   for (auto const &joint_name : joint_names) {
@@ -315,18 +362,19 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
 
   std::vector<double> zeros(n_joints, 0);
   // TODO:
-  //  - make a custom state sampler which ensure the right orientation constraint is satisfied
+  //  - also include the right orientation constrain in isStateValid
   //  - add collision checking to isStateValid
-  //  - add "visiblity constraint" to isStateValid
-  //  - add "visiblity constraint" to isStateValid
+  //  - add "visibility constraint" to isStateValid
   //
   // DONE:
   //  - use a GoalSampleableRegion to sample joint positions that obey the left and right pose constraints
+  //  - make a custom state sampler which ensure the right orientation constraint is satisfied
 
-  auto goal = std::make_shared<PosesGoal>(model_, group, visual_tools_, si, left_pose, right_pose, 0.01, 0.1);
+  auto goal =
+      std::make_shared<PosesGoal>(model_, group, visual_tools_, si, left_pose, right_pose, 0.01, orientation_tolerance);
   ss.setGoal(goal);
 
-  auto const &planner = std::make_shared<og::RRTConnect>(ss.getSpaceInformation());
+  auto const &planner = std::make_shared<og::RRTConnect>(si);
   planner->setRange(0.1);
   ss.setPlanner(planner);
   std::cout << "Starting..." << std::endl;
@@ -337,7 +385,7 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
     std::cout << "Solution has " << path.getStateCount() << " states\n";
     for (auto const &state : path.getStates()) {
       const auto &arm_state = state->as<ArmStateSpace::StateType>();
-      auto const robot_state = omplStateToRobotState(state, model_, group, space);
+      auto const robot_state = omplStateToRobotState(state, model_, space);
       traj.addSuffixWayPoint(robot_state, 0);
     }
 

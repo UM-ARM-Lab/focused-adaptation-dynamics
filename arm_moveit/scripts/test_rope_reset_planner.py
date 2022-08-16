@@ -87,6 +87,9 @@ def main():
     left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                         quaternion_from_euler(0, np.pi / 2 + 0.2, -np.pi / 2))
 
+    both_tools = ['left_tool', 'right_tool']
+    res = val.plan_to_poses('both_arms', both_tools, [left_tool_post_planning_pose, right_tool_post_planning_pose])
+
     rope_reset_planner = RopeResetPlanner()
 
     traj_msg = rope_reset_planner.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, 10)
