@@ -261,4 +261,23 @@ def main():
 
 
 if __name__ == '__main__':
+    import os, subprocess, psutil
+    # start by launching ROS
+    ros_env = os.environ.copy()
+    ros_env['ROS_NAMESPACE'] = 'hdt_michigan'
+    cmd = [
+        'roslaunch',
+        'hdt_michigan_moveit',
+        'planning_context.launch',
+        'no_gripper_collisions:=true',
+        '--no-summary',
+    ]
+    p = subprocess.Popen(cmd, env=ros_env)
+    roslaunch_process = psutil.Process(p.pid)
+
     main()
+
+    for proc in roslaunch_process.children(recursive=True):
+        proc.kill()
+    roslaunch_process.kill()
+
