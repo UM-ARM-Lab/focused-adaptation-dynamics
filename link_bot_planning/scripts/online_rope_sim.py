@@ -280,6 +280,8 @@ if __name__ == '__main__':
     p = subprocess.Popen(cmd, env=ros_env)
     roslaunch_process = psutil.Process(p.pid)
 
+    sleep(5)
+
     main()
 
     for proc in roslaunch_process.children(recursive=True):
