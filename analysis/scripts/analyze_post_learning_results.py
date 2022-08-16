@@ -7,9 +7,8 @@ import pandas as pd
 import seaborn as sns
 
 from analysis.analyze_results import planning_results
-from analysis.results_figures import lineplot
+from analysis.results_figures import boxplot, barplot
 from arc_utilities import ros_init
-from link_bot_pycommon.pandas_utils import df_where
 from moonshine.gpu_config import limit_gpu_mem
 
 limit_gpu_mem(0.1)
@@ -27,8 +26,8 @@ def metrics_main(args):
     method_name_map = {
         # order here matters
         'all_data_no_mde': 'all_data_no_mde',
-        'all_data': 'all_data',
-        '':         'adaptation',
+        'all_data':        'all_data',
+        '':                'adaptation',
     }
 
     method_names = []
@@ -40,16 +39,15 @@ def metrics_main(args):
 
     df['method_name'] = method_names
 
-    fig, ax = lineplot(df, 'online_iter', 'success', 'Success', hue='method_name', ci=None, scatt=True)
+    fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")
-    fig, ax = lineplot(df, 'online_iter', 'success_given_solved', 'Success (given solved)', hue='method_name', ci=None, scatt=True)
+    fig, ax = barplot(df, outdir, 'method_name', 'success_given_solved', 'Success (given solved)', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success_given_solved.png")
-    fig, ax = lineplot(df, 'online_iter', 'total_time', 'Total Time', hue='method_name', ci=None, scatt=True)
-    plt.savefig(outdir / "total_time.png")
-    fig, ax = lineplot(df, 'online_iter', 'normalized_model_error', 'Model Error', hue='method_name', scatt=True)
-    plt.savefig(outdir / "normalzed_model_error.png")
+    fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
+    fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
+    fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
     plt.show()
 
 

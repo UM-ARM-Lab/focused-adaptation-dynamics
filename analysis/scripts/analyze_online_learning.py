@@ -60,6 +60,9 @@ def metrics_main(args):
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
     plt.savefig(outdir / f'normalized_model_error.png')
 
+    fig, ax = lineplot(df, iter_key, 'combined_error', 'Combined Error', hue='method_name')
+    plt.savefig(outdir / f'combined_error.png')
+
     if not args.no_plot:
         plt.show()
 
