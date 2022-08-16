@@ -65,18 +65,19 @@ class MDEDataModule(pl.LightningDataModule):
         test_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.test_mode, transform=transform)
         test_dataset_take = dataset_take(test_dataset, self.take)
         self.test_dataset = test_dataset_take
+        print("NUM WORKERS = 0")
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=my_collate,
-                          num_workers=get_num_workers(self.batch_size))
+                          num_workers=0)
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size, collate_fn=my_collate,
-                          num_workers=get_num_workers(self.batch_size))
+                          num_workers=0)
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=my_collate,
-                          num_workers=get_num_workers(self.batch_size))
+                          num_workers=0)
 
     def add_dataset_params(self, model_params: Dict):
         model_params['take'] = self.take
