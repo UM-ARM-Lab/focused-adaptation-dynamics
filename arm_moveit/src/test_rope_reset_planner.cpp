@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   moveit_msgs::DisplayTrajectory  display_msg;
   display_msg.trajectory.emplace_back(traj_msg);
 
-  while (ros::ok()) {
+  for (auto i{0}; i < 10; ++i) {
     pub.publish(display_msg);
     ros::spinOnce();
   }

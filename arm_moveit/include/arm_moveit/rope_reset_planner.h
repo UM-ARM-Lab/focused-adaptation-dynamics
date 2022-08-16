@@ -29,5 +29,6 @@ class RopeResetPlanner {
   ros::NodeHandle nh_;
   ros::CallbackQueue queue_;
   std::thread ros_queue_thread_;
+  trajectory_processing::IterativeParabolicTimeParameterization time_param_;
 
 };

@@ -5,14 +5,16 @@
 #include <ompl/base/goals/GoalState.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
-#include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <tf2_eigen/tf2_eigen.h>
 
 #include <iostream>
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
+
+constexpr auto LOGGER_NAME{"rope_reset_planner"};
 
 namespace std {
 template <typename T>
@@ -66,7 +68,6 @@ void copy_vector_to_values(ob::RealVectorStateSpace::StateType *state, std::vect
 class ArmStateSpace : public ob::RealVectorStateSpace {
  public:
   std::vector<std::string> joint_names_;
-  ros::Publisher &display_robot_state_pub_;
   class StateType : public RealVectorStateSpace::StateType {
    public:
     StateType() = default;
@@ -74,8 +75,8 @@ class ArmStateSpace : public ob::RealVectorStateSpace {
     void setPositions(std::vector<double> const &positions) { copy_vector_to_values(this, positions); }
   };
 
-  explicit ArmStateSpace(std::vector<std::string> const &joint_names, ros::Publisher &publisher)
-      : ob::RealVectorStateSpace(joint_names.size()), joint_names_(joint_names), display_robot_state_pub_(publisher) {
+  explicit ArmStateSpace(std::vector<std::string> const &joint_names)
+      : ob::RealVectorStateSpace(joint_names.size()), joint_names_(joint_names) {
     auto const dim = joint_names.size();
     for (auto i{0u}; i < dim; ++i) {
       setDimensionName(i, joint_names[i]);
@@ -83,13 +84,6 @@ class ArmStateSpace : public ob::RealVectorStateSpace {
   }
 
   int getJointIndex(std::string const &joint_name) { return getDimensionIndex(joint_name); }
-
-  void displayRobotState(std::vector<double> const &positions) {
-    moveit_msgs::DisplayRobotState display_msg;
-    display_msg.state.joint_state.name = joint_names_;
-    display_msg.state.joint_state.position = positions;
-    display_robot_state_pub_.publish(display_msg);
-  }
 };
 
 bool isStateValid(const ob::SpaceInformation *si, const ob::State *state) {
@@ -222,19 +216,20 @@ RopeResetPlanner::RopeResetPlanner()
       model_(model_loader_->getModel()),
       scene_monitor_(std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(model_loader_)),
       visual_tools_("robot_root", "hdt_michigan/moveit_visual_markers", model_) {
-  auto const scene_topic = "hdt_michigana/move_group/monitored_planning_scene";
+  auto const scene_topic = "hdt_michigan/move_group/monitored_planning_scene";
   scene_monitor_->startSceneMonitor(scene_topic);
   auto const service_name = "hdt_michigan/get_planning_scene";
   scene_monitor_->requestPlanningSceneState(service_name);
 
-  ros_queue_thread_ = std::thread([this] { QueueThread(); });
+  // for some reason this crashes everything???
+  // ros_queue_thread_ = std::thread([this] { QueueThread(); });
 }
 
 RopeResetPlanner::~RopeResetPlanner() {
-  queue_.clear();
-  queue_.disable();
-  nh_.shutdown();
-  ros_queue_thread_.join();
+//  queue_.clear();
+//  queue_.disable();
+//  nh_.shutdown();
+//  ros_queue_thread_.join();
 }
 
 void RopeResetPlanner::QueueThread() {
@@ -244,19 +239,30 @@ void RopeResetPlanner::QueueThread() {
   }
 }
 
+robot_state::RobotState omplStateToRobotState(ob::State const *state, moveit::core::RobotModelConstPtr const &model,
+                                              moveit::core::JointModelGroup const *group,
+                                              std::shared_ptr<ArmStateSpace> const &space) {
+  robot_state::RobotState robot_state(model);
+  for (auto i{0u}; i < space->getDimension(); ++i) {
+    auto const joint_name = space->getDimensionName(i);
+    auto const position = (*state->as<ob::RealVectorStateSpace::StateType>())[i];
+    robot_state.setVariablePosition(joint_name, position);
+  }
+  return robot_state;
+}
+
 moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
                                                            geometry_msgs::Pose const &right_pose, double timeout) {
-  auto o = ros::AdvertiseOptions::create<moveit_msgs::DisplayRobotState>(
-      "rope_reset_state", 10, ros::SubscriberStatusCallback(), ros::SubscriberStatusCallback(), ros::VoidConstPtr(),
-      &queue_);
+//  auto o = ros::AdvertiseOptions::create<moveit_msgs::DisplayRobotState>(
+//      "rope_reset_state", 10, ros::SubscriberStatusCallback(), ros::SubscriberStatusCallback(), ros::VoidConstPtr(),
+//      &queue_);
+//
+//  auto pub = nh_.advertise(o);
+  std::string group_name = "both_arms";
+  robot_trajectory::RobotTrajectory traj(model_, group_name);
 
-  auto pub = nh_.advertise(o);
-  moveit_msgs::RobotTrajectory msg;
-  msg.joint_trajectory.header.stamp = ros::Time::now();
-
-  auto const *group = model_->getJointModelGroup("both_arms");
+  auto const *group = model_->getJointModelGroup(group_name);
   auto const &joint_names = group->getActiveJointModelNames();
-  msg.joint_trajectory.joint_names = joint_names;
   std::cout << joint_names << "\n";
 
   scene_monitor_->lockSceneRead();
@@ -265,7 +271,7 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
   auto const &start_robot_state = planning_scene->getCurrentState();
 
   auto const n_joints = group->getActiveVariableCount();
-  auto space(std::make_shared<ArmStateSpace>(joint_names, pub));
+  auto space(std::make_shared<ArmStateSpace>(joint_names));
 
   ob::RealVectorBounds position_bounds(n_joints);
   ob::RealVectorBounds velocity_bounds(n_joints);
@@ -309,11 +315,13 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
 
   std::vector<double> zeros(n_joints, 0);
   // TODO:
-  //  - use a GoalSampleableRegion to sample joint positions that obey the left and right pose constraints
   //  - make a custom state sampler which ensure the right orientation constraint is satisfied
   //  - add collision checking to isStateValid
   //  - add "visiblity constraint" to isStateValid
   //  - add "visiblity constraint" to isStateValid
+  //
+  // DONE:
+  //  - use a GoalSampleableRegion to sample joint positions that obey the left and right pose constraints
 
   auto goal = std::make_shared<PosesGoal>(model_, group, visual_tools_, si, left_pose, right_pose, 0.01, 0.1);
   ss.setGoal(goal);
@@ -329,13 +337,19 @@ moveit_msgs::RobotTrajectory RopeResetPlanner::planToReset(geometry_msgs::Pose c
     std::cout << "Solution has " << path.getStateCount() << " states\n";
     for (auto const &state : path.getStates()) {
       const auto &arm_state = state->as<ArmStateSpace::StateType>();
-      trajectory_msgs::JointTrajectoryPoint point_msg;
-      point_msg.positions = values_to_vector(arm_state, n_joints);
-      msg.joint_trajectory.points.push_back(point_msg);
+      auto const robot_state = omplStateToRobotState(state, model_, group, space);
+      traj.addSuffixWayPoint(robot_state, 0);
+    }
+
+    if (!time_param_.computeTimeStamps(traj, 1, 1)) {
+      ROS_ERROR_STREAM_NAMED(LOGGER_NAME, "Time parametrization for the solution path failed.");
     }
   } else {
     std::cout << "No solution found" << std::endl;
   }
 
-  return msg;
+  moveit_msgs::RobotTrajectory traj_msg;
+  traj.getRobotTrajectoryMsg(traj_msg);
+  traj_msg.joint_trajectory.header.stamp = ros::Time::now();
+  return traj_msg;
 }
