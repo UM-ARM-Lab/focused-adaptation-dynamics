@@ -48,6 +48,10 @@ def main():
     ou.setLogLevel(ou.LOG_ERROR)
     wandb_lightning_magic()
 
+    if '-' not in args.nickname:
+        print("You forgot to put the seed in the nickname!")
+        return
+
     root = pathlib.Path("/media/shared/online_adaptation")
     outdir = root / args.nickname
     outdir.mkdir(exist_ok=True, parents=True)
