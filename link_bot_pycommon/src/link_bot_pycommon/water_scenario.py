@@ -5,6 +5,7 @@ from typing import Dict, Optional, List
 import numpy as np
 import tensorflow as tf
 from matplotlib import colors
+import torch
 
 import ros_numpy
 import rospy
@@ -27,7 +28,7 @@ from link_bot_gazebo.position_3d import Position3D
 from link_bot_pycommon.bbox_marker_utils import make_box_marker_from_extents
 from link_bot_pycommon.bbox_visualization import viz_action_sample_bbox
 from link_bot_pycommon.debugging_utils import debug_viz_batch_indices
-from link_bot_pycommon.experiment_scenario import get_action_sample_extent, is_out_of_bounds, sample_delta_position
+from link_bot_pycommon.experiment_scenario import get_action_sample_extent, is_out_of_bounds, sample_delta_position, MockRobot
 from link_bot_pycommon.get_link_states import GetLinkStates
 from link_bot_pycommon.get_occupancy import get_environment_for_extents_3d
 from link_bot_pycommon.grid_utils_np import extent_to_env_shape, extent_res_to_origin_point
@@ -81,9 +82,11 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
-        self._make_softgym_env()
+        #self._make_softgym_env()
         self.service_provider = SoftGymServices()
-        self.service_provider.set_scene(self._scene)
+        #self.service_provider.set_scene(self._scene)
+        self.robot = MockRobot()
+        self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
         softgym_env_name = "PourWater"
@@ -113,6 +116,12 @@ class WaterSimScenario(ScenarioWithVisualization):
             return True
         return False
 
+    def classifier_distance(self, s1, s2):
+        """ this is not the distance metric used in planning """
+        container_dist = np.linalg.norm(s1["controlled_container_pos"]-s2["controlled_container_pos"], axis=1)
+        return container_dist
+
+
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
 
@@ -124,6 +133,8 @@ class WaterSimScenario(ScenarioWithVisualization):
 
         env = {}
         env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
+        env["origin_point"] = extent_res_to_origin_point(extent=params['extent'], res=res) 
+        env["res"] = res
         return env
 
     def hard_reset(self):
@@ -227,6 +238,14 @@ class WaterSimScenario(ScenarioWithVisualization):
     def robot_name():
         return "control_box"
 
+    @staticmethod
+    def local_environment_center_differentiable_torch(state):
+        pos_xz = state["target_container_pos"]
+        local_center =  torch.cat((pos_xz[:,0], torch.zeros_like(pos_xz[:,0]), pos_xz[:,1]), dim=0)
+        if len(local_center.shape) == 0:
+            return local_center.reshape(1,-1)
+        return local_center
+
     def reset(self):
         self._scene.reset()
         null_action = np.zeros(3,)
@@ -239,6 +258,11 @@ class WaterSimScenario(ScenarioWithVisualization):
     @staticmethod
     def put_state_local_frame(state: Dict):
         return NotImplementedError
+
+    @staticmethod
+    def put_state_robot_frame(state: Dict):
+        # Assumes everything is in robot frame already
+        return state
 
     @staticmethod
     def add_action_noise(action: Dict, noise_rng: np.random.RandomState):

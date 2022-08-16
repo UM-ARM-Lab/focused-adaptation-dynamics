@@ -41,10 +41,12 @@ class MDE(pl.LightningModule):
         self.local_env_h_rows = self.hparams['local_env_h_rows']
         self.local_env_w_cols = self.hparams['local_env_w_cols']
         self.local_env_c_channels = self.hparams['local_env_c_channels']
+        self.in_channels = self.hparams.get('in_channels', 5)
+        self.include_robot_geometry = self.hparams.get('include_robot_geometry', True)
         self.point_state_keys_pred = [add_predicted_hack(k) for k in self.hparams['point_state_keys']]
 
         conv_layers = []
-        in_channels = 5
+        in_channels = self.in_channels
         if self.hparams.get("new_pooling", False):
             assert (len(self.hparams['conv_filters']) == len(self.hparams['new_pooling']))
             for i, ((out_channels, kernel_size), pooling) in enumerate(
@@ -118,7 +120,7 @@ class MDE(pl.LightningModule):
                                      state_keys=self.point_state_keys_pred,
                                      jacobian_follower=self.scenario.robot.jacobian_follower,
                                      robot_info=self.robot_info,
-                                     include_robot_geometry=True,
+                                     include_robot_geometry=self.include_robot_geometry,
                                      scenario=self.scenario,
                                      )
 
@@ -181,8 +183,9 @@ class MDE(pl.LightningModule):
         padded_actions = [F.pad(v, [0, 0, 0, 1, 0, 0]) for v in actions.values()]
         states_robot_frame = self.scenario.put_state_robot_frame(states)
         states_robot_frame_list = list(states_robot_frame.values())
+        num_vg_layers = voxel_grids.shape[2]
         flat_voxel_grids = voxel_grids.reshape(
-            [-1, 5, self.local_env_h_rows, self.local_env_w_cols, self.local_env_c_channels])
+            [-1, num_vg_layers, self.local_env_h_rows, self.local_env_w_cols, self.local_env_c_channels])
         flat_conv_h = self.conv_encoder(flat_voxel_grids)
         conv_h = flat_conv_h.reshape(batch_size, time, -1)
         # NOTE: maybe we should be using the previous predicted error?
