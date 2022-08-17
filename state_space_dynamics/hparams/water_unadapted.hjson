@@ -17,9 +17,8 @@
     controlled_container_target_angle
   ]
   fc_layer_sizes: [
-    256
-    256
-    64
+    1024
+    1024
   ]
-  learning_rate: 0.0005
+  learning_rate: 0.001
 }

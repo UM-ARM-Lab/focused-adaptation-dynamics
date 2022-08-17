@@ -1,5 +1,5 @@
 {
-  loss_type: biased_mse
+  loss_type: mse
   point_state_keys: [
     controlled_container_pos
     controlled_container_angle
@@ -20,7 +20,7 @@
     controlled_container_target_pos
     controlled_container_target_angle
   ]
-  learning_rate:  0.0005
+  learning_rate:  0.001
   rnn_size: 128
   fc_layer_sizes: [ 128, 128 ]
   pooling: [ 2, 2, 2 ]
@@ -34,14 +34,14 @@
   local_env_w_cols: 44
   local_env_c_channels: 44
   in_channels: 6
-  include_robot_geometry: False
-  error_threshold: 0.08
+  include_robot_geometry: false
+  error_threshold: 0.1
   weight_decay: 0
-  dropout_p: 0
+  dropout_p: 0.1
   no_lstm: true
   use_prev_error: true
   prev_error_res: false
-  use_batchnorm: true
+  use_batchnorm: false
   use_res3d: true
   use_sdf: false
   env_only_sdf: false

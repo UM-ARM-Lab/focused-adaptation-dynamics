@@ -26,6 +26,7 @@ class UDNN(pl.LightningModule):
 
         datset_params = self.hparams['dataset_hparams']
         self.data_collection_params = datset_params['data_collection_params']
+        self.data_collection_params['scenario_params']['run_flex'] = False #running pytorch + flex at same time = problems
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
         self.dataset_action_description: Dict = self.data_collection_params['action_description']
@@ -72,7 +73,7 @@ class UDNN(pl.LightningModule):
                     ref_before = ref_after
             self.register_buffer("ref_actions", torch.tensor(ref_actions_list))
 
-    def forward(self, inputs, params=None):
+    def forward(self, inputs):
         actions = {k: inputs[k] for k in self.hparams.action_keys}
         input_sequence_length = actions[self.hparams.action_keys[0]].shape[1]
         s_0 = {k: inputs[k][:, 0] for k in self.hparams.state_keys}
@@ -105,6 +106,7 @@ class UDNN(pl.LightningModule):
         if self.hparams.get("use_global_frame", False):
             states_and_actions += list(s_t.values())
         z_t = torch.cat(states_and_actions, -1)
+
         z_t = self.mlp(z_t)
         delta_s_t = vector_to_dict(self.state_description, z_t, self.device)
         s_t_plus_1 = self.scenario.integrate_dynamics(s_t, delta_s_t)
@@ -207,6 +209,7 @@ class UDNN(pl.LightningModule):
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         self.log('test_loss', test_losses['loss'])
+
         return test_losses['loss']
 
     def configure_optimizers(self):

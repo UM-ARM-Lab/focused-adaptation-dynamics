@@ -16,6 +16,7 @@
     ]
   scenario_params: {
     gui: 0
+    run_flex: true
     save_cfg: {
       save_frames: 0
       img_size: 64

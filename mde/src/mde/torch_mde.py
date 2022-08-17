@@ -270,7 +270,6 @@ class MDE(pl.LightningModule):
         self.log('val_mae', mae)
         self.log('val_mse', mse)
         self.log('val_bce', bce)
-        self.log('pred_minus_true_error', signed_loss)
         if self.hparams.get("loss_type", 'mse') == 'BCE':
             logits = -pred_error
             pred_error_probabilities = torch.sigmoid(logits)
@@ -292,7 +291,6 @@ class MDE(pl.LightningModule):
         self.log('test_mae', mae)
         self.log('test_mse', mse)
         self.log('test_bce', bce)
-        self.log('pred_minus_true_error', signed_loss)
         if self.hparams.get("loss_type", 'mse') == 'BCE':
             logits = -pred_error
             pred_error_probabilities = torch.sigmoid(logits)
