@@ -1,0 +1,23 @@
+{
+  use_global_frame: true
+  use_mask_train: false
+  use_mask_val: false
+  penalize_segment_length_error: false
+  train_mode: train
+  val_mode: val
+  state_metadata_keys: []
+  state_keys: [
+    rope
+    left_gripper
+    right_gripper
+  ]
+  action_keys: [
+    left_gripper_position
+    right_gripper_position
+  ]
+  fc_layer_sizes: [
+    1024
+    1024
+  ]
+  learning_rate: 0.001
+}
