@@ -38,6 +38,7 @@ def metrics_main(args):
                 break
 
     df['method_name'] = method_names
+    df = df.sort_values("method_name")
 
     fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
     ax.set_ylim(-0.02, 1.02)

@@ -16,9 +16,8 @@
 class RopeResetPlanner {
  public:
   RopeResetPlanner();
-  ~RopeResetPlanner();
-  void QueueThread();
-  moveit_msgs::RobotTrajectory planToReset(geometry_msgs::Pose const& left_reset_pose,
+
+  std::pair<ob::PlannerStatus, moveit_msgs::RobotTrajectory> planToReset(geometry_msgs::Pose const& left_reset_pose,
                                            geometry_msgs::Pose const& right_reset_pose, double timeout);
 
   robot_model_loader::RobotModelLoaderPtr model_loader_;
@@ -27,8 +26,5 @@ class RopeResetPlanner {
 
   moveit_visual_tools::MoveItVisualTools visual_tools_;
   ros::NodeHandle nh_;
-  ros::CallbackQueue queue_;
-  std::thread ros_queue_thread_;
   trajectory_processing::IterativeParabolicTimeParameterization time_param_;
-
 };
