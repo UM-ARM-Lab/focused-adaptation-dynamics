@@ -70,10 +70,7 @@ class UDNN(pl.LightningModule):
                     ref_before = ref_after
             self.register_buffer("ref_actions", torch.tensor(ref_actions_list))
 
-    def forward(self, inputs, params=None):
-        if params is None:
-            params = dict(self.named_parameters())
-
+    def forward(self, inputs):
         actions = {k: inputs[k] for k in self.hparams.action_keys}
         input_sequence_length = actions[self.hparams.action_keys[0]].shape[1]
         s_0 = {k: inputs[k][:, 0] for k in self.hparams.state_keys}
@@ -82,7 +79,7 @@ class UDNN(pl.LightningModule):
         for t in range(input_sequence_length):
             s_t = pred_states[-1]
             action_t = {k: inputs[k][:, t] for k in self.hparams.action_keys}
-            s_t_plus_1 = self.one_step_forward(action_t, s_t, params)
+            s_t_plus_1 = self.one_step_forward(action_t, s_t)
 
             pred_states.append(s_t_plus_1)
 
@@ -99,10 +96,12 @@ class UDNN(pl.LightningModule):
 
         return pred_states_dict
 
-    def one_step_forward(self, action_t, s_t, params):
+    def one_step_forward(self, action_t, s_t):
         local_action_t = self.scenario.put_action_local_frame(s_t, action_t)
         s_t_local = self.scenario.put_state_local_frame_torch(s_t)
         states_and_actions = list(s_t_local.values()) + list(local_action_t.values())
+        if self.hparams.get("use_global_frame", False):
+            states_and_actions += list(s_t.values())
         z_t = torch.cat(states_and_actions, -1)
 
         z_t = self.mlp(z_t)

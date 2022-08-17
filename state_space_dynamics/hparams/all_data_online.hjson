@@ -1,4 +1,5 @@
 {
+  use_global_frame: true
   use_mask_train: false
   use_mask_val: false
   iterative_mask: false
