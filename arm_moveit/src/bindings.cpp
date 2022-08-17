@@ -1,5 +1,4 @@
 #include <arm_moveit/robot_points_generator.h>
-#include <arm_moveit/rope_reset_planner.h>
 #include <moveit/python/pybind_rosmsg_typecasters.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>

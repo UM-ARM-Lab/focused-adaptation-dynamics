@@ -49,6 +49,7 @@ def metrics_main(args):
     fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
     fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
     fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
+    fig, ax = boxplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?')
     plt.show()
 
 

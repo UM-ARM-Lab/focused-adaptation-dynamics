@@ -70,8 +70,11 @@ def main():
 
 
 def print_status(iterations_completed_map, post_learning_evaluations_map):
+    n_seeds = 5
+    n_total_evals = n_seeds * 64
+    print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
     for name, runs_for_name in iterations_completed_map.items():
-        print(f"Run: {name}")
+        print(f"{name}")
         for seed, (_, completed_iters) in runs_for_name.items():
             if completed_iters == 10:
                 color = Style.DIM
@@ -79,8 +82,10 @@ def print_status(iterations_completed_map, post_learning_evaluations_map):
                 color = ''
             print(color + f"\tSeed {seed} Completed: {completed_iters}/10" + Style.RESET_ALL)
     print('')
+
+    print(Style.BRIGHT + "Post-Learning Evaluations:" + Style.RESET_ALL)
     for name, n_evals in post_learning_evaluations_map.items():
-        print(f"Run: {name:20s} Total Post-Learning Evaluations: {n_evals:4d}")
+        print(f"{name:20s} {n_evals:4d}/{n_total_evals}")
 
 
 def print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name):

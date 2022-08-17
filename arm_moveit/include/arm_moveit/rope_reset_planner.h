@@ -9,16 +9,67 @@
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/RobotTrajectory.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+#include <ompl/base/Goal.h>
+#include <ompl/base/PlannerStatus.h>
+#include <ompl/base/SpaceInformation.h>
+#include <ompl/base/StateValidityChecker.h>
+#include <ompl/base/ValidStateSampler.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/geometric/SimpleSetup.h>
 #include <ros/ros.h>
 
+#include <string>
 #include <thread>
+#include <vector>
+
+namespace ob = ompl::base;
+namespace og = ompl::geometric;
+
+void copy_vector_to_values(ob::RealVectorStateSpace::StateType* state, std::vector<double> vec) {
+  for (auto i{0u}; i < vec.size(); ++i) {
+    (*state)[i] = vec[i];
+  }
+}
+
+class ArmStateSpace : public ob::RealVectorStateSpace {
+ public:
+  std::vector<std::string> joint_names_;
+  class StateType : public RealVectorStateSpace::StateType {
+   public:
+    StateType() = default;
+
+    void setPositions(std::vector<double> const& positions) { copy_vector_to_values(this, positions); }
+  };
+
+  explicit ArmStateSpace(std::vector<std::string> const& joint_names)
+      : ob::RealVectorStateSpace(static_cast<unsigned int>(joint_names.size())), joint_names_(joint_names) {
+    auto const dim = joint_names.size();
+    for (auto i{0u}; i < dim; ++i) {
+      setDimensionName(i, joint_names[i]);
+    }
+  }
+
+  int getJointIndex(std::string const& joint_name) { return getDimensionIndex(joint_name); }
+};
+
+struct PlanningResult {
+  std::string status;
+  moveit_msgs::RobotTrajectory traj;
+};
 
 class RopeResetPlanner {
  public:
-  RopeResetPlanner();
+  RopeResetPlanner(std::string const& group_name = "both_arms");
 
-  std::pair<ob::PlannerStatus, moveit_msgs::RobotTrajectory> planToReset(geometry_msgs::Pose const& left_reset_pose,
-                                           geometry_msgs::Pose const& right_reset_pose, double timeout);
+  PlanningResult planWithConstraints(ob::GoalPtr const& goal, ob::StateValidityCheckerFn const& state_validity_fn,
+                                     ob::ValidStateSamplerAllocator const& alloc, double timeout);
+
+  PlanningResult planToReset(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
+                             double orientation_path_tolerance, double orientation_goal_tolerance, double timeout);
+
+  PlanningResult planToStart(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
+                             double max_gripper_dist, double orientation_path_tolerance,
+                             double orientation_goal_tolerance, double timeout);
 
   robot_model_loader::RobotModelLoaderPtr model_loader_;
   moveit::core::RobotModelConstPtr const model_;
@@ -27,4 +78,11 @@ class RopeResetPlanner {
   moveit_visual_tools::MoveItVisualTools visual_tools_;
   ros::NodeHandle nh_;
   trajectory_processing::IterativeParabolicTimeParameterization time_param_;
+  std::string group_name_;
+  moveit::core::JointModelGroup const* group_;
+  unsigned int n_joints_;
+  std::vector<std::string> joint_names_;
+  std::shared_ptr<ArmStateSpace> space_;
+  og::SimpleSetup ss_;
+  ob::SpaceInformationPtr si_;
 };

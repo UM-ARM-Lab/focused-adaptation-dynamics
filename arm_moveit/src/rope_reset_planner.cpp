@@ -1,16 +1,10 @@
 #include <arm_moveit/rope_reset_planner.h>
 #include <bio_ik/bio_ik.h>
 #include <eigen_conversions/eigen_msg.h>
-#include <ompl/base/SpaceInformation.h>
 #include <ompl/base/goals/GoalState.h>
-#include <ompl/base/spaces/RealVectorStateSpace.h>
-#include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 
 #include <iostream>
-
-namespace ob = ompl::base;
-namespace og = ompl::geometric;
 
 constexpr auto LOGGER_NAME{"rope_reset_planner"};
 
@@ -48,33 +42,6 @@ std::vector<double> operator*(const T &scalar, const std::vector<T2> &vec) {
   return newvec;
 }
 
-void copy_vector_to_values(ob::RealVectorStateSpace::StateType *state, std::vector<double> vec) {
-  for (auto i{0u}; i < vec.size(); ++i) {
-    (*state)[i] = vec[i];
-  }
-}
-
-class ArmStateSpace : public ob::RealVectorStateSpace {
- public:
-  std::vector<std::string> joint_names_;
-  class StateType : public RealVectorStateSpace::StateType {
-   public:
-    StateType() = default;
-
-    void setPositions(std::vector<double> const &positions) { copy_vector_to_values(this, positions); }
-  };
-
-  explicit ArmStateSpace(std::vector<std::string> const &joint_names)
-      : ob::RealVectorStateSpace(joint_names.size()), joint_names_(joint_names) {
-    auto const dim = joint_names.size();
-    for (auto i{0u}; i < dim; ++i) {
-      setDimensionName(i, joint_names[i]);
-    }
-  }
-
-  int getJointIndex(std::string const &joint_name) { return getDimensionIndex(joint_name); }
-};
-
 auto rotMatDist(const Eigen::Matrix3d P, const Eigen::Matrix3d Q) {
   // http://www.boris-belousov.net/2016/12/01/quat-dist/#using-rotation-matrices
   Eigen::Matrix3d R = P * Q.transpose();
@@ -96,7 +63,7 @@ auto eigenMatToQuaternion(Eigen::Matrix3d const &r) {
 
 void addGripperCollisionSpheres(moveit::core::RobotState &robot_state) {
   auto addGripperCollisionSphere = [&](std::string const &side) {
-    auto shape = std::make_shared<shapes::Sphere>(0.025);
+    auto shape = std::make_shared<shapes::Sphere>(0.05);
     Eigen::Isometry3d identity{Eigen::Isometry3d::Identity()};
     std::vector<shapes::ShapeConstPtr> shapes{shape};
     EigenSTL::vector_Isometry3d poses{identity};
@@ -109,8 +76,8 @@ void addGripperCollisionSpheres(moveit::core::RobotState &robot_state) {
   addGripperCollisionSphere("right");
 }
 
-auto ik(moveit::core::RobotModelConstPtr const &model, moveit::core::JointModelGroup const *group, ob::State *s,
-        bio_ik::BioIKKinematicsQueryOptions const &opts) {
+auto ik(moveit::core::RobotModelConstPtr const &model, moveit::core::JointModelGroup const *group,
+        bio_ik::BioIKKinematicsQueryOptions const &opts, double rng_dist) {
   robot_state::RobotState robot_state_ik{model};
   addGripperCollisionSpheres(robot_state_ik);
   robot_state_ik.setToDefaultValues();
@@ -119,7 +86,7 @@ auto ik(moveit::core::RobotModelConstPtr const &model, moveit::core::JointModelG
 
   bool ok = false;
   while (not ok) {
-    robot_state_ik.setToRandomPositionsNearBy(group, robot_state_ik, 0.1);
+    robot_state_ik.setToRandomPositionsNearBy(group, robot_state_ik, rng_dist);
     ok = robot_state_ik.setFromIK(group, EigenSTL::vector_Isometry3d(), std::vector<std::string>(), 0,
                                   empty_constraint_fn, opts);
   }
@@ -191,7 +158,9 @@ class PosesGoal : public ob::GoalSampleableRegion {
     return translation_error + orientation_error;
   }
 
-  bool isSatisfied(const ob::State *s) const override {
+  bool isSatisfied(const ob::State *s, double *dist) const override {
+    *dist = distanceGoal(s);
+
     // compute EE poses with FK using Moveit
     auto const robot_state = omplStateToRobotState(s, model_, si_->getStateSpace());
     const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
@@ -204,6 +173,8 @@ class PosesGoal : public ob::GoalSampleableRegion {
     return (left_translation_error < translation_tolerance_) && (right_translation_error < translation_tolerance_) &&
            (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_);
   }
+
+  bool isSatisfied(const ob::State *s) const override { throw std::runtime_error("Not implemented!"); }
 
   void sampleGoal(ob::State *s) const override {
     bio_ik::BioIKKinematicsQueryOptions opts;
@@ -218,13 +189,13 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const right_quat_tf2 = eigenMatToQuaternion(right_goal_pose_.rotation());
     opts.goals.emplace_back(std::make_unique<bio_ik::PoseGoal>("right_tool", right_position_tf2, right_quat_tf2));
 
-    auto const robot_state_ik = ik(model_, group_, s, opts);
-    visual_tools_.publishRobotState(robot_state_ik);
+    auto const robot_state_ik = ik(model_, group_, opts, 0.1);
+//    visual_tools_.publishRobotState(robot_state_ik);
 
     copy_robot_state_to_ompl_state(group_, robot_state_ik, s);
   }
 
-  [[nodiscard]] unsigned int maxSampleCount() const override { return 10u; }
+  [[nodiscard]] unsigned int maxSampleCount() const override { return 25u; }
 };
 
 class GripperOrientationStateSampler : public ob::ValidStateSampler {
@@ -251,7 +222,7 @@ class GripperOrientationStateSampler : public ob::ValidStateSampler {
     auto const quat_tf2 = eigenQuaternionTotf2Quaternion(target_orientation_);
     opts.goals.emplace_back(std::make_unique<bio_ik::OrientationGoal>("right_tool", quat_tf2));
 
-    auto const robot_state_ik = ik(model_, group_, s, opts);
+    auto const robot_state_ik = ik(model_, group_, opts, 1);
     visual_tools_.publishRobotState(robot_state_ik);
 
     copy_robot_state_to_ompl_state(group_, robot_state_ik, s);
@@ -267,52 +238,36 @@ class GripperOrientationStateSampler : public ob::ValidStateSampler {
   }
 };
 
-RopeResetPlanner::RopeResetPlanner()
+RopeResetPlanner::RopeResetPlanner(std::string const &group_name)
     : model_loader_(std::make_shared<robot_model_loader::RobotModelLoader>("hdt_michigan/robot_description")),
       model_(model_loader_->getModel()),
       scene_monitor_(std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(model_loader_)),
-      visual_tools_("robot_root", "hdt_michigan/moveit_visual_markers", model_) {
+      visual_tools_("robot_root", "hdt_michigan/moveit_visual_markers", model_),
+      group_name_(group_name),
+      group_(model_->getJointModelGroup(group_name_)),
+      n_joints_(group_->getActiveVariableCount()),
+      joint_names_(group_->getActiveJointModelNames()),
+      space_(std::make_shared<ArmStateSpace>(joint_names_)),
+      ss_(space_),
+      si_(ss_.getSpaceInformation()) {
   auto const scene_topic = "hdt_michigan/move_group/monitored_planning_scene";
   scene_monitor_->startSceneMonitor(scene_topic);
   auto const service_name = "hdt_michigan/get_planning_scene";
   scene_monitor_->requestPlanningSceneState(service_name);
-}
 
-std::pair<ob::PlannerStatus, moveit_msgs::RobotTrajectory> RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
-                                                           geometry_msgs::Pose const &right_pose, double timeout) {
-  auto const orientation_tolerance = 0.1;
-
-  std::string group_name = "both_arms";
-  robot_trajectory::RobotTrajectory traj(model_, group_name);
-
-  auto const *group = model_->getJointModelGroup(group_name);
-  auto const &joint_names = group->getActiveJointModelNames();
-  std::cout << joint_names << "\n";
-
-  scene_monitor_->lockSceneRead();
-  auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
-  scene_monitor_->unlockSceneRead();
-  auto start_robot_state = planning_scene->getCurrentState();
-
-  addGripperCollisionSpheres(start_robot_state);
-
-  auto const n_joints = group->getActiveVariableCount();
-  auto space(std::make_shared<ArmStateSpace>(joint_names));
-
-  ob::RealVectorBounds position_bounds(n_joints);
-  ob::RealVectorBounds velocity_bounds(n_joints);
-  ob::RealVectorBounds acceleration_bounds(n_joints);
-  auto const bounds = group->getActiveJointModelsBounds();
+  ob::RealVectorBounds position_bounds(n_joints_);
+  ob::RealVectorBounds velocity_bounds(n_joints_);
+  ob::RealVectorBounds acceleration_bounds(n_joints_);
+  auto const bounds = group_->getActiveJointModelsBounds();
   auto joint_i{0u};
   for (auto const *joint_bounds : bounds) {
-    auto const &joint_name = group->getActiveJointModelNames()[joint_i];
+    auto const &joint_name = group_->getActiveJointModelNames()[joint_i];
     if (joint_bounds->size() != 1) {
       std::stringstream ss;
       ss << "Joint " << joint_name << " has " << joint_bounds->size() << " bounds\n";
       throw std::runtime_error(ss.str());
     } else {
       auto const &bound = (*joint_bounds)[0];
-      // std::cout << joint_name << " " << bound << std::endl;
       position_bounds.setLow(joint_i, bound.min_position_);
       position_bounds.setHigh(joint_i, bound.max_position_);
       velocity_bounds.setLow(joint_i, bound.min_velocity_);
@@ -322,63 +277,51 @@ std::pair<ob::PlannerStatus, moveit_msgs::RobotTrajectory> RopeResetPlanner::pla
       ++joint_i;
     }
   }
-  space->setBounds(position_bounds);
+  space_->setBounds(position_bounds);
 
-  og::SimpleSetup ss(space);
-  auto const &si = ss.getSpaceInformation();
+  auto const &planner = std::make_shared<og::RRTConnect>(si_);
+  planner->setRange(0.2);
+  ss_.setPlanner(planner);
+}
 
-  auto alloc = [&](const ob::SpaceInformation *_si) {
-    return std::make_shared<GripperOrientationStateSampler>(_si, model_, group, visual_tools_, right_pose.orientation);
-  };
+PlanningResult RopeResetPlanner::planWithConstraints(ob::GoalPtr const &goal,
+                                                     ob::StateValidityCheckerFn const &state_validity_fn,
+                                                     ob::ValidStateSamplerAllocator const &alloc, double timeout) {
+  robot_trajectory::RobotTrajectory traj(model_, group_name_);
 
-  si->setValidStateSamplerAllocator(alloc);
-  ss.setStateValidityChecker([&](const ob::State *s) {
-    auto const robot_state = omplStateToRobotState(s, model_, space);
+  scene_monitor_->lockSceneRead();
+  auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
+  scene_monitor_->unlockSceneRead();
+  auto start_robot_state = planning_scene->getCurrentState();
 
-    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+  addGripperCollisionSpheres(start_robot_state);
 
-    Eigen::Isometry3d right_target_pose;
-    tf::poseMsgToEigen(right_pose, right_target_pose);
-    auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
-    auto const right_orientation_satisfied = right_orientation_error < orientation_tolerance;
-
-    auto const collision_free = planning_scene->isStateValid(robot_state);
-
-    return si->satisfiesBounds(s) && right_orientation_satisfied && collision_free;
-  });
-
-  ob::ScopedState<ArmStateSpace> start(space);
-  for (auto const &joint_name : joint_names) {
-    auto const i = space->getJointIndex(joint_name);
+  ob::ScopedState<ArmStateSpace> start(space_);
+  for (auto const &joint_name : joint_names_) {
+    auto const i = space_->getJointIndex(joint_name);
     start[i] = start_robot_state.getVariablePosition(joint_name);
   }
-  std::cout << "Start State: \n";
-  space->printState(start.get(), std::cout);
-  ss.setStartState(start);
 
-  std::vector<double> zeros(n_joints, 0);
+  std::vector<double> zeros(n_joints_, 0);
 
-  auto goal =
-      std::make_shared<PosesGoal>(model_, group, visual_tools_, si, left_pose, right_pose, 0.01, orientation_tolerance);
-  ss.setGoal(goal);
-
-  auto const &planner = std::make_shared<og::RRTConnect>(si);
-  planner->setRange(0.1);
-  ss.setPlanner(planner);
-  std::cout << "Starting..." << std::endl;
-  ob::PlannerStatus status = ss.solve(timeout);
+  ss_.clearStartStates();
+  ss_.clear();
+  si_->setValidStateSamplerAllocator(alloc);
+  ss_.setStateValidityChecker(state_validity_fn);
+  ss_.setStartState(start);
+  ss_.setGoal(goal);
+  ob::PlannerStatus status = ss_.solve(timeout);
 
   if (status) {
-    auto &path = ss.getSolutionPath();
-    ss.simplifySolution();  // not sure if this is safe... does the resulting path still satisfy constraints?
+    auto &path = ss_.getSolutionPath();
+    ss_.simplifySolution();  // not sure if this is safe... does the resulting path still satisfy constraints?
     std::cout << "Solution has " << path.getStateCount() << " states\n";
     for (auto const &state : path.getStates()) {
-      const auto &arm_state = state->as<ArmStateSpace::StateType>();
-      auto const robot_state = omplStateToRobotState(state, model_, space);
+      auto const robot_state = omplStateToRobotState(state, model_, space_);
       traj.addSuffixWayPoint(robot_state, 0);
     }
 
-    if (!time_param_.computeTimeStamps(traj, 1, 1)) {
+    if (!time_param_.computeTimeStamps(traj, 0.1, 1)) {
       ROS_ERROR_STREAM_NAMED(LOGGER_NAME, "Time parametrization for the solution path failed.");
     }
   } else {
@@ -388,5 +331,74 @@ std::pair<ob::PlannerStatus, moveit_msgs::RobotTrajectory> RopeResetPlanner::pla
   moveit_msgs::RobotTrajectory traj_msg;
   traj.getRobotTrajectoryMsg(traj_msg);
   traj_msg.joint_trajectory.header.stamp = ros::Time::now();
-  return {status, traj_msg};
+  return {status.asString(), traj_msg};
+}
+
+PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
+                                             geometry_msgs::Pose const &right_pose, double orientation_path_tolerance,
+                                             double orientation_goal_tolerance, double timeout) {
+  scene_monitor_->lockSceneRead();
+  auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
+  scene_monitor_->unlockSceneRead();
+
+  auto goal = std::make_shared<PosesGoal>(model_, group_, visual_tools_, si_, left_pose, right_pose, 0.01,
+                                          orientation_goal_tolerance);
+
+  auto state_validity_fn = [&](const ob::State *s) {
+    auto const robot_state = omplStateToRobotState(s, model_, space_);
+
+    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+
+    Eigen::Isometry3d right_target_pose;
+    tf::poseMsgToEigen(right_pose, right_target_pose);
+    auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
+    auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
+
+    auto const collision_free = planning_scene->isStateValid(robot_state);
+
+    return si_->satisfiesBounds(s) && right_orientation_satisfied && collision_free;
+  };
+
+  auto valid_state_sampler_allocator = [&](const ob::SpaceInformation *_si) {
+    return std::make_shared<GripperOrientationStateSampler>(_si, model_, group_, visual_tools_, right_pose.orientation);
+  };
+
+  return planWithConstraints(goal, state_validity_fn, valid_state_sampler_allocator, timeout);
+}
+
+PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pose,
+                                             geometry_msgs::Pose const &right_pose, double max_gripper_dist,
+                                             double orientation_path_tolerance, double orientation_goal_tolerance,
+                                             double timeout) {
+  scene_monitor_->lockSceneRead();
+  auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
+  scene_monitor_->unlockSceneRead();
+
+  auto goal = std::make_shared<PosesGoal>(model_, group_, visual_tools_, si_, left_pose, right_pose, 0.01,
+                                          orientation_goal_tolerance);
+
+  auto state_validity_fn = [&](const ob::State *s) {
+    auto const robot_state = omplStateToRobotState(s, model_, space_);
+
+    const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
+    const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
+
+    Eigen::Isometry3d right_target_pose;
+    tf::poseMsgToEigen(right_pose, right_target_pose);
+    auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
+    auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
+
+    auto const collision_free = planning_scene->isStateValid(robot_state);
+
+    auto const grippers_dist = (right_tool_pose.translation() - left_tool_pose.translation()).norm();
+    auto const grippers_close = grippers_dist < max_gripper_dist;
+
+    return si_->satisfiesBounds(s) && right_orientation_satisfied && collision_free && grippers_close;
+  };
+
+  auto valid_state_sampler_allocator = [&](const ob::SpaceInformation *_si) {
+    return std::make_shared<GripperOrientationStateSampler>(_si, model_, group_, visual_tools_, right_pose.orientation);
+  };
+
+  return planWithConstraints(goal, state_validity_fn, valid_state_sampler_allocator, timeout);
 }

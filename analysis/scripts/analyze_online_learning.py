@@ -59,6 +59,18 @@ def metrics_main(args):
     ax.set_ylim(-0.01, 1.01)
     plt.savefig(outdir / f'success.png')
 
+    fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given solved)', hue='method_name', ci=90)
+    ax.axhline(unadapted_df['success_given_solved'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
+    ax.set_ylim(-0.01, 1.01)
+    plt.savefig(outdir / f'success_given_solved.png')
+
+    fig, ax = lineplot(df, iter_key, 'any_solved', 'Plans Found?', hue='method_name', ci=90)
+    ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
+    ax.set_ylim(-0.01, 1.01)
+    plt.savefig(outdir / f'any_solved.png')
+
     fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
     ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
     ax.legend()
