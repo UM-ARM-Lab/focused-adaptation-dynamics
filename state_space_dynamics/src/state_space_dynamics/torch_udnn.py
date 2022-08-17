@@ -38,6 +38,8 @@ class UDNN(pl.LightningModule):
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
 
         in_size = self.total_state_dim + self.total_action_dim
+        if self.hparams.get("use_global_frame", False):
+            in_size += self.total_state_dim
         fc_layer_size = None
 
         layers = []
