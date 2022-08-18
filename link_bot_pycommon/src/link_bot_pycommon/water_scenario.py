@@ -31,6 +31,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
+        #self.params['run_flex'] = False
         if self.params.get("run_flex", False):
             self._make_softgym_env()
         self.service_provider = SoftGymServices()
@@ -49,8 +50,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['num_variations'] = 1
         env_kwargs['render'] = True
         env_kwargs["action_repeat"] = 2
-        env_kwargs['headless'] = not self.params['gui']
-        self._save_cfg = self.params["save_cfg"]
+        env_kwargs['headless'] = not self.params.get('gui', False)
+        default_config = {"save_frames": False, 'img_size': 16}
+        self._save_cfg = self.params.get("save_cfg", default_config)
 
         if not env_kwargs['use_cached_states']:
             print('Waiting to generate environment variations. May take 1 minute for each variation...')
@@ -69,8 +71,20 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
-        container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=1)
+        container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
         return container_dist
+
+    def local_planner_cost_function_torch(self, planner):
+        def _local_planner_cost_function(actions: List[Dict],
+                                         environment: Dict,
+                                         goal_state: Dict,
+                                         states: List[Dict]):
+            del goal_state
+            goal_cost = self.distance_to_goal(state=states[1], goal=planner.goal_region.goal, use_torch=True)
+            action_cost = self.actions_cost_torch(states, actions, planner.action_params)
+            return goal_cost * planner.params['goal_alpha'] + action_cost * planner.params['action_alpha']
+
+        return _local_planner_cost_function
 
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
@@ -96,6 +110,23 @@ class WaterSimScenario(ScenarioWithVisualization):
     def on_before_data_collection(self, params: Dict):
         self.reset()
 
+    def interpolate(self, start_state, end_state, step_size=0.08):
+        controlled_container_start = np.array(start_state['controlled_container_pos'])
+        controlled_container_end = np.array(end_state['controlled_container_pos'])
+        controlled_container_delta = controlled_container_end - controlled_container_start
+        steps = np.round(np.linalg.norm(controlled_container_delta) / step_size).astype(np.int64)
+
+        interpolated_actions = []
+        for t in np.linspace(step_size, 1, steps):
+            controlled_container_t = controlled_container_start + controlled_container_delta * t
+            action = {
+                'controlled_container_target_pos':  controlled_container_t,
+                'controlled_container_target_angle':  0,
+            }
+            interpolated_actions.append(action)
+
+        return interpolated_actions
+
     def on_after_data_collection(self, params: Dict):
         if self._save_frames:
             save_name = "test.gif"
@@ -104,9 +135,13 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
         goal_pos = action["controlled_container_target_pos"].flatten()
-        goal_angle = action["controlled_container_target_angle"].flatten()
+        #goal_angle = action["controlled_container_target_angle"].flatten()
+        print("WARNING: goal angle harcoded in execute_action in water_secnario")
+        goal_angle = 0
         curr_state = state
         curr_pos = curr_state["controlled_container_pos"].flatten()
+        print("goal_pos", goal_pos)
+        print("curr pos", curr_pos)
         curr_angle = curr_state["controlled_container_angle"].flatten()
         angle_traj = np.linspace(curr_angle, goal_angle, int(self.params["controller_max_horizon"] * 0.5))
         pos_traj = np.vstack(
@@ -144,7 +179,7 @@ class WaterSimScenario(ScenarioWithVisualization):
             is_pour = action_rng.randint(2)
             if is_pour:
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
-                                                           high=self.params["action_range"]["angle"][1])],
+                                                            high=self.params["action_range"]["angle"][1])],
                                         dtype=np.float32)
                 action = {"controlled_container_target_pos":   current_controlled_container_pos,
                           "controlled_container_target_angle": random_angle}
@@ -155,7 +190,7 @@ class WaterSimScenario(ScenarioWithVisualization):
                                               high=self.params["action_range"]["z"][1])
                 action = {"controlled_container_target_pos":   np.array([random_x, random_z], dtype=np.float32),
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
-            if validate and self.is_action_valid(environment, state, action, action_params):
+            if self.is_action_valid(environment, state, action, action_params):
                 return action, False
         return None, True
 
@@ -199,6 +234,8 @@ class WaterSimScenario(ScenarioWithVisualization):
     def randomize_environment(self, env_rng, params: Dict):
         self.reset()
 
+    def reset_to_start(self, planner_params, _):
+        self.reset()
 
     @staticmethod
     def put_state_robot_frame(state: Dict):
@@ -217,7 +254,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         if len(current_angle.shape) == 3:  # fix dataset:
             current_angle = current_angle.squeeze(-1)
         delta_pos = target_pos - current_pos
-        delta_angle = target_angle - current_angle
+        #delta_angle = target_angle - current_angle
+        delta_angle = current_angle
         return {
             'delta_pos':   delta_pos.float(),
             'delta_angle': delta_angle.float()
@@ -260,18 +298,39 @@ class WaterSimScenario(ScenarioWithVisualization):
                 integrated_dynamics[key] = s_t[key].reshape(delta_s_t[key].shape) + delta_s_t[key]
         return integrated_dynamics
 
+    def is_moveit_robot_in_collision(self, environment: Dict, state: Dict, action: Dict):
+        return False  # TODO check if softgym robot in collision
+
+    def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
+        return True
+
     def get_state(self):
         state_vector = self._saved_data[0][0]
         state = {"controlled_container_pos":   state_vector[:2],
-                 "controlled_container_angle": np.array([state_vector[2]],dtype=np.float32),
+                 "controlled_container_angle": np.array([state_vector[2]], dtype=np.float32),
                  "target_container_pos":       np.array([state_vector[6], 0]),  # need to check this one
                  "control_volume":             np.array([state_vector[-1]], dtype=np.float32),
                  "target_volume":              np.array([state_vector[-2]], dtype=np.float32)}
         return state
 
-    def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
+    def plot_state_rviz(self, state: Dict, **kwargs):
+        pass  # TODO plot markers in rviz
+
+    def plot_goal_rviz(self, goal, threshold, **kwargs):
+        pass  # TODO plot markers in rviz
+
+    def plot_action_rviz(self, state: Dict, action: Dict, label: str = 'action', **kwargs):
+        pass  # TODO plot markers in rviz
+
+    def distance_to_goal_volume(self, state: Dict, goal: Dict, use_torch=False):
         goal_target_volume = goal["goal_target_volume"]
         return abs(state["target_volume"] - goal_target_volume)
+
+    def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
+        goal_pos = goal["controlled_container_pos"]
+        curr_pos = state["controlled_container_pos"]
+        distance = ((goal_pos - curr_pos) ** 2).sum() ** 0.5
+        return distance
 
     def simple_name(self):
         return "watering"
@@ -279,19 +338,25 @@ class WaterSimScenario(ScenarioWithVisualization):
     def __repr__(self):
         return self.simple_name()
 
-#Specific to water scenario. A lot of functions seem to assume 2D data and then it gets converted
+
+# Specific to water scenario. A lot of functions seem to assume 2D data and then it gets converted
 def _fix_extremes_1d_data(data):
-    if len(data.shape) == 1:
-        data = data.unsqueeze(-1)
-        return data
-    if len(data.shape) == 4:
-        data = data.squeeze(-1)
-        return data
+    if isinstance(data, np.ndarray):
+        if len(data.shape) == 1:
+            data = data.reshape(data.shape + (1,))
+            return data
+    else:
+        if len(data.shape) == 1:
+            data = data.unsqueeze(-1)
+            return data
+        if len(data.shape) == 4:
+            assert False
+            data = data.squeeze(-1)
+            return data
     return data
+
 
 def _squeeze_if_3d(data):
     if len(data.shape) == 3:
         data = data.squeeze(-1)
     return data
-   
-

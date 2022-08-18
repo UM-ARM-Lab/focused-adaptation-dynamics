@@ -43,8 +43,11 @@ class LoggingTree:
     This duplicates what OMPL does already, but the OMPL implementation is not python friendly
     """
 
-    def __init__(self, state=None, action=None, accept_probabilities=None):
+    def __init__(self, state=None, action=None, accept_probabilities=None, state_close_keys = None):
         self.state = state
+        if state_close_keys is None:
+            state_close_keys =  ['rope', 'left_gripper', 'right_gripper']
+        self.state_close_keys = state_close_keys
         self.action = action
         self.children: List[LoggingTree] = []
         self.accept_probabilities = accept_probabilities
@@ -60,20 +63,21 @@ class LoggingTree:
             t = self
         else:
             # perf optimization
-            if are_states_close(self.cached.state, before_state):
+            if are_states_close(self.cached.state, before_state, keys=self.state_close_keys):
                 t = self.cached
             else:
                 t = self.find(before_state, are_states_close_f)
 
         new_child = LoggingTree(state=after_state,
                                 action=action,
-                                accept_probabilities=accept_probabilities)
+                                accept_probabilities=accept_probabilities,
+                                state_close_keys=self.state_close_keys)
         t.children.append(new_child)
         self.cached = new_child
         return new_child
 
     def find(self, state: Dict, are_states_close_f):
-        if are_states_close_f(self.state, state):
+        if are_states_close_f(self.state, state, keys=self.state_close_keys):
             return self
         for child in self.children:
             s = child.find(state, are_states_close_f)

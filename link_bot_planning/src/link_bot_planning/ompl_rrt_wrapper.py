@@ -120,7 +120,7 @@ class OmplRRTWrapper(MyPlanner):
         self.visualize_propogation_color = [0, 0, 0]
 
     def cleanup_before_plan(self, seed):
-        self.tree = LoggingTree()
+        self.tree = LoggingTree(state_close_keys = self.params.get("state_close_keys", None))
         self.ptc = None
         self.n_total_action = None
         self.goal_region = None
@@ -514,11 +514,13 @@ class OmplRRTWrapper(MyPlanner):
                                                                     state_sequence[start_t],
                                                                     proposed_action_seq_to_end)
             classifier_accept = True
-            proposed_state_seq_to_end[0]['error'] = state_sequence[start_t]['error']
+            if 'error' in proposed_state_seq_to_end[0]:
+                proposed_state_seq_to_end[0]['error'] = state_sequence[start_t]['error']
             for t in range(len(proposed_state_seq_to_end) - 1):
                 accept_t, _, pred_error = self.check_constraint(states=proposed_state_seq_to_end[t:t + 2],
                                                                 actions=proposed_action_seq_to_end[t:t + 1])
-                proposed_state_seq_to_end[t + 1]['error'] = np.expand_dims(pred_error, 0)
+                if 'error' in proposed_state_seq_to_end[0]:
+                    proposed_state_seq_to_end[t + 1]['error'] = np.expand_dims(pred_error, 0)
 
                 if not accept_t:
                     classifier_accept = False

@@ -26,7 +26,6 @@ class UDNN(pl.LightningModule):
 
         datset_params = self.hparams['dataset_hparams']
         self.data_collection_params = datset_params['data_collection_params']
-        self.data_collection_params['scenario_params']['run_flex'] = False #running pytorch + flex at same time = problems
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
         self.dataset_action_description: Dict = self.data_collection_params['action_description']
@@ -36,6 +35,7 @@ class UDNN(pl.LightningModule):
         self.total_state_dim = sum([self.dataset_state_description[k] for k in self.hparams.state_keys])
         self.total_action_dim = sum([self.dataset_action_description[k] for k in self.hparams.action_keys])
         self.with_joint_positions = with_joint_positions
+        self._with_joint_positions = with_joint_positions
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
 
         in_size = self.total_state_dim + self.total_action_dim
@@ -88,7 +88,7 @@ class UDNN(pl.LightningModule):
 
         pred_states_dict = sequence_of_dicts_to_dict_of_tensors(pred_states, axis=1)
 
-        if self.with_joint_positions:
+        if self._with_joint_positions:
             # no need to do this during training, only during prediction/evaluation/testing
             inputs_np = numpify(inputs)
             inputs_np['batch_size'] = inputs['time_idx'].shape[0]

@@ -1,0 +1,30 @@
+{
+  accept_type: strict
+  method_name: mde
+  service_provider: softgym
+  scenario_params: {
+    k_pos: 1.5
+    k_angle: 2.0
+    controller_max_horizon: 80
+    run_flex: true
+    gui: false
+  }
+  smooth: true
+  goal_params: {
+    type: fixed
+    goal_type: location
+    goal_fixed: {
+      controlled_container_pos : [0.05, 0.3]
+      }
+    threshold: 0.02
+  }
+  termination_criteria: {
+    total_timeout: 99999
+    timeout: 99999
+    max_extensions: 10000
+    max_attempts: 5
+    max_planning_attempts: 5
+    attempted_extensions_threshold: 128
+  }
+  dmax: 10
+}

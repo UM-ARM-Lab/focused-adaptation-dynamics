@@ -18,6 +18,10 @@ class SoftGymServices():
     def __call__(self, args, **kwargs):
         self.compute_occupancy(*args, **kwargs)
 
+    def get_world_initial_sdf(self):
+        #Needs to be implemented but not used. Ideal to roswarn once
+        return None
+
     def is_occupied(self, x, y, z, env_indices):
         coords = env_indices[x, y, z]
         # only checks if occupied by the box!!
