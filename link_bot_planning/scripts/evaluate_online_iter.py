@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import logging
+import os
 import pathlib
 import time
 
@@ -79,4 +80,29 @@ def main():
 
 
 if __name__ == '__main__':
+    import subprocess
+    import psutil
+
+    cmd = [
+        'roslaunch',
+        'link_bot_gazebo',
+        'val.launch',
+        'world:=car5_alt.world',
+        'gui:=false',
+        '--no-summary',
+    ]
+    port = np.random.randint(1_024, 65_000)
+    print(f"USING PORTS {port} and {port + 1}")
+    os.environ['ROS_MASTER_URI'] = f'http://localhost:{port}'
+    os.environ['GAZEBO_MASTER_URI'] = f'http://localhost:{port + 1}'
+    p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
+    roslaunch_process = psutil.Process(p.pid)
+
+    time.sleep(10)
+
+    print("STARTING MAIN...")
     main()
+
+    for proc in roslaunch_process.children(recursive=True):
+        proc.kill()
+    roslaunch_process.kill()

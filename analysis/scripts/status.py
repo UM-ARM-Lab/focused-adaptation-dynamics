@@ -2,6 +2,8 @@
 import argparse
 import pathlib
 import re
+from datetime import datetime, timedelta
+from time import strftime
 
 from colorama import Fore, Style
 
@@ -46,9 +48,15 @@ def main():
                 else:
                     break
 
+        last_updated = None
+        for hjson_path in run_dir.rglob("*.hjson"):
+            time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
+            if last_updated is None or time > last_updated:
+                last_updated = time
+
         if name not in iterations_completed_map:
             iterations_completed_map[name] = {}
-        iterations_completed_map[name][seed] = (full_run_name, completed_iters)
+        iterations_completed_map[name][seed] = (full_run_name, completed_iters, last_updated)
 
     post_learning_evaluations_map = {}
     planning_eval_root = pathlib.Path("/media/shared/planning_results")
@@ -75,12 +83,21 @@ def print_status(iterations_completed_map, post_learning_evaluations_map):
     print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
     for name, runs_for_name in iterations_completed_map.items():
         print(f"{name}")
-        for seed, (_, completed_iters) in runs_for_name.items():
+        for seed, (_, completed_iters, last_updated) in runs_for_name.items():
             if completed_iters == 10:
                 color = Style.DIM
+                dt_str = ""
             else:
                 color = ''
-            print(color + f"\tSeed {seed} Completed: {completed_iters}/10" + Style.RESET_ALL)
+                dt = datetime.now() - last_updated
+                if dt > timedelta(hours=1):
+                    dt_color = Fore.RED
+                else:
+                    dt_color = Fore.GREEN
+                hours, remainder = divmod(dt.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                dt_str = dt_color + f"Last Updated {hours}hr {minutes}m {seconds}s" + Fore.RESET
+            print(color + f"\tSeed {seed} Completed: {completed_iters}/10 {dt_str}" + Style.RESET_ALL)
     print('')
 
     print(Style.BRIGHT + "Post-Learning Evaluations:" + Style.RESET_ALL)
@@ -96,7 +113,7 @@ def print_things_to_run(iterations_completed_map, post_learning_evaluations_map,
                 print(f"./scripts/online_rope_sim.py {name}-{seed}")
     print('')
     for name, runs_for_name in iterations_completed_map.items():
-        for seed, (full_run_name, completed_iters) in runs_for_name.items():
+        for seed, (full_run_name, completed_iters, _) in runs_for_name.items():
             # for name, n_evals in post_learning_evaluations_map.items():
             online_is_done = (completed_iters == 10)
             planning_eval_root = pathlib.Path("/media/shared/planning_results")
