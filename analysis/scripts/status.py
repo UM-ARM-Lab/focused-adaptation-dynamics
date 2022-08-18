@@ -3,6 +3,7 @@ import argparse
 import pathlib
 import re
 from datetime import datetime, timedelta
+from itertools import chain
 from time import strftime
 
 from colorama import Fore, Style
@@ -49,7 +50,7 @@ def main():
                     break
 
         last_updated = None
-        for hjson_path in run_dir.rglob("*.hjson"):
+        for hjson_path in chain(run_dir.rglob("*.hjson"), run_dir.rglob("*.stdout")):
             time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
             if last_updated is None or time > last_updated:
                 last_updated = time
