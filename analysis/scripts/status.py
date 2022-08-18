@@ -91,7 +91,7 @@ def print_status(iterations_completed_map, post_learning_evaluations_map):
             else:
                 color = ''
                 dt = datetime.now() - last_updated
-                if dt > timedelta(hours=1):
+                if dt > timedelta(minutes=30):
                     dt_color = Fore.RED
                 else:
                     dt_color = Fore.GREEN
