@@ -3,8 +3,6 @@
   use_mask_val: true
   iterative_lowest_error: true
   soft_masking: true
-  soft_threshold_width: 0.01
-  iterative_lowest_error_skip_steps: 0
   low_initial_error: false
   mask_threshold: 0.08
   train_mode: all

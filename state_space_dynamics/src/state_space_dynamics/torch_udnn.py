@@ -118,7 +118,7 @@ class UDNN(pl.LightningModule):
             if self.hparams.get('iterative_lowest_error', False):
                 mask_padded = self.low_error_mask(inputs, outputs)
                 # skip the first few steps because training dynamics are weird...?
-                if self.global_step > self.hparams.get('iterative_lowest_error_skip_steps', 10):
+                if self.global_step > self.hparams.get('iterative_lowest_error_skip_steps', 0):
                     batch_time_loss = mask_padded * batch_time_loss
             elif self.hparams.get("low_initial_error", False):
                 initial_model_outputs = self.initial_model.forward(inputs)
@@ -209,6 +209,8 @@ class UDNN(pl.LightningModule):
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         self.log('test_loss', test_losses['loss'])
+        # rope_error = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
+        # print(torch.quantile(rope_error.reshape(-1), 0.9))
 
         return test_losses['loss']
 
