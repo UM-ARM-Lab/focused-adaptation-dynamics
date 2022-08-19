@@ -99,45 +99,58 @@ void RVizAnimationController::MaxTimeCallback(const std_msgs::Int64::ConstPtr &m
 void RVizAnimationController::DoneClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::DONE;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::ForwardClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::STEP_FORWARD;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::BackwardClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::STEP_BACKWARD;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::PauseClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::PAUSE;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::PlayForwardClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::PLAY_FORWARD;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::PlayBackwardClicked() {
   peter_msgs::AnimationControl cmd;
   cmd.command = peter_msgs::AnimationControl::PLAY_BACKWARD;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::LoopToggled() {
   peter_msgs::AnimationControl cmd;
   cmd.state.loop = ui.loop_checkbox->isChecked();
   cmd.command = peter_msgs::AnimationControl::SET_LOOP;
-  command_pub_.publish(cmd);
-
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
   if (ui.auto_play_checkbox->isChecked()) {
     ROS_WARN_STREAM("Auto-play takes precedence over looping");
     // show a warning here
@@ -148,15 +161,18 @@ void RVizAnimationController::AutoNextToggled() {
   peter_msgs::AnimationControl cmd;
   cmd.state.done_after_playing = ui.done_after_playing_checkbox->isChecked();
   cmd.command = peter_msgs::AnimationControl::SET_DONE_AFTER_PLAYING;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::AutoPlayToggled() {
   peter_msgs::AnimationControl cmd;
   cmd.state.auto_play = ui.auto_play_checkbox->isChecked();
   cmd.command = peter_msgs::AnimationControl::SET_AUTO_PLAY;
-  command_pub_.publish(cmd);
-
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
   if (ui.loop_checkbox->isChecked()) {
     ROS_WARN_STREAM("Looping takes precedence over auto-play");
     // show a warning here
@@ -168,14 +184,18 @@ void RVizAnimationController::StepNumberChanged() {
   peter_msgs::AnimationControl cmd;
   cmd.state.idx = idx;
   cmd.command = peter_msgs::AnimationControl::SET_IDX;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::PeriodChanged(double period) {
   peter_msgs::AnimationControl cmd;
   cmd.state.period = period;
   cmd.command = peter_msgs::AnimationControl::SET_PERIOD;
-  command_pub_.publish(cmd);
+  if (command_pub_) {
+    command_pub_->publish(cmd);
+  }
 }
 
 void RVizAnimationController::QueueThread() {
