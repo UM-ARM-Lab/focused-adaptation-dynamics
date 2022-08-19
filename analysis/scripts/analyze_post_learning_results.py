@@ -40,16 +40,16 @@ def metrics_main(args):
     df['method_name'] = method_names
     df = df.sort_values("method_name")
 
-    fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
-    ax.set_ylim(-0.02, 1.02)
-    plt.savefig(outdir / "success.png")
     fig, ax = barplot(df, outdir, 'method_name', 'success_given_solved', 'Success (given solved)', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success_given_solved.png")
-    fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
-    fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
     fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
-    fig, ax = boxplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?')
+    fig, ax = barplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?', ci=90)
+    # fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
+    # ax.set_ylim(-0.02, 1.02)
+    # plt.savefig(outdir / "success.png")
+    # fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
+    # fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
     plt.show()
 
 

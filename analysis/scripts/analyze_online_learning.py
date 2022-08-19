@@ -38,6 +38,9 @@ def metrics_main(args):
         '/media/shared/online_adaptation/v8':                 'Adaptation (ours)',
         '/media/shared/online_adaptation/v8_all_data':        'All Data (baseline)',
         '/media/shared/online_adaptation/v8_all_data_no_mde': 'No MDE (baseline)',
+        '/media/shared/online_adaptation/v9':                 'Adaptation (ours)',
+        '/media/shared/online_adaptation/v9_all_data':        'All Data (baseline)',
+        '/media/shared/online_adaptation/v9_all_data_no_mde': 'No MDE (baseline)',
     }
 
     for i, k in enumerate(method_name_map.keys()):
@@ -53,38 +56,38 @@ def metrics_main(args):
             method_name_values.append(method_name_map[k])
     df['method_name'] = method_name_values
 
-    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
-    ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
-    ax.legend()
-    ax.set_ylim(-0.01, 1.01)
-    plt.savefig(outdir / f'success.png')
-
-    fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given solved)', hue='method_name', ci=90)
-    ax.axhline(unadapted_df['success_given_solved'].mean(), c='gray', linestyle='--', label='unadapted')
-    ax.legend()
-    ax.set_ylim(-0.01, 1.01)
-    plt.savefig(outdir / f'success_given_solved.png')
-
-    fig, ax = lineplot(df, iter_key, 'any_solved', 'Plans Found?', hue='method_name', ci=90)
-    ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
-    ax.legend()
-    ax.set_ylim(-0.01, 1.01)
-    plt.savefig(outdir / f'any_solved.png')
-
-    fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
-    ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
-    ax.legend()
-    plt.savefig(outdir / f'task_error.png')
+    # fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
+    # ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
+    # ax.legend()
+    # ax.set_ylim(-0.01, 1.01)
+    # plt.savefig(outdir / f'success.png')
+    #
+    # fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given solved)', hue='method_name', ci=90)
+    # ax.axhline(unadapted_df['success_given_solved'].mean(), c='gray', linestyle='--', label='unadapted')
+    # ax.legend()
+    # ax.set_ylim(-0.01, 1.01)
+    # plt.savefig(outdir / f'success_given_solved.png')
+    #
+    # fig, ax = lineplot(df, iter_key, 'any_solved', 'Plans Found?', hue='method_name', ci=90)
+    # ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
+    # ax.legend()
+    # ax.set_ylim(-0.01, 1.01)
+    # plt.savefig(outdir / f'any_solved.png')
+    #
+    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
+    # ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    # ax.legend()
+    # plt.savefig(outdir / f'task_error.png')
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
     ax.axhline(unadapted_df['normalized_model_error'].mean(), c='gray', linestyle='--', label='unadapted')
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
-    fig, ax = lineplot(df, iter_key, 'combined_error', 'Combined Error', hue='method_name')
-    ax.axhline(unadapted_df['combined_error'].mean(), c='gray', linestyle='--', label='unadapted')
-    ax.legend()
-    plt.savefig(outdir / f'combined_error.png')
+    # fig, ax = lineplot(df, iter_key, 'combined_error', 'Combined Error', hue='method_name')
+    # ax.axhline(unadapted_df['combined_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    # ax.legend()
+    # plt.savefig(outdir / f'combined_error.png')
 
     if not args.no_plot:
         plt.show()
