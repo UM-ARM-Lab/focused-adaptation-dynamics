@@ -110,18 +110,22 @@ class WaterSimScenario(ScenarioWithVisualization):
     def on_before_data_collection(self, params: Dict):
         self.reset()
 
+
     def interpolate(self, start_state, end_state, step_size=0.08):
         controlled_container_start = np.array(start_state['controlled_container_pos'])
+        controlled_container_angle_start = start_state['controlled_container_angle']
+        controlled_container_angle_end = end_state['controlled_container_angle']
         controlled_container_end = np.array(end_state['controlled_container_pos'])
         controlled_container_delta = controlled_container_end - controlled_container_start
         steps = np.round(np.linalg.norm(controlled_container_delta) / step_size).astype(np.int64)
 
         interpolated_actions = []
-        for t in np.linspace(step_size, 1, steps):
+        angle_traj = np.linspace(controlled_container_angle_start, controlled_container_angle_end, steps)
+        for idx, t in enumerate(np.linspace(step_size, 1, steps)):
             controlled_container_t = controlled_container_start + controlled_container_delta * t
             action = {
                 'controlled_container_target_pos':  controlled_container_t,
-                'controlled_container_target_angle':  0,
+                'controlled_container_target_angle': np.array([angle_traj[idx]])
             }
             interpolated_actions.append(action)
 
@@ -135,13 +139,9 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
         goal_pos = action["controlled_container_target_pos"].flatten()
-        #goal_angle = action["controlled_container_target_angle"].flatten()
-        print("WARNING: goal angle harcoded in execute_action in water_secnario")
-        goal_angle = 0
+        goal_angle = action["controlled_container_target_angle"].flatten()
         curr_state = state
         curr_pos = curr_state["controlled_container_pos"].flatten()
-        print("goal_pos", goal_pos)
-        print("curr pos", curr_pos)
         curr_angle = curr_state["controlled_container_angle"].flatten()
         angle_traj = np.linspace(curr_angle, goal_angle, int(self.params["controller_max_horizon"] * 0.5))
         pos_traj = np.vstack(
@@ -254,8 +254,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         if len(current_angle.shape) == 3:  # fix dataset:
             current_angle = current_angle.squeeze(-1)
         delta_pos = target_pos - current_pos
-        #delta_angle = target_angle - current_angle
-        delta_angle = current_angle
+        delta_angle = target_angle - current_angle
         return {
             'delta_pos':   delta_pos.float(),
             'delta_angle': delta_angle.float()
@@ -322,11 +321,16 @@ class WaterSimScenario(ScenarioWithVisualization):
     def plot_action_rviz(self, state: Dict, action: Dict, label: str = 'action', **kwargs):
         pass  # TODO plot markers in rviz
 
-    def distance_to_goal_volume(self, state: Dict, goal: Dict, use_torch=False):
-        goal_target_volume = goal["goal_target_volume"]
-        return abs(state["target_volume"] - goal_target_volume)
-
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
+        goal_target_volume_range = goal["goal_target_volume_range"]
+        curr_target_volume = state["target_volume"].item()
+        if curr_target_volume > goal_target_volume_range[0] and curr_target_volume < goal_target_volume_range[1]:
+            return 0
+        too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
+        too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
+        return min(too_low_amount, too_high_amount)
+
+    def distance_to_goal_pos(self, state: Dict, goal: Dict, use_torch=False):
         goal_pos = goal["controlled_container_pos"]
         curr_pos = state["controlled_container_pos"]
         distance = ((goal_pos - curr_pos) ** 2).sum() ** 0.5
@@ -349,8 +353,7 @@ def _fix_extremes_1d_data(data):
         if len(data.shape) == 1:
             data = data.unsqueeze(-1)
             return data
-        if len(data.shape) == 4:
-            assert False
+        if len(data.shape) == 3:
             data = data.squeeze(-1)
             return data
     return data

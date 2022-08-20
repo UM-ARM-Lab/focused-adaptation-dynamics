@@ -16,6 +16,8 @@ class WateringOmpl(ScenarioOmpl):
 
     def __init__(self, scenario: WaterSimScenario, *args, **kwargs):
         super().__init__(scenario, *args, **kwargs)
+        print("Warning: target container pos hard coded")
+        self._target_container_pos = np.array([0, 0.5])
 
     @staticmethod
     def numpy_to_ompl_state(state_np: Dict, state_out: ob.CompoundState):
@@ -29,31 +31,27 @@ class WateringOmpl(ScenarioOmpl):
 
     @staticmethod
     def ompl_state_to_numpy(ompl_state: ob.CompoundState):
-        return {
+        ompl_state =  {
             'controlled_container_pos':   np.array([ompl_state[0][0], ompl_state[0][1]]),
             'target_container_pos':       np.array([ompl_state[1][0], ompl_state[1][1]]),
             'controlled_container_angle': np.array([ompl_state[2][0]]),
             'control_volume':             np.array([ompl_state[3][0]]),
-            'target_volume':              np.array([ompl_state[3][0]]),
-            'target_container_pos':       np.array([0, 0.1]),
-            'controlled_container_angle': np.array([0]),
-            'control_volume':             np.array([0]),
-            'target_volume':              np.array([0]),
-            'num_diverged' : 0
+            'target_volume':              np.array([ompl_state[4][0]]),
+            'num_diverged':               0
         }
+        return ompl_state
 
     def ompl_control_to_numpy(self, ompl_state: ob.CompoundState, ompl_control: oc.CompoundControl):
         state_np = self.ompl_state_to_numpy(ompl_state)
         current_pos = state_np['controlled_container_pos']
         current_angle = state_np['controlled_container_angle']
         delta_pos = np.array([ompl_control[0][0], ompl_control[0][1]])
-        delta_angle = np.array(ompl_control[1])
+        delta_angle = np.array(ompl_control[0][2])
         target_pos = current_pos + delta_pos
         target_angle = current_angle + delta_angle
         return {
-            'controlled_container_target_pos': target_pos,
-            'controlled_container_target_angle': target_angle,
-            'controlled_container_target_angle': [0*target_pos[0]],
+            'controlled_container_target_pos':   target_pos,
+            'controlled_container_target_angle': np.array([target_angle]),
         }
 
     def make_goal_region(self,
@@ -63,11 +61,12 @@ class WateringOmpl(ScenarioOmpl):
                          use_torch: bool,
                          plot: bool):
         return WateringGoalRegion(si=si,
-                                      scenario_ompl=self,
-                                      rng=rng,
-                                      threshold=params['goal_params']['threshold'],
-                                      goal=goal,
-                                      plot=plot)
+                                  scenario_ompl=self,
+                                  rng=rng,
+                                  threshold=params['goal_params']['threshold'],
+                                  goal=goal,
+                                  target_container_pos=self._target_container_pos,
+                                  plot=plot)
 
     def print_oob(self, state: Dict):
         print(state)
@@ -75,20 +74,11 @@ class WateringOmpl(ScenarioOmpl):
     def make_state_space(self):
         state_space = ob.CompoundStateSpace()
 
-        min_x, max_x, min_y, max_y, min_z, max_z = self.planner_params['extent']
-
-        controlled_container_subspace = ob.RealVectorStateSpace(3)
-        controlled_container_bounds = ob.RealVectorBounds(3)
-        # these bounds are not used for sampling
-        controlled_container_bounds.setLow(0, min_x)
-        controlled_container_bounds.setHigh(0, max_x)
-        controlled_container_bounds.setLow(1, min_y)
-        controlled_container_bounds.setHigh(1, max_y)
-        controlled_container_bounds.setLow(2, min_z)
-        controlled_container_bounds.setHigh(2, max_z)
-        controlled_container_subspace.setBounds(controlled_container_bounds)
-        controlled_container_subspace.setName("controlled_container")
-        state_space.addSubspace(controlled_container_subspace, weight=1)
+        self.add_container_subspace(state_space, 'controlled_container')
+        self.add_container_subspace(state_space, 'target_container')
+        self.add_1d_subspace(state_space, "controlled_container_angle")
+        self.add_volume_subspace(state_space, 'control_volume')
+        self.add_volume_subspace(state_space, 'target_volume')
 
         if False:
             # extra subspace component for the number of diverged steps
@@ -102,32 +92,68 @@ class WateringOmpl(ScenarioOmpl):
 
         def _state_sampler_allocator(state_space):
             return WateringStateSampler(state_space,
-                                            scenario_ompl=self,
-                                            extent=self.planner_params['extent'],
-                                            rng=self.state_sampler_rng,
-                                            plot=self.plot)
+                                        scenario_ompl=self,
+                                        extent=self.planner_params['extent'],
+                                        rng=self.state_sampler_rng,
+                                        target_container_pos=self._target_container_pos,
+                                        plot=self.plot)
 
         state_space.setStateSamplerAllocator(ob.StateSamplerAllocator(_state_sampler_allocator))
 
         return state_space
 
+    def add_container_subspace(self, state_space, name="container"):
+        min_x, max_x, min_y, max_y, min_z, max_z = self.planner_params['extent']
+        container_subspace = ob.RealVectorStateSpace(3)
+        container_bounds = ob.RealVectorBounds(3)
+        # these bounds are not used for sampling
+        container_bounds.setLow(0, min_x)
+        container_bounds.setHigh(0, max_x)
+        container_bounds.setLow(1, min_y)
+        container_bounds.setHigh(1, max_y)
+        container_bounds.setLow(2, min_z)
+        container_bounds.setHigh(2, max_z)
+        container_subspace.setBounds(container_bounds)
+        container_subspace.setName(name)
+        state_space.addSubspace(container_subspace, weight=1)
+
+    def add_volume_subspace(self, state_space, name="container"):
+        volume_subspace = ob.RealVectorStateSpace(1)
+        volume_bounds = ob.RealVectorBounds(1)
+        volume_bounds.setLow(-0.01)
+        volume_bounds.setHigh(1.01)
+        volume_subspace.setBounds(volume_bounds)
+        volume_subspace.setName(name)
+        state_space.addSubspace(volume_subspace, weight=1)
+
+    def add_1d_subspace(self, state_space, name="container"):
+        scalar_subspace = ob.RealVectorStateSpace(1)
+        scalar_bounds = ob.RealVectorBounds(1)
+        scalar_bounds.setLow(-10)
+        scalar_bounds.setHigh(10)
+        scalar_subspace.setBounds(scalar_bounds)
+        scalar_subspace.setName(name)
+        state_space.addSubspace(scalar_subspace, weight=1)
+
     def make_control_space(self):
         control_space = oc.CompoundControlSpace(self.state_space)
 
-        controlled_container_control_space = oc.RealVectorControlSpace(self.state_space, 2)
-        controlled_container_control_bounds = ob.RealVectorBounds(2)
+        controlled_container_control_space = oc.RealVectorControlSpace(self.state_space, 3)
+        controlled_container_control_bounds = ob.RealVectorBounds(3)
         controlled_container_control_bounds.setLow(0, -0.15)
         controlled_container_control_bounds.setHigh(0, 0.15)
         controlled_container_control_bounds.setLow(1, -0.15)
         controlled_container_control_bounds.setHigh(1, 0.15)
+        controlled_container_control_bounds.setHigh(2, -0.1)
+        controlled_container_control_bounds.setHigh(2, 0.1)
         controlled_container_control_space.setBounds(controlled_container_control_bounds)
         control_space.addSubspace(controlled_container_control_space)
 
         def _allocator(cs):
             return WateringControlSampler(cs,
-                                              scenario_ompl=self,
-                                              rng=self.control_sampler_rng,
-                                              action_params=self.action_params)
+                                          scenario_ompl=self,
+                                          rng=self.control_sampler_rng,
+                                          action_params=self.action_params)
 
         # Copied from floating_rope_ompl:
         # Peter: I override the sampler here so I can use numpy RNG to make things more deterministic.
@@ -146,13 +172,20 @@ class WateringControlSampler(oc.ControlSampler):
                  action_params: Dict):
         super().__init__(control_space)
         self.scenario_ompl = scenario_ompl
-        self.rng = rng        # extra subspace component for the number of diverged steps
+        self.rng = rng  # extra subspace component for the number of diverged steps
         self.control_space = control_space
         self.action_params = action_params
 
     def sampleNext(self, control_out, previous_control, state):
-        control_out[0][0] = self.rng.uniform(-0.06, 0.06)
-        control_out[0][1] = self.rng.uniform(-0.01, 0.06)
+        is_pour = self.rng.randint(2)
+        if is_pour:
+            control_out[0][0] = 0
+            control_out[0][1] = 0
+            control_out[0][2] = self.rng.uniform(0, 3.1)
+        else:
+            control_out[0][0] = self.rng.uniform(-0.06, 0.06)
+            control_out[0][1] = self.rng.uniform(-0.01, 0.06)
+            control_out[0][2] = 0
 
     def sampleStepCount(self, min_steps, max_steps):
         step_count = self.rng.randint(min_steps, max_steps)
@@ -165,9 +198,11 @@ class WateringStateSampler(ob.RealVectorStateSampler):
                  state_space,
                  scenario_ompl: WateringOmpl,
                  extent,
+                 target_container_pos,
                  rng: np.random.RandomState,
                  plot: bool):
         super().__init__(state_space)
+        self._target_container_pos = target_container_pos
         self.scenario_ompl = scenario_ompl
         self.rng = rng
         self.plot = plot
@@ -175,8 +210,15 @@ class WateringStateSampler(ob.RealVectorStateSampler):
     def sampleUniform(self, state_out: ob.CompoundState):
         random_point_x = self.rng.uniform(-0.1, 0.8)
         random_point_y = self.rng.uniform(0.05, 0.8)
+        random_angle = self.rng.uniform(-0.1, 0.1)
+        random_control_volume = self.rng.uniform(0, 1)
         state_np = {
-            'controlled_container_pos':      np.array([random_point_x, random_point_y]),
+            'controlled_container_pos':   np.array([random_point_x, random_point_y]),
+            'controlled_container_angle': np.array([random_angle]),
+            'target_container_pos':       self._target_container_pos,
+            'target_volume':              np.array([1 - random_control_volume]),
+            # not much point sampling invalid states
+            'control_volume':             np.array([random_control_volume]),
         }
 
         self.scenario_ompl.numpy_to_ompl_state(state_np, state_out)
@@ -191,12 +233,15 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
                  si: oc.SpaceInformation,
                  scenario_ompl: WateringOmpl,
                  rng: np.random.RandomState,
+                 target_container_pos: np.ndarray,
                  threshold: float,
                  goal: Dict,
                  plot: bool):
         super(WateringGoalRegion, self).__init__(si)
+        self._target_container_pos = target_container_pos
         self.setThreshold(threshold)
         self.goal = goal
+        self.midpoint_range_volume = np.mean(self.goal["goal_target_volume_range"])
         self.scenario_ompl = scenario_ompl
         self.rng = rng
         self.plot = plot
@@ -217,11 +262,16 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
         sampler = self.getSpaceInformation().allocStateSampler()
         # sample a random state via the state space sampler, in hopes that OMPL will clean up the memory...
         sampler.sampleUniform(state_out)
+        random_x_left = self.rng.uniform(low=-0.1, high=0.1)
+        random_height = self.rng.uniform(low=0.08, high=0.5)
 
         goal_state_np = {
-            'controlled_container_pos':      self.goal['controlled_container_pos'],
+            'controlled_container_pos':   self._target_container_pos + np.array([random_x_left, random_height]),
+            'controlled_container_angle': np.array([0]),
+            'target_container_pos':       self._target_container_pos,
+            'target_volume':              np.array([0.17]),#np.array([self.midpoint_range_volume]),
+            'control_volume':             np.array([0.17]) #np.array([1 - self.midpoint_range_volume])
         }
-
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 
         if self.plot:
