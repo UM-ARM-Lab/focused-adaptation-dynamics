@@ -18,77 +18,18 @@ def metrics_main(args):
     outdir, df = planning_results(args.results_dirs, args.regenerate)
 
     # manually add the results for what iter0 would do, which are currently based on:
-    unadapted_path = pathlib.Path("/media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
+    unadapted_path = pathlib.Path(
+        "/media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
 
     _, unadapted_df = planning_results([unadapted_path], args.regenerate)
     unadapted_df['method_name'] = ['unadapted'] * len(unadapted_df)
 
-    w = 5
-    max_iter = 15
-    x_max = max_iter + 0.01
-    ci = 95
-    te_max = 0.25
-    nme_max = 1.2
     iter_key = 'ift_iteration'
-
-    # method_name_map = {
-    #     '/media/shared/online_adaptation/v7':                 'Adaptation (ours)',
-    #     '/media/shared/online_adaptation/v7_all_data':        'All Data (baseline)',
-    #     '/media/shared/online_adaptation/v7_all_data_no_mde': 'No MDE (baseline)',
-    #     '/media/shared/online_adaptation/v8':                 'Adaptation (ours)',
-    #     '/media/shared/online_adaptation/v8_all_data':        'All Data (baseline)',
-    #     '/media/shared/online_adaptation/v8_all_data_no_mde': 'No MDE (baseline)',
-    #     '/media/shared/online_adaptation/v9':                 'Adaptation (ours)',
-    #     '/media/shared/online_adaptation/v9_all_data':        'All Data (baseline)',
-    #     '/media/shared/online_adaptation/v9_all_data_no_mde': 'No MDE (baseline)',
-    #     '/media/shared/online_adaptation/norand': 'Adaptation (no-rand)',
-    # }
-    #
-    # for i, k in enumerate(method_name_map.keys()):
-    #     indices, = np.where(df['data_filename'].str.startswith(k))
-    #     df.loc[indices, 'method_idx'] = i
-    #
-    # method_name_values = []
-    # for method_idx in df['method_idx'].values:
-    #     if np.isnan(method_idx):
-    #         method_name_values.append(np.nan)
-    #     else:
-    #         k = list(method_name_map.keys())[int(method_idx)]
-    #         method_name_values.append(method_name_map[k])
-    # df['method_name'] = method_name_values
-
-    # fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
-    # ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
-    # ax.legend()
-    # ax.set_ylim(-0.01, 1.01)
-    # plt.savefig(outdir / f'success.png')
-    #
-    # fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given solved)', hue='method_name', ci=90)
-    # ax.axhline(unadapted_df['success_given_solved'].mean(), c='gray', linestyle='--', label='unadapted')
-    # ax.legend()
-    # ax.set_ylim(-0.01, 1.01)
-    # plt.savefig(outdir / f'success_given_solved.png')
-    #
-    # fig, ax = lineplot(df, iter_key, 'any_solved', 'Plans Found?', hue='method_name', ci=90)
-    # ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
-    # ax.legend()
-    # ax.set_ylim(-0.01, 1.01)
-    # plt.savefig(outdir / f'any_solved.png')
-    #
-    # fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
-    # ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
-    # ax.legend()
-    # plt.savefig(outdir / f'task_error.png')
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
     ax.axhline(unadapted_df['normalized_model_error'].mean(), c='gray', linestyle='--', label='unadapted')
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
-
-    # fig, ax = lineplot(df, iter_key, 'combined_error', 'Combined Error', hue='method_name')
-    # ax.axhline(unadapted_df['combined_error'].mean(), c='gray', linestyle='--', label='unadapted')
-    # ax.legend()
-    # plt.savefig(outdir / f'combined_error.png')
 
     if not args.no_plot:
         plt.show()
