@@ -92,7 +92,11 @@ def main():
     mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 0.25))
     world = job_chunker.load_prompt('world', 'car5_alt.world')
-    start_with_random_actions = bool(job_chunker.load_prompt('start_with_random_actions', True))
+    start_with_random_actions = job_chunker.load_prompt('start_with_random_actions', True)
+    if start_with_random_actions not in ['False', 'True', True, False]:
+        print("bad bool! make sure you capitalize")
+        return
+    start_with_random_actions = bool(start_with_random_actions)
 
     mde_params_filename = mde_pkg_dir / "hparams" / "rope.hjson"
 
