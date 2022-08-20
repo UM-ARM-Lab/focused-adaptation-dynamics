@@ -31,30 +31,31 @@ def metrics_main(args):
     nme_max = 1.2
     iter_key = 'ift_iteration'
 
-    method_name_map = {
-        '/media/shared/online_adaptation/v7':                 'Adaptation (ours)',
-        '/media/shared/online_adaptation/v7_all_data':        'All Data (baseline)',
-        '/media/shared/online_adaptation/v7_all_data_no_mde': 'No MDE (baseline)',
-        '/media/shared/online_adaptation/v8':                 'Adaptation (ours)',
-        '/media/shared/online_adaptation/v8_all_data':        'All Data (baseline)',
-        '/media/shared/online_adaptation/v8_all_data_no_mde': 'No MDE (baseline)',
-        '/media/shared/online_adaptation/v9':                 'Adaptation (ours)',
-        '/media/shared/online_adaptation/v9_all_data':        'All Data (baseline)',
-        '/media/shared/online_adaptation/v9_all_data_no_mde': 'No MDE (baseline)',
-    }
-
-    for i, k in enumerate(method_name_map.keys()):
-        indices, = np.where(df['data_filename'].str.startswith(k))
-        df.loc[indices, 'method_idx'] = i
-
-    method_name_values = []
-    for method_idx in df['method_idx'].values:
-        if np.isnan(method_idx):
-            method_name_values.append(np.nan)
-        else:
-            k = list(method_name_map.keys())[int(method_idx)]
-            method_name_values.append(method_name_map[k])
-    df['method_name'] = method_name_values
+    # method_name_map = {
+    #     '/media/shared/online_adaptation/v7':                 'Adaptation (ours)',
+    #     '/media/shared/online_adaptation/v7_all_data':        'All Data (baseline)',
+    #     '/media/shared/online_adaptation/v7_all_data_no_mde': 'No MDE (baseline)',
+    #     '/media/shared/online_adaptation/v8':                 'Adaptation (ours)',
+    #     '/media/shared/online_adaptation/v8_all_data':        'All Data (baseline)',
+    #     '/media/shared/online_adaptation/v8_all_data_no_mde': 'No MDE (baseline)',
+    #     '/media/shared/online_adaptation/v9':                 'Adaptation (ours)',
+    #     '/media/shared/online_adaptation/v9_all_data':        'All Data (baseline)',
+    #     '/media/shared/online_adaptation/v9_all_data_no_mde': 'No MDE (baseline)',
+    #     '/media/shared/online_adaptation/norand': 'Adaptation (no-rand)',
+    # }
+    #
+    # for i, k in enumerate(method_name_map.keys()):
+    #     indices, = np.where(df['data_filename'].str.startswith(k))
+    #     df.loc[indices, 'method_idx'] = i
+    #
+    # method_name_values = []
+    # for method_idx in df['method_idx'].values:
+    #     if np.isnan(method_idx):
+    #         method_name_values.append(np.nan)
+    #     else:
+    #         k = list(method_name_map.keys())[int(method_idx)]
+    #         method_name_values.append(method_name_map[k])
+    # df['method_name'] = method_name_values
 
     # fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name', ci=90)
     # ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')

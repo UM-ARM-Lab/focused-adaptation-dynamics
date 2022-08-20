@@ -92,6 +92,7 @@ def main():
     mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 0.25))
     world = job_chunker.load_prompt('world', 'car5_alt.world')
+    start_with_random_actions = bool(job_chunker.load_prompt('start_with_random_actions', True))
 
     mde_params_filename = mde_pkg_dir / "hparams" / "rope.hjson"
 
@@ -119,7 +120,7 @@ def main():
             prev_dynamics_run_id = unadapted_run_id
 
         planning_outdir = pathify(sub_chunker_i.get('planning_outdir'))
-        if i == 0:
+        if i == 0 and start_with_random_actions:
             planning_trials = None
         else:
             planning_trials = next(trial_indices_generator)  # must call every time or it won't be reproducible
@@ -127,7 +128,7 @@ def main():
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
-            if i == 0:
+            if i == 0 and start_with_random_actions:
                 # launch gazebo?
                 stdout_filename = outdir / f'collect_dynamics_data.stdout'
                 print(f"starting sim to collect data with random actions. Logging to {stdout_filename}")
