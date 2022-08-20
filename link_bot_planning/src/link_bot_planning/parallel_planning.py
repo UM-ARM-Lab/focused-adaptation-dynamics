@@ -25,6 +25,8 @@ def online_parallel_planning(planner_params: Dict,
     port_num = 42000
 
     for process_idx, trials_iterable in enumerate(more_itertools.divide(n_parallel, trials)):
+        sleep(1)
+
         trials_strs = [str(trials_i) for trials_i in trials_iterable]
         trials_set = ','.join(trials_strs)
         print(process_idx, trials_set)
