@@ -35,7 +35,10 @@ def main():
         name, seed = get_name_and_seed(run_dir)
         full_run_names_map[full_run_name] = name
         completed_iters = 0
-        log = load_hjson(run_dir / 'logfile.hjson')
+        logfilename = run_dir / 'logfile.hjson'
+        if not logfilename.exists():
+            continue
+        log = load_hjson(logfilename)
         for i in range(10):
             k = f'iter{i}'
             if k in log:

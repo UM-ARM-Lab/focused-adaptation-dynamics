@@ -65,20 +65,28 @@ def main():
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 
-    method_name = job_chunker.load_prompt('method_name', 'adaptation')
+    name_no_seed, seed = args.nickname.split("")
+    name_parts = name_no_seed.split("_")
+    group_name = name_parts[0]
+    method_name = "_".join(name_parts[1:])
     if method_name not in args.nickname:
         print(f"{args.nickname=} doesn't make sense with {method_name=}, aborting!")
         return
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
+        unadapted_run_id = 'sim_rope_unadapted-dme7l'
     elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
+        unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
+    seed = int(seed)
+    job_chunker.store_result('method_name', method_name)
+    job_chunker.store_result('group_name', group_name)
+    job_chunker.store_result('seed', seed)
+    job_chunker.store_result('unadapted_run_id', unadapted_run_id)
 
-    unadapted_run_id = job_chunker.load_prompt('unadapted_run_id', 'sim_rope_unadapted-dme7l')
-    seed = int(job_chunker.load_prompt('seed', 0))
     collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
                                                                     'collect_dynamics_params/alt_rope_100.hjson')
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
@@ -93,7 +101,7 @@ def main():
     mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 0.25))
     world = job_chunker.load_prompt('world', 'car5_alt.world')
     # TODO: make a special case for bools in load_prompt
-    start_with_random_actions = job_chunker.load_prompt('start_with_random_actions', "true")
+    start_with_random_actions = job_chunker.load_prompt('start_with_random_actions', "false")
     if start_with_random_actions in ['false', 'False']:
         start_with_random_actions = False
     elif start_with_random_actions in ['true', 'True']:
@@ -279,6 +287,7 @@ def main():
 
 if __name__ == '__main__':
     import os, subprocess, psutil
+
     # start by launching ROS
     ros_env = os.environ.copy()
     ros_env['ROS_NAMESPACE'] = 'hdt_michigan'
@@ -299,4 +308,3 @@ if __name__ == '__main__':
     for proc in roslaunch_process.children(recursive=True):
         proc.kill()
     roslaunch_process.kill()
-
