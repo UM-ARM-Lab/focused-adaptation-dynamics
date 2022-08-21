@@ -65,7 +65,7 @@ def main():
     logfile_name = root / args.nickname / 'logfile.hjson'
     job_chunker = JobChunker(logfile_name)
 
-    name_no_seed, seed = args.nickname.split("")
+    name_no_seed, seed = args.nickname.split("-")
     name_parts = name_no_seed.split("_")
     group_name = name_parts[0]
     method_name = "_".join(name_parts[1:])
