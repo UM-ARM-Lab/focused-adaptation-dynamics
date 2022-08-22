@@ -187,8 +187,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
             action_types = ["free_space", "over_target", "tilt"]
-            action_type_probs = ["0.2", "0.4", "0.4"]
-            action_type = np.random.choice(action_types, action_type_probs)
+            action_type_probs = [0.2, 0.4, 0.4]
+            action_type = np.random.choice(action_types, p=action_type_probs)
             if action_type == "tilt":
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
                                                             high=self.params["action_range"]["angle"][1])],
@@ -222,6 +222,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         is_pour = action["controlled_container_target_angle"] >= 0.001
         if is_pour:
             return self.is_pour_valid_for_state(state)
+        return True
 
     def is_pour_valid_for_state(self, state: Dict):
         min_height_for_pour = self._scene.glass_params["poured_height"] + 0.05
