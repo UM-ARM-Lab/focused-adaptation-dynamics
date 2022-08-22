@@ -17,8 +17,8 @@ def main():
     rospy.init_node("rope_endpoint_tf")
     tfw = TF2Wrapper()
 
-    right_mocap = 'mocap_Pelvis1_Pelvis1'
-    left_mocap = 'mocap_RightHand0_RightHand0'
+    right_mocap = 'mocap_right_hand_right_hand'
+    left_mocap = 'mocap_left_hand_left_hand'
 
     r = rospy.Rate(10)
     while not rospy.is_shutdown():

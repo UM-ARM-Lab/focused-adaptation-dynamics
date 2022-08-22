@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 from analysis.analyze_results import planning_results
-from analysis.results_figures import boxplot, barplot
+from analysis.results_figures import barplot, violinplot
 from arc_utilities import ros_init
 from moonshine.gpu_config import limit_gpu_mem
 
@@ -43,11 +43,11 @@ def metrics_main(args):
     fig, ax = barplot(df, outdir, 'method_name', 'success_given_solved', 'Success (given solved)', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success_given_solved.png")
-    fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
+    fig, ax = violinplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
     fig, ax = barplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?', ci=90)
-    # fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
-    # ax.set_ylim(-0.02, 1.02)
-    # plt.savefig(outdir / "success.png")
+    fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
+    ax.set_ylim(-0.02, 1.02)
+    plt.savefig(outdir / "success.png")
     # fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
     # fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
     plt.show()

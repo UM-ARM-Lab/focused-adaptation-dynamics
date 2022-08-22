@@ -145,6 +145,18 @@ def combined_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, tria
 
 
 @metrics_funcs
+def safe_task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
+    for _, _, actual_state_t, planned_state_t, type_t, _ in get_paths(trial_datum):
+        if planned_state_t is not None:
+            model_error = scenario.classifier_distance(actual_state_t, planned_state_t)
+            if model_error >= 0.25:
+                break
+    goal = trial_datum['goal']
+    task_error = scenario.distance_to_goal(actual_state_t, goal)
+    return numpify(task_error)
+
+
+@metrics_funcs
 def task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
     goal = trial_datum['goal']
     final_actual_state = trial_datum['end_state']

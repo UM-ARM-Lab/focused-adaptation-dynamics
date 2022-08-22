@@ -105,8 +105,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         state.update(self.get_robot_state.get_state())
         state.update(self.get_cdcpd_state.get_state())
         # I'm pretty sure that specifying time as now() is necessary to ensure we get the absolute latest transform
-        left_gripper_mocap = "mocap_RightHand0_RightHand0"
-        right_gripper_mocap = "mocap_Pelvis1_Pelvis1"
+        left_gripper_mocap = "mocap_left_hand_left_hand"
+        right_gripper_mocap = "mocap_right_hand_right_hand"
         state['left_gripper'] = self.tf.get_transform(self.root_link, left_gripper_mocap)[:3, 3]
         state['right_gripper'] = self.tf.get_transform(self.root_link, right_gripper_mocap)[:3, 3]
 

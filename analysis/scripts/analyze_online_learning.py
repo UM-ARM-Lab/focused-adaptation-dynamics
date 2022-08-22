@@ -31,6 +31,11 @@ def metrics_main(args):
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
+    fig, ax = lineplot(df, iter_key, 'safe_task_error', 'Safe Task Error', hue='method_name')
+    ax.axhline(unadapted_df['safe_task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
+    plt.savefig(outdir / f'safe_task_error.png')
+
     if not args.no_plot:
         plt.show()
 
