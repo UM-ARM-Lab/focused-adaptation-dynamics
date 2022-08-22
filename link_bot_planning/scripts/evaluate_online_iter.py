@@ -33,7 +33,7 @@ def main():
     parser.add_argument('online_dir', type=pathlib.Path)
     parser.add_argument('iter', type=int)
     parser.add_argument("--scenes", type=pathlib.Path, default=pathlib.Path('test_scenes/car4_alt'))
-    parser.add_argument("--trials", type=int_set_arg, default="0-20")
+    parser.add_argument("--trials", type=int_set_arg, default="0-19")
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
