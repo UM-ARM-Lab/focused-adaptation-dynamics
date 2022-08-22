@@ -68,8 +68,6 @@ int main(int argc, char *argv[]) {
         pcl::PCLPointCloud2 points2_v2;
         PointCloudT points1;
         PointCloudT points2;
-//        auto points1_nonan = boost::make_shared<PointCloudT>();
-//        auto points2_nonan = boost::make_shared<PointCloudT>();
         PointCloudT points2_icp;
 
         pcl_conversions::toPCL(*points1_msg, points1_v2);
@@ -79,8 +77,6 @@ int main(int argc, char *argv[]) {
         pcl::fromPCLPointCloud2(points2_v2, points2);
 
         pcl::Indices indices;
-//        pcl::removeNaNFromPointCloud(points1, *points1_nonan, indices);
-//        pcl::removeNaNFromPointCloud(points2, *points2_nonan, indices);
 
         if (points1.empty()) {
             ROS_ERROR_STREAM("points1 is empty");
@@ -92,8 +88,6 @@ int main(int argc, char *argv[]) {
             return;
         }
 
-//        const auto points1_filtered = filter(points1_nonan);
-//        const auto points2_filtered = filter(points2_nonan);
         const auto points1_filtered = points1;
         const auto points2_filtered = points2;
 
@@ -102,21 +96,6 @@ int main(int argc, char *argv[]) {
         auto points2_in_points1_frame = boost::make_shared<PointCloudT>();
         pcl::transformPointCloud(points2_filtered, *points2_in_points1_frame, points2_to_points1.matrix());
 
-        // The Iterative Closest Point algorithm
-//        Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
-//        pcl::IterativeClosestPoint<PointT, PointT> icp;
-//        icp.setMaximumIterations(10);
-//        icp.setInputSource(points2_in_points1_frame);
-//        icp.setInputTarget(points1_filtered);
-//        icp.align(points2_icp);
-//
-//        if (icp.hasConverged()) {
-//            ROS_INFO_STREAM_NAMED(LOGNAME + ".icp", "ICP has converged, score is " << icp.getFitnessScore());
-//            const auto matrix = icp.getFinalTransformation().cast<double>();
-//            ROS_INFO_STREAM_NAMED(LOGNAME + ".icp", "Transformation:\n" << matrix);
-//        } else {
-//            ROS_ERROR_NAMED(LOGNAME, "ICP did not converge");
-//        }
         points2_icp = *points2_in_points1_frame;
 
         const auto merged_points = points2_icp + points1_filtered;
@@ -131,7 +110,7 @@ int main(int argc, char *argv[]) {
 
         const auto end = ros::WallTime::now();
         const auto execution_time = (end - start).toNSec() * 1e-6;
-        ROS_INFO_STREAM_NAMED(LOGNAME + ".perf", "dt (ms): " << execution_time);
+        ROS_DEBUG_STREAM_NAMED(LOGNAME + ".perf", "dt (ms): " << execution_time);
     };
 
     message_filters::Subscriber<sensor_msgs::PointCloud2> sub1(nh, "points1", 10);

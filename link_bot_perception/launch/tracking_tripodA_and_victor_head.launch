@@ -10,7 +10,7 @@
     <param name="max_rope_length" value="0.82"/>
 
     <node pkg="link_bot_perception" type="merge_pointclouds" name="merge_pointclouds" output="screen"
-          args="points1:=/kinect2_tripodA/qhd/points points2:=/kinect2_victor_head/qhd/points"/>
+          args="points1:=/kinect2_tripodA/qhd/points points2:=/kinect2_roof/qhd/points"/>
 
     <!--        <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen" launch-prefix="gdb -ex start &#45;&#45;args">-->
     <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen">
@@ -19,8 +19,8 @@
         <!--        <param name="left_tf_name" value="left_tool"/>-->
         <!--        <param name="right_tf_name" value="right_tool"/>-->
         <param name="points" value="merged_points"/>
-        <param name="left_tf_name" value="mocap_left_tool"/>
-        <param name="right_tf_name" value="mocap_right_tool"/>
+        <param name="left_tf_name" value="mocap_left_hand_left_hand"/>
+        <param name="right_tf_name" value="mocap_right_hand_right_hand"/>
         <param name="use_gripper_constraints" value="true"/>
         <param name="obstacle_cost_weight" value="0.02"/>
         <param name="fixed_points_weight" value="10.0"/>
