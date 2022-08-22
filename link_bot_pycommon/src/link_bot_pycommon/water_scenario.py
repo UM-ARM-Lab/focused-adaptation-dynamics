@@ -31,7 +31,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
-        self.params['run_flex'] = False
+        #self.params['run_flex'] = False
         if self.params.get("run_flex", False):
             self._make_softgym_env()
         self.service_provider = SoftGymServices()
@@ -186,45 +186,52 @@ class WaterSimScenario(ScenarioWithVisualization):
                       stateless: Optional[bool] = False):
         current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
-            action_type = action_rng.randint(5)
-            if action_type == 0 or action_type == 1: #oof
+            action_types = ["free_space", "over_target", "tilt"]
+            action_type_probs = ["0.2", "0.4", "0.4"]
+            action_type = np.random.choice(action_types, action_type_probs)
+            if action_type == "tilt":
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
                                                             high=self.params["action_range"]["angle"][1])],
                                         dtype=np.float32)
                 action = {"controlled_container_target_pos":   current_controlled_container_pos,
                           "controlled_container_target_angle": random_angle}
-            elif action_type == 2 or action_type == 3:
+            elif action_type == "over_target":
                 noise = action_rng.uniform(low=-0.1, high=0.1, size=(2,))
-                des_height = self._scene.glass_params["poured_height"] + self._scene.glass_params["height"]+ 0.1
-                des_x = self._scene.glass_params["poured_glass_x_center"] - self._scene.glass_params["poured_glass_dis_x"]/3
+                des_height = self._scene.glass_params["poured_height"] + self._scene.glass_params["height"] + 0.1
+                des_x = self._scene.glass_params["poured_glass_x_center"] - self._scene.glass_params[
+                    "poured_glass_dis_x"] / 3
                 over_box_pose_with_noise = np.array([des_x, des_height], dtype=np.float32) + noise
                 action = {"controlled_container_target_pos":   over_box_pose_with_noise,
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             else:
-                random_x = action_rng.uniform(low=self.params["action_range"]["x"][0], high=self.params["action_range"]["x"][1])
-                random_z = action_rng.uniform(low=self.params["action_range"]["z"][0], high=self.params["action_range"]["z"][1])
+                random_x = action_rng.uniform(low=self.params["action_range"]["x"][0],
+                                              high=self.params["action_range"]["x"][1])
+                random_z = action_rng.uniform(low=self.params["action_range"]["z"][0],
+                                              high=self.params["action_range"]["z"][1])
                 action = {"controlled_container_target_pos":   np.array([random_x, random_z], dtype=np.float32),
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
-            if self.is_action_valid(environment, state, action, action_params):
+            if validate and self.is_action_valid(environment, state, action, action_params):
                 return action, False
         return None, True
 
     def is_action_valid(self, environment: Dict, state: Dict, action: Dict, action_params: Dict):
         curr_pos = state["controlled_container_pos"]
-        target_cont_pos = state["target_container_pos"]
         target_pos = action["controlled_container_target_pos"]
-        curr_height = curr_pos[1]
-        max_dist = 0.2
-        if np.linalg.norm(curr_pos - target_pos) > max_dist:
+        if np.linalg.norm(curr_pos - target_pos) > self.params["max_move_dist"]:
             return False
-        min_height_for_pour = self._scene.glass_params["poured_height"] + 0.05
-        max_dist_for_pour = 0.1
         is_pour = action["controlled_container_target_angle"] >= 0.001
-        if is_pour and curr_height < min_height_for_pour:
+        if is_pour:
+            return self.is_pour_valid_for_state(state)
+
+    def is_pour_valid_for_state(self, state: Dict):
+        min_height_for_pour = self._scene.glass_params["poured_height"] + 0.05
+        half_x_dist = self._scene.glass_params["poured_glass_dis_x"] / 2
+        curr_pos = state["controlled_container_pos"]
+        curr_height = curr_pos[1]
+        if curr_height < min_height_for_pour:
             return False
-        x_dist_between_center_and_edge = np.abs(target_pos[0] - (target_cont_pos[0]-0.2))
-        half_poured = self._scene.glass_params["poured_glass_dis_x"]/2
-        if is_pour and x_dist_between_center_and_edge > max_dist_for_pour:
+        x_dist_between_center_and_edge = np.abs(curr_pos[0] - half_x_dist)
+        if x_dist_between_center_and_edge > self.params["max_dist_for_pour"]:
             return False
         return True
 
@@ -353,6 +360,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         return state
 
     def plot_state_rviz(self, state: Dict, **kwargs):
+        # plot target,
         pass  # TODO plot markers in rviz
 
     def plot_goal_rviz(self, goal, threshold, **kwargs):

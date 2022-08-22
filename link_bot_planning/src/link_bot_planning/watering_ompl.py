@@ -180,12 +180,13 @@ class WateringControlSampler(oc.ControlSampler):
     def sampleNext(self, control_out, previous_control, state):
         is_pour = self.rng.randint(2)
         undo_angle = round(state[0][2], 2)
-        # FIXME HACK ALEX MAKE THIS LESS HARD CODED lagrassa TODO
-        can_pour = state[0][1] > 0.12 and state[0][0] > 0.2
+        state_np = self.scenario_ompl.ompl_state_to_numpy(state)
+        can_pour = self.scenario_ompl.s.is_pour_valid_for_state(state_np)
         if is_pour and can_pour:
             control_out[0][0] = 0
             control_out[0][1] = 0
-            control_out[0][2] = self.rng.uniform(2, 3.1) - undo_angle
+            control_out[0][2] = self.rng.uniform(self.action_params["theta_min"],
+                                                 self.action_params["theta_max"]) - undo_angle
         else:
             control_out[0][0] = self.rng.uniform(-self.max_d_control, self.max_d_control)
             control_out[0][1] = self.rng.uniform(-self.max_d_control, self.max_d_control)

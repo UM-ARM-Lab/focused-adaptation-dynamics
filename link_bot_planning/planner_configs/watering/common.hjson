@@ -12,6 +12,8 @@
   }
   action_params: {
     max_distance_controlled_container_can_move_per_dim: 0.18
+    theta_min: 2
+    theta_max: 3.1
   }
   planner_type: rrt
   accept_threshold: 0.5

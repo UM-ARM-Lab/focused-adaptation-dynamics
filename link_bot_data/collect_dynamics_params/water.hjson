@@ -17,6 +17,8 @@
   scenario_params: {
     gui: 0
     run_flex: true
+    max_dist_for_pour : 0.1
+    max_move_dist : 0.2
     save_cfg: {
       save_frames: 0
       img_size: 64
