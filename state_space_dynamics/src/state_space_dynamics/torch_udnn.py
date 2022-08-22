@@ -37,6 +37,7 @@ class UDNN(pl.LightningModule):
         self.with_joint_positions = with_joint_positions
         self._with_joint_positions = with_joint_positions
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
+        self.loss_scaling_by_key = self.hparams.get("loss_scaling_by_key", {})
 
         in_size = self.total_state_dim + self.total_action_dim
         if self.hparams.get("use_global_frame", False):
@@ -113,7 +114,7 @@ class UDNN(pl.LightningModule):
         return s_t_plus_1
 
     def compute_batch_loss(self, inputs, outputs, use_mask: bool):
-        batch_time_loss = compute_batch_time_loss(inputs, outputs)
+        batch_time_loss = compute_batch_time_loss(inputs, outputs, loss_scaling_by_key=self.loss_scaling_by_key)
         if use_mask:
             if self.hparams.get('iterative_lowest_error', False):
                 mask_padded = self.low_error_mask(inputs, outputs)
@@ -202,7 +203,6 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
         self.log('val_loss', val_losses['loss'])
-
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
@@ -243,12 +243,14 @@ class UDNN(pl.LightningModule):
         super().load_state_dict(state_dict, strict=False)
 
 
-def compute_batch_time_loss(inputs, outputs):
+def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
     loss_by_key = []
     for k, y_pred in outputs.items():
         y_true = inputs[k]
+        loss_scaling = loss_scaling_by_key[k] if k in loss_scaling_by_key else 1
+
         # mean over time and state dim but not batch, not yet.
-        loss = (y_true - y_pred).square().mean(-1)
+        loss = loss_scaling * (y_true - y_pred).square().mean(-1)
         loss_by_key.append(loss)
     batch_time_loss = torch.stack(loss_by_key).mean(0)
     return batch_time_loss

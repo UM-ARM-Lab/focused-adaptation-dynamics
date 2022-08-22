@@ -10,11 +10,13 @@
     gui: false
   }
   smooth: true
+  max_shortcut_length: 8
+  n_shortcut_attempts: 85
   goal_params: {
     type: fixed
     goal_type: location
     goal_fixed: {
-      goal_target_volume_range : [0.2, 1.0]
+      goal_target_volume_range : [0.75, 1.0]
       }
     threshold: 0.02
   }
@@ -22,8 +24,8 @@
     total_timeout: 99999
     timeout: 99999
     max_extensions: 10000
-    max_attempts: 5
-    max_planning_attempts: 5
+    max_attempts: 1
+    max_planning_attempts: 1
     attempted_extensions_threshold: 128
   }
   dmax: 10

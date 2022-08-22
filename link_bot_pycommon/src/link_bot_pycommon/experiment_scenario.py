@@ -111,6 +111,10 @@ class ExperimentScenario:
         raise NotImplementedError()
 
     @staticmethod
+    def can_interpolate(start_state, end_state, step_size=0.05):
+        return True
+
+    @staticmethod
     def local_environment_center_differentiable(state):
         raise NotImplementedError()
 

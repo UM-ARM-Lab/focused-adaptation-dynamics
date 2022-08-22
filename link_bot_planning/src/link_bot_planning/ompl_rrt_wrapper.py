@@ -505,6 +505,8 @@ class OmplRRTWrapper(MyPlanner):
             # interpolate the grippers to make a new action sequence
             start_state = state_sequence[start_t]
             end_state = state_sequence[end_t]
+            if not self.scenario.can_interpolate(start_state, end_state):
+                continue
             shortcut_action_seq = self.scenario.interpolate(start_state, end_state)
             # these actions need to be re-propagated
             proposed_action_seq_to_end = shortcut_action_seq + action_sequence[end_t:]
