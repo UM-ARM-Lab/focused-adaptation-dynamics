@@ -419,12 +419,10 @@ class WaterSimScenario(ScenarioWithVisualization):
         else:
             pourer_pos = target_pos
             pourer_angle = target_angle
-        #pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
-        #               self._scene.glass_params["glass_dis_z"]]
-        #poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
-        #               self._scene.glass_params["poured_glass_dis_z"]]
-        pourer_dims = [.1, .1, .1]
-        poured_dims = [.1, .1, .1]
+        pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
+                       self._scene.glass_params["glass_dis_z"]]
+        poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
+                       self._scene.glass_params["poured_glass_dis_z"]]
         pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, rgb=np.array([1, 0, 0]))
         pourer_marker.id = 0
         msg.markers.append(pourer_marker)
