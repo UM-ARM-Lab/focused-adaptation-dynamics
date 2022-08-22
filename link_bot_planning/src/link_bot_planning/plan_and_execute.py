@@ -118,7 +118,7 @@ class PlanAndExecute:
         self.goal_rng = np.random.RandomState(0)
         self.recovery_rng = np.random.RandomState(recovery_seed)
         self.seed = seed
-        self.test_scenes_dir = test_scenes_dir
+        self.test_scenes_dir = test_scenes_dir 
         self.extra_end_conditions = extra_end_conditions
         if has_keys(self.planner_params, ['recovery', 'use_recovery']):
             recovery_model_dir = pathlib.Path(self.planner_params['recovery']['recovery_model_dir'])
@@ -262,7 +262,6 @@ class PlanAndExecute:
             attempt_idx += 1
 
             if planning_result.status == MyPlannerStatus.Failure:
-                import ipdb; ipdb.set_trace()
                 raise RuntimeError("planning failed -- is the start state out of bounds?")
             elif planning_result.status == MyPlannerStatus.NotProgressing:
                 if self.recovery_policy is None:

@@ -14,6 +14,11 @@ from softgym.utils.visualization import save_numpy_as_gif
 
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 
+from link_bot_pycommon.bbox_marker_utils import make_box_marker_from_extents
+from visualization_msgs.msg import MarkerArray, Marker
+import rospy
+import tf
+
 control_box_name = "control_box"
 
 
@@ -61,6 +66,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self._save_frames = self._save_cfg["save_frames"]
         if self._save_frames:
             self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
+
 
     def needs_reset(self, state: Dict, params: Dict):
         if state["control_volume"].item() < 0.5:
@@ -350,25 +356,87 @@ class WaterSimScenario(ScenarioWithVisualization):
                 return False
         return True
 
-
     def get_state(self):
         state_vector = self._saved_data[0][0]
         state = {"controlled_container_pos":   state_vector[:2],
                  "controlled_container_angle": np.array([state_vector[2]], dtype=np.float32),
-                 "target_container_pos":       np.array([state_vector[6] - state_vector[0], 0]),  # need to check this one
+                 "target_container_pos":       np.array([state_vector[6] - state_vector[0], 0]),
+                 # need to check this one
                  "control_volume":             np.array([state_vector[-1]], dtype=np.float32),
                  "target_volume":              np.array([state_vector[-2]], dtype=np.float32)}
         return state
 
+    def make_box_marker(self, pose, dims, rgb):
+        # fake_extent = [-.1, .1, -.1, .1, -.1, .1]
+        marker = Marker()
+        marker.scale.x = dims[0]
+        marker.scale.y = dims[1]
+        marker.scale.z = dims[2]
+        marker.action = Marker.ADD
+        marker.type = Marker.CUBE
+        marker.pose.position.x = pose[0]  # y is 0
+        marker.pose.position.y = pose[1]
+        marker.pose.orientation.w = 1  # TODO make this match
+        marker.header.frame_id = "map"
+        marker.header.stamp = rospy.Time.now()
+        marker.color.r = rgb[0]
+        marker.color.g = rgb[1]
+        marker.color.b = rgb[2]
+        marker.color.a = 1
+        return marker
+
+    def make_angle_marker(self, pose, angle):
+        # Not actually showing up now
+        marker = Marker()
+        marker.action = Marker.ADD
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.pose.position.x = pose[0]  # y is 0
+        marker.pose.position.y = pose[1]
+        marker.pose.orientation.w = 1
+        marker.header.frame_id = "map"
+        marker.header.stamp = rospy.Time.now()
+        marker.text = str(angle)
+        marker.color.a = 1
+        marker.color.r = 1
+        marker.scale.z = 0.015
+        return marker
+
+    def make_state_msg(self, state, target_pos=None, target_angle=None):
+        msg = MarkerArray()
+        if target_pos is None:
+            pourer_pos = state["controlled_container_pos"]
+            pourer_angle = state["controlled_container_angle"]
+        else:
+            pourer_pos = target_pos
+            pourer_angle = target_angle
+        pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
+                       self._scene.glass_params["glass_dis_z"]]
+        poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
+                       self._scene.glass_params["poured_glass_dis_z"]]
+        pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, rgb=np.array([1, 0, 0]))
+        pourer_marker.id = 0
+        msg.markers.append(pourer_marker)
+        pourer_angle_marker = self.make_angle_marker(pourer_pos, pourer_angle)
+        pourer_angle_marker.id = 1
+        msg.markers.append(pourer_angle_marker)
+        poured_pos = state["target_container_pos"]
+        poured_marker = self.make_box_marker(poured_pos, poured_dims, rgb=np.array([0, 1, 0]))
+        poured_marker.id = 2
+        msg.markers.append(poured_marker)
+        return msg
+
     def plot_state_rviz(self, state: Dict, **kwargs):
-        # plot target,
-        pass  # TODO plot markers in rviz
+        state_marker_msg = self.make_state_msg(state)
+        self.state_viz_pub.publish(state_marker_msg)
 
     def plot_goal_rviz(self, goal, threshold, **kwargs):
-        pass  # TODO plot markers in rviz
+        pass  # TODO plot something to show goal range. Low priority since this doesn't change much
 
     def plot_action_rviz(self, state: Dict, action: Dict, label: str = 'action', **kwargs):
-        pass  # TODO plot markers in rviz
+        target_pos = action["controlled_container_target_pos"]
+        target_angle = action["controlled_container_target_angle"]
+        state_marker_msg = self.make_state_msg(state, target_pos=target_pos, target_angle=target_angle)
+        self.action_viz_pub.publish(state_marker_msg)
 
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
         goal_target_volume_range = goal["goal_target_volume_range"]

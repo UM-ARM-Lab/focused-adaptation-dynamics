@@ -14,6 +14,13 @@
     max_dist_for_pour : 0.1
     max_move_dist : 0.2
   }
+  goal_params: {
+    type: fixed
+    goal_fixed: {
+      goal_target_volume_range : [0.75, 1.00]
+      }
+    threshold: 0.02
+  }
   termination_criteria: {
     total_timeout: 99999
     timeout: 99999

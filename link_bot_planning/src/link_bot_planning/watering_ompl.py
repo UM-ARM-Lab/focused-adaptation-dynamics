@@ -248,7 +248,7 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
         self._target_container_pos = target_container_pos
         self.setThreshold(threshold)
         self.goal = goal
-        self.midpoint_range_volume = np.mean(self.goal["goal_target_volume_range"])
+        self.midpoint_range_volume = np.mean(self.goal["goal_target_volume_range"]).item()
         self.scenario_ompl = scenario_ompl
         self.rng = rng
         self.plot = plot
@@ -276,8 +276,8 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
             'controlled_container_pos':   self._target_container_pos + np.array([random_x_left, random_height]),
             'controlled_container_angle': np.array([0]),
             'target_container_pos':       self._target_container_pos,
-            'target_volume':              np.array([0.17]),#np.array([self.midpoint_range_volume]),
-            'control_volume':             np.array([0.17]) #np.array([1 - self.midpoint_range_volume])
+            'target_volume':              np.array([1.0]), #in practice quite binary
+            'control_volume':             np.array([0])
         }
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 
