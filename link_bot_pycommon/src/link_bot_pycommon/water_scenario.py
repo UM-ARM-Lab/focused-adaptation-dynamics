@@ -27,11 +27,11 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def __init__(self, params: Optional[dict] = None):
         ScenarioWithVisualization.__init__(self, params)
-        self.max_action_attempts = 100
+        self.max_action_attempts = 300
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
-        #self.params['run_flex'] = False
+        self.params['run_flex'] = False
         if self.params.get("run_flex", False):
             self._make_softgym_env()
         self.service_provider = SoftGymServices()
@@ -51,7 +51,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['render'] = True
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
-        default_config = {"save_frames": False, 'img_size': 16}
+        #default_config = {"save_frames": True, 'img_size': 200}
+        default_config = {"save_frames": False, 'img_size': 64}
         self._save_cfg = self.params.get("save_cfg", default_config)
 
         if not env_kwargs['use_cached_states']:
@@ -72,7 +73,9 @@ class WaterSimScenario(ScenarioWithVisualization):
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
         container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
-        return container_dist
+        target_volume_dist = np.abs(s1["target_volume"]-s2["target_volume"]).item()
+        control_volume_dist = np.abs(s1["control_volume"]-s2["control_volume"]).item()
+        return container_dist + target_volume_dist + control_volume_dist
 
     def local_planner_cost_function_torch(self, planner):
         def _local_planner_cost_function(actions: List[Dict],
@@ -113,11 +116,13 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def interpolate(self, start_state, end_state, step_size=0.08):
         controlled_container_start = np.array(start_state['controlled_container_pos'])
-        controlled_container_angle_start = start_state['controlled_container_angle']
-        controlled_container_angle_end = end_state['controlled_container_angle']
+        controlled_container_angle_start = start_state['controlled_container_angle'].item()
+        controlled_container_angle_end = end_state['controlled_container_angle'].item()
         controlled_container_end = np.array(end_state['controlled_container_pos'])
         controlled_container_delta = controlled_container_end - controlled_container_start
-        steps = np.round(np.linalg.norm(controlled_container_delta) / step_size).astype(np.int64)
+        pos_steps = np.round(np.linalg.norm(controlled_container_delta) / step_size).astype(np.int64)
+        angle_steps = np.round(np.abs(controlled_container_angle_end-controlled_container_angle_start) / step_size).astype(np.int64)
+        steps = max(pos_steps, angle_steps)
 
         interpolated_actions = []
         angle_traj = np.linspace(controlled_container_angle_start, controlled_container_angle_end, steps)
@@ -125,11 +130,16 @@ class WaterSimScenario(ScenarioWithVisualization):
             controlled_container_t = controlled_container_start + controlled_container_delta * t
             action = {
                 'controlled_container_target_pos':  controlled_container_t,
-                'controlled_container_target_angle': np.array([angle_traj[idx]])
+                'controlled_container_target_angle': np.array([[angle_traj[idx]]])
             }
             interpolated_actions.append(action)
-
         return interpolated_actions
+
+    def _on_execution_complete(self, _, __, ___, is_fail=False, idx=0):
+        if self._save_frames:
+            save_name = f"test_{is_fail}_{idx}.gif"
+            save_numpy_as_gif(np.array(self.frames), save_name)
+            print("Saved to", save_name)
 
     def on_after_data_collection(self, params: Dict):
         if self._save_frames:
@@ -176,18 +186,23 @@ class WaterSimScenario(ScenarioWithVisualization):
                       stateless: Optional[bool] = False):
         current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
-            is_pour = action_rng.randint(2)
-            if is_pour:
+            action_type = action_rng.randint(5)
+            if action_type == 0 or action_type == 1: #oof
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
                                                             high=self.params["action_range"]["angle"][1])],
                                         dtype=np.float32)
                 action = {"controlled_container_target_pos":   current_controlled_container_pos,
                           "controlled_container_target_angle": random_angle}
+            elif action_type == 2 or action_type == 3:
+                noise = action_rng.uniform(low=-0.1, high=0.1, size=(2,))
+                des_height = self._scene.glass_params["poured_height"] + self._scene.glass_params["height"]+ 0.1
+                des_x = self._scene.glass_params["poured_glass_x_center"] - self._scene.glass_params["poured_glass_dis_x"]/3
+                over_box_pose_with_noise = np.array([des_x, des_height], dtype=np.float32) + noise
+                action = {"controlled_container_target_pos":   over_box_pose_with_noise,
+                          "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             else:
-                random_x = action_rng.uniform(low=self.params["action_range"]["x"][0],
-                                              high=self.params["action_range"]["x"][1])
-                random_z = action_rng.uniform(low=self.params["action_range"]["z"][0],
-                                              high=self.params["action_range"]["z"][1])
+                random_x = action_rng.uniform(low=self.params["action_range"]["x"][0], high=self.params["action_range"]["x"][1])
+                random_z = action_rng.uniform(low=self.params["action_range"]["z"][0], high=self.params["action_range"]["z"][1])
                 action = {"controlled_container_target_pos":   np.array([random_x, random_z], dtype=np.float32),
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             if self.is_action_valid(environment, state, action, action_params):
@@ -196,14 +211,20 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def is_action_valid(self, environment: Dict, state: Dict, action: Dict, action_params: Dict):
         curr_pos = state["controlled_container_pos"]
+        target_cont_pos = state["target_container_pos"]
         target_pos = action["controlled_container_target_pos"]
         curr_height = curr_pos[1]
-        max_dist = 0.3
+        max_dist = 0.2
         if np.linalg.norm(curr_pos - target_pos) > max_dist:
             return False
-        min_height_for_pour = 0.25
+        min_height_for_pour = self._scene.glass_params["poured_height"] + 0.05
+        max_dist_for_pour = 0.1
         is_pour = action["controlled_container_target_angle"] >= 0.001
         if is_pour and curr_height < min_height_for_pour:
+            return False
+        x_dist_between_center_and_edge = np.abs(target_pos[0] - (target_cont_pos[0]-0.2))
+        half_poured = self._scene.glass_params["poured_glass_dis_x"]/2
+        if is_pour and x_dist_between_center_and_edge > max_dist_for_pour:
             return False
         return True
 
@@ -298,16 +319,35 @@ class WaterSimScenario(ScenarioWithVisualization):
         return integrated_dynamics
 
     def is_moveit_robot_in_collision(self, environment: Dict, state: Dict, action: Dict):
+        #somewhat of a lie because no moveit
         return False  # TODO check if softgym robot in collision
 
     def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
+        #somewhat of a lie because no moveit
         return True
+
+
+    def can_interpolate(self, state: Dict, next_state: Dict):
+        #Checks if it can reach the next state using our controllers, which don't do angle + pos movement. Since interpolate doesn't use the action we only do state here
+        max_theta_for_move = 0.1
+        max_move_for_pour = 0.07 #TODO make these configs?
+        curr_pos = state["controlled_container_pos"]
+        curr_angle = state["controlled_container_angle"].item()
+        next_pos = next_state["controlled_container_pos"]
+        next_angle = next_state["controlled_container_angle"].item()
+
+        #first check if action intends it to be a pour
+        if abs(next_angle - curr_angle) > max_theta_for_move:
+            if np.linalg.norm(curr_pos - next_pos) > max_move_for_pour:
+                return False
+        return True
+
 
     def get_state(self):
         state_vector = self._saved_data[0][0]
         state = {"controlled_container_pos":   state_vector[:2],
                  "controlled_container_angle": np.array([state_vector[2]], dtype=np.float32),
-                 "target_container_pos":       np.array([state_vector[6], 0]),  # need to check this one
+                 "target_container_pos":       np.array([state_vector[6] - state_vector[0], 0]),  # need to check this one
                  "control_volume":             np.array([state_vector[-1]], dtype=np.float32),
                  "target_volume":              np.array([state_vector[-2]], dtype=np.float32)}
         return state

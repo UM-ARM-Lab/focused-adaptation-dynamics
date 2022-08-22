@@ -175,17 +175,21 @@ class WateringControlSampler(oc.ControlSampler):
         self.rng = rng  # extra subspace component for the number of diverged steps
         self.control_space = control_space
         self.action_params = action_params
+        self.max_d_control = self.action_params["max_distance_controlled_container_can_move_per_dim"]
 
     def sampleNext(self, control_out, previous_control, state):
         is_pour = self.rng.randint(2)
-        if is_pour:
+        undo_angle = round(state[0][2], 2)
+        # FIXME HACK ALEX MAKE THIS LESS HARD CODED lagrassa TODO
+        can_pour = state[0][1] > 0.12 and state[0][0] > 0.2
+        if is_pour and can_pour:
             control_out[0][0] = 0
             control_out[0][1] = 0
-            control_out[0][2] = self.rng.uniform(0, 3.1)
+            control_out[0][2] = self.rng.uniform(2, 3.1) - undo_angle
         else:
-            control_out[0][0] = self.rng.uniform(-0.06, 0.06)
-            control_out[0][1] = self.rng.uniform(-0.01, 0.06)
-            control_out[0][2] = 0
+            control_out[0][0] = self.rng.uniform(-self.max_d_control, self.max_d_control)
+            control_out[0][1] = self.rng.uniform(-self.max_d_control, self.max_d_control)
+            control_out[0][2] = -undo_angle
 
     def sampleStepCount(self, min_steps, max_steps):
         step_count = self.rng.randint(min_steps, max_steps)
@@ -206,11 +210,13 @@ class WateringStateSampler(ob.RealVectorStateSampler):
         self.scenario_ompl = scenario_ompl
         self.rng = rng
         self.plot = plot
+        self.extent = extent
 
     def sampleUniform(self, state_out: ob.CompoundState):
-        random_point_x = self.rng.uniform(-0.1, 0.8)
-        random_point_y = self.rng.uniform(0.05, 0.8)
-        random_angle = self.rng.uniform(-0.1, 0.1)
+        min_x, max_x, min_y, max_y, min_theta, max_theta = self.extent
+        random_point_x = self.rng.uniform(min_x, max_x)
+        random_point_y = self.rng.uniform(min_y, max_y)
+        random_angle = self.rng.uniform(min_theta, max_theta)
         random_control_volume = self.rng.uniform(0, 1)
         state_np = {
             'controlled_container_pos':   np.array([random_point_x, random_point_y]),
