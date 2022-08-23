@@ -22,7 +22,13 @@ class SoftGymServices():
         #Needs to be implemented but not used. Ideal to roswarn once
         return None
 
-    def is_occupied(self, x, y, z, env_indices):
+    def is_occupied(self, x, y, z, env_indices, res):
+        coords = env_indices[x, y, z]
+        obj_idxs = ["plant", "poured"]
+        radius = res/2.
+        return self._scene.in_collision_sphere(coords, radius=radius, obj_idxs=obj_idxs)
+
+    def is_occupied_old(self, x, y, z, env_indices):
         coords = env_indices[x, y, z]
         # only checks if occupied by the box!!
         fixed_params = self._scene._wrapped_env.glass_params
@@ -51,7 +57,6 @@ class SoftGymServices():
         pass
 
     def create_env_coords(self, x_dims, y_dims, z_dims, center, res):
-        # assuming cube for now
         x_extent = x_dims * res
         y_extent = y_dims * res
         z_extent = z_dims * res
@@ -80,7 +85,7 @@ class SoftGymServices():
         for x in range(x_dims):
             for y in range(y_dims):
                 for z in range(z_dims):
-                    if self.is_occupied(x, y, z, env_coords):
+                    if self.is_occupied(x, y, z, env_coords, res):
                         grid[x, y, z] = 1
         response.grid = grid
         return response
