@@ -30,16 +30,17 @@ class WateringOmpl(ScenarioOmpl):
         state_out[2][0] = np.float64(state_np['controlled_container_angle'][0])
         state_out[3][0] = np.float64(state_np['control_volume'][0])
         state_out[4][0] = np.float64(state_np['target_volume'][0])
+        state_out[5][0] = np.float64(state_np['num_diverged'][0])
 
     @staticmethod
     def ompl_state_to_numpy(ompl_state: ob.CompoundState):
-        ompl_state =  {
+        ompl_state = {
             'controlled_container_pos':   np.array([ompl_state[0][0], ompl_state[0][1]]),
             'target_container_pos':       np.array([ompl_state[1][0], ompl_state[1][1]]),
             'controlled_container_angle': np.array([ompl_state[2][0]]),
             'control_volume':             np.array([ompl_state[3][0]]),
             'target_volume':              np.array([ompl_state[4][0]]),
-            'num_diverged':               0,
+            'num_diverged':               np.array([ompl_state[5][0]]),
             'error':                      np.zeros(1, dtype=np.float64),
         }
         return ompl_state
@@ -83,15 +84,14 @@ class WateringOmpl(ScenarioOmpl):
         self.add_volume_subspace(state_space, 'control_volume')
         self.add_volume_subspace(state_space, 'target_volume')
 
-        if False:
-            # extra subspace component for the number of diverged steps
-            num_diverged_subspace = ob.RealVectorStateSpace(1)
-            num_diverged_bounds = ob.RealVectorBounds(1)
-            num_diverged_bounds.setLow(-1000)
-            num_diverged_bounds.setHigh(1000)
-            num_diverged_subspace.setBounds(num_diverged_bounds)
-            num_diverged_subspace.setName("stdev")
-            state_space.addSubspace(num_diverged_subspace, weight=0)
+        # extra subspace component for the number of diverged steps
+        num_diverged_subspace = ob.RealVectorStateSpace(1)
+        num_diverged_bounds = ob.RealVectorBounds(1)
+        num_diverged_bounds.setLow(-1000)
+        num_diverged_bounds.setHigh(1000)
+        num_diverged_subspace.setBounds(num_diverged_bounds)
+        num_diverged_subspace.setName("num_diverged")
+        state_space.addSubspace(num_diverged_subspace, weight=0)
 
         def _state_sampler_allocator(state_space):
             return WateringStateSampler(state_space,
@@ -147,8 +147,8 @@ class WateringOmpl(ScenarioOmpl):
         controlled_container_control_bounds.setHigh(0, 0.15)
         controlled_container_control_bounds.setLow(1, -0.15)
         controlled_container_control_bounds.setHigh(1, 0.15)
-        controlled_container_control_bounds.setHigh(2, -0.1)
-        controlled_container_control_bounds.setHigh(2, 0.1)
+        controlled_container_control_bounds.setHigh(2, -3)
+        controlled_container_control_bounds.setHigh(2, 3)
         controlled_container_control_space.setBounds(controlled_container_control_bounds)
         control_space.addSubspace(controlled_container_control_space)
 
@@ -158,10 +158,6 @@ class WateringOmpl(ScenarioOmpl):
                                           rng=self.control_sampler_rng,
                                           action_params=self.action_params)
 
-        # Copied from floating_rope_ompl:
-        # Peter: I override the sampler here so I can use numpy RNG to make things more deterministic.
-        # ompl does not allow resetting of seeds, which causes problems when evaluating multiple
-        # planning queries in a row.
         control_space.setControlSamplerAllocator(oc.ControlSamplerAllocator(_allocator))
 
         return control_space
@@ -229,6 +225,7 @@ class WateringStateSampler(ob.RealVectorStateSampler):
             'target_volume':              np.array([1 - random_control_volume]),
             # not much point sampling invalid states
             'control_volume':             np.array([random_control_volume]),
+            'num_diverged':               np.zeros(1, dtype=np.float64),
             'error':                      np.zeros(1, dtype=np.float64),
         }
 
@@ -283,6 +280,7 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
             'target_volume':              np.array([1.0]),  # in practice quite binary
             'control_volume':             np.array([0]),
             'error':                      np.zeros(1, dtype=np.float64),
+            'num_diverged':               np.zeros(1, dtype=np.float64),
         }
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 

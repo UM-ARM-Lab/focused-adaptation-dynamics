@@ -22,7 +22,8 @@ class TorchUDNNDynamicsWrapper:
 
     def __init__(self, checkpoint: str, scenario: Optional = None):
         self.model: UDNN = load_udnn_model_wrapper(checkpoint)
-        self.model.with_joint_positions = True
+        #self.model.with_joint_positions was previously hardcoded to True
+        self.model.with_joint_positions = 'joint_positions' in self.model.data_collection_params['state_description']
         self.model.eval()
         self.horizon = 2
         self.name = 'MDE'

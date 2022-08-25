@@ -44,6 +44,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         if self.params.get("run_flex", False):
             self.service_provider.set_scene(self._scene)
         self.robot = MockRobot()
+        self.robot.disconnect = lambda : None
         self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
