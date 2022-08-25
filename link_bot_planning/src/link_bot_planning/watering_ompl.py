@@ -225,7 +225,10 @@ class WateringStateSampler(ob.RealVectorStateSampler):
             'target_volume':              np.array([1 - random_control_volume]),
             # not much point sampling invalid states
             'control_volume':             np.array([random_control_volume]),
+<<<<<<< HEAD
             'num_diverged':               np.zeros(1, dtype=np.float64),
+=======
+>>>>>>> f65acd58... fixed some issues with the planning problem allowing MDE use
             'error':                      np.zeros(1, dtype=np.float64),
         }
 
@@ -280,7 +283,10 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
             'target_volume':              np.array([1.0]),  # in practice quite binary
             'control_volume':             np.array([0]),
             'error':                      np.zeros(1, dtype=np.float64),
+<<<<<<< HEAD
             'num_diverged':               np.zeros(1, dtype=np.float64),
+=======
+>>>>>>> f65acd58... fixed some issues with the planning problem allowing MDE use
         }
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 
