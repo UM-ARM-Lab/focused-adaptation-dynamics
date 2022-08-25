@@ -9,6 +9,7 @@ class Test(TestCase):
     def setUpClass(cls):
         params = {
             "gui":                    0,
+            "run_flex":               True,
             "save_cfg":               {
                 "save_frames": 0,
                 "img_size":    64
