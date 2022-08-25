@@ -516,13 +516,11 @@ class OmplRRTWrapper(MyPlanner):
                                                                     state_sequence[start_t],
                                                                     proposed_action_seq_to_end)
             classifier_accept = True
-            if 'error' in proposed_state_seq_to_end[0]:
-                proposed_state_seq_to_end[0]['error'] = state_sequence[start_t]['error']
+            proposed_state_seq_to_end[0]['error'] = state_sequence[start_t]['error']
             for t in range(len(proposed_state_seq_to_end) - 1):
                 accept_t, _, pred_error = self.check_constraint(states=proposed_state_seq_to_end[t:t + 2],
                                                                 actions=proposed_action_seq_to_end[t:t + 1])
-                if 'error' in proposed_state_seq_to_end[0]:
-                    proposed_state_seq_to_end[t + 1]['error'] = np.expand_dims(pred_error, 0)
+                proposed_state_seq_to_end[t + 1]['error'] = np.expand_dims(pred_error, 0)
 
                 if not accept_t:
                     classifier_accept = False

@@ -23,8 +23,10 @@ class WateringOmpl(ScenarioOmpl):
     def numpy_to_ompl_state(state_np: Dict, state_out: ob.CompoundState):
         for i in range(2):
             state_out[0][i] = np.float64(state_np['controlled_container_pos'][i])
+        state_out[0][2] = np.float64(0.)
         for i in range(2):
             state_out[1][i] = np.float64(state_np['target_container_pos'][i])
+        state_out[0][2] = np.float64(0.)
         state_out[2][0] = np.float64(state_np['controlled_container_angle'][0])
         state_out[3][0] = np.float64(state_np['control_volume'][0])
         state_out[4][0] = np.float64(state_np['target_volume'][0])
@@ -37,7 +39,8 @@ class WateringOmpl(ScenarioOmpl):
             'controlled_container_angle': np.array([ompl_state[2][0]]),
             'control_volume':             np.array([ompl_state[3][0]]),
             'target_volume':              np.array([ompl_state[4][0]]),
-            'num_diverged':               0
+            'num_diverged':               0,
+            'error':                      np.zeros(1, dtype=np.float64),
         }
         return ompl_state
 
@@ -226,6 +229,7 @@ class WateringStateSampler(ob.RealVectorStateSampler):
             'target_volume':              np.array([1 - random_control_volume]),
             # not much point sampling invalid states
             'control_volume':             np.array([random_control_volume]),
+            'error':                      np.zeros(1, dtype=np.float64),
         }
 
         self.scenario_ompl.numpy_to_ompl_state(state_np, state_out)
@@ -276,8 +280,9 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
             'controlled_container_pos':   self._target_container_pos + np.array([random_x_left, random_height]),
             'controlled_container_angle': np.array([0]),
             'target_container_pos':       self._target_container_pos,
-            'target_volume':              np.array([1.0]), #in practice quite binary
-            'control_volume':             np.array([0])
+            'target_volume':              np.array([1.0]),  # in practice quite binary
+            'control_volume':             np.array([0]),
+            'error':                      np.zeros(1, dtype=np.float64),
         }
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 

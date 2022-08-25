@@ -28,28 +28,6 @@ class SoftGymServices():
         radius = res/2.
         return self._scene.in_collision_sphere(coords, radius=radius, obj_idxs=obj_idxs)
 
-    def is_occupied_old(self, x, y, z, env_indices):
-        coords = env_indices[x, y, z]
-        # only checks if occupied by the box!!
-        fixed_params = self._scene._wrapped_env.glass_params
-        poured_height = fixed_params["poured_height"]
-        poured_x = fixed_params["poured_glass_dis_x"]
-        poured_y = fixed_params["poured_height"]
-        poured_z = fixed_params["poured_glass_dis_z"]
-        poured_x_dims = [fixed_params["poured_glass_x_center"] - poured_x / 2,
-                         fixed_params["poured_glass_x_center"] + poured_x / 2]
-        poured_z_dims = [0, poured_z / 2]
-        poured_y_dims = [-poured_y / 2, poured_y / 2]
-        dim_ranges = [poured_x_dims, poured_y_dims, poured_z_dims]
-        in_ranges = np.array([False, False, False])
-        for dim_idx, dim_range in enumerate(dim_ranges):
-            if coords[dim_idx] >= dim_range[0] and coords[dim_idx] <= dim_range[1]:
-                in_ranges[dim_idx] = True
-        if np.all(in_ranges):
-            return True
-
-        return False
-
     def pause(self):
         pass
 

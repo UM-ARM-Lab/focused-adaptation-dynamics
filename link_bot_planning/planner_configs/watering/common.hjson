@@ -40,12 +40,12 @@
   ]
   state_sampler_extent: [
     # this is set to be a bit more conservative than "extent" to avoid annoying out-of-bounds edge cases
-    -0.1
+    -0.08
+    0.54
+    -0.6
     0.6
-    -1
-    1
-    -0.01
-    0.8
+    -0.02
+    0.78
   ]
   environment_randomization: {
   }

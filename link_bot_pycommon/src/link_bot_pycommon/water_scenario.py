@@ -7,6 +7,7 @@ from dm_envs.softgym_services import SoftGymServices
 from link_bot_pycommon.experiment_scenario import MockRobot
 from link_bot_pycommon.get_occupancy import get_environment_for_extents_3d
 from link_bot_pycommon.grid_utils_np import extent_to_env_shape, extent_res_to_origin_point
+from link_bot_data.dataset_utils import add_predicted
 
 from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
@@ -79,8 +80,11 @@ class WaterSimScenario(ScenarioWithVisualization):
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
         container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
-        target_volume_dist = np.abs(s1["target_volume"]-s2["target_volume"]).item()
-        control_volume_dist = np.abs(s1["control_volume"]-s2["control_volume"]).item()
+        target_volume_dist = np.abs(s1["target_volume"]-s2["target_volume"])
+        control_volume_dist = np.abs(s1["control_volume"]-s2["control_volume"])
+        target_volume_dist = target_volume_dist[0]
+        control_volume_dist = control_volume_dist[0]
+
         return container_dist + target_volume_dist + control_volume_dist
 
     def local_planner_cost_function_torch(self, planner):
@@ -254,7 +258,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     @staticmethod
     def local_environment_center_differentiable_torch(state):
-        pos_xz = state["target_container_pos"].unsqueeze(-1)
+        pos_xz = state["controlled_container_pos"].unsqueeze(-1)
         local_center = torch.cat((pos_xz[:, 0], torch.zeros_like(pos_xz[:, 0]), pos_xz[:, 1]), dim=1)
         if len(local_center.shape) == 0:
             return local_center.reshape(1, -1)
@@ -281,15 +285,15 @@ class WaterSimScenario(ScenarioWithVisualization):
     def put_action_local_frame(state: Dict, action: Dict):
         target_pos = action["controlled_container_target_pos"]
         target_angle = action["controlled_container_target_angle"]
-        target_angle = _fix_extremes_1d_data(target_angle)
 
         current_pos = state["controlled_container_pos"]
         current_angle = state["controlled_container_angle"]
 
-        if len(current_angle.shape) == 3:  # fix dataset:
-            current_angle = current_angle.squeeze(-1)
         delta_pos = target_pos - current_pos
         delta_angle = target_angle - current_angle
+
+        delta_angle = _match_2d_1d_tensor_shapes(delta_pos, delta_angle)
+        assert len(delta_pos.shape) == len(delta_angle.shape)
         return {
             'delta_pos':   delta_pos.float(),
             'delta_angle': delta_angle.float()
@@ -313,12 +317,13 @@ class WaterSimScenario(ScenarioWithVisualization):
         current_angle = state["controlled_container_angle"]
         delta_pos = target_pos - current_pos
 
+        assert len(delta_pos.shape) == len(current_angle.shape)
         local_dict = {
             'controlled_container_pos_local':   delta_pos.float(),
-            'controlled_container_angle_local': _squeeze_if_3d(current_angle).float(),
+            'controlled_container_angle_local': (current_angle).float(),
         }
-        local_dict["target_volume"] = _squeeze_if_3d(state["target_volume"]).float()
-        local_dict["control_volume"] = _squeeze_if_3d(state["control_volume"]).float()
+        local_dict["target_volume"] = state["target_volume"].float()
+        local_dict["control_volume"] = state["control_volume"].float()
         local_dict["target_container_pos"] = 0 * state["target_container_pos"].float()
         return local_dict
 
@@ -404,22 +409,31 @@ class WaterSimScenario(ScenarioWithVisualization):
     def make_state_msg(self, state, target_pos=None, target_angle=None):
         msg = MarkerArray()
         if target_pos is None:
-            pourer_pos = state["controlled_container_pos"]
-            pourer_angle = state["controlled_container_angle"]
+            if add_predicted("controlled_container_pos") in state:
+                pourer_pos = state[add_predicted("controlled_container_pos")]
+                pourer_angle = state[add_predicted("controlled_container_angle")]
+            else:
+                pourer_pos = state["controlled_container_pos"]
+                pourer_angle = state["controlled_container_angle"]
         else:
             pourer_pos = target_pos
             pourer_angle = target_angle
-        pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
-                       self._scene.glass_params["glass_dis_z"]]
-        poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
-                       self._scene.glass_params["poured_glass_dis_z"]]
+        #pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
+        #               self._scene.glass_params["glass_dis_z"]]
+        #poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
+        #               self._scene.glass_params["poured_glass_dis_z"]]
+        pourer_dims = [.1, .1, .1]
+        poured_dims = [.1, .1, .1]
         pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, rgb=np.array([1, 0, 0]))
         pourer_marker.id = 0
         msg.markers.append(pourer_marker)
         pourer_angle_marker = self.make_angle_marker(pourer_pos, pourer_angle)
         pourer_angle_marker.id = 1
         msg.markers.append(pourer_angle_marker)
-        poured_pos = state["target_container_pos"]
+        if add_predicted("target_container_pos") in state:
+            poured_pos = state[add_predicted("target_container_pos")]
+        else:
+            poured_pos = state["target_container_pos"]
         poured_marker = self.make_box_marker(poured_pos, poured_dims, rgb=np.array([0, 1, 0]))
         poured_marker.id = 2
         msg.markers.append(poured_marker)
@@ -480,3 +494,19 @@ def _squeeze_if_3d(data):
     if len(data.shape) == 3:
         data = data.squeeze(-1)
     return data
+
+def _match_2d_1d_tensor_shapes(tensor_to_match, tensor_needing_matching):
+    #Patch fix that only really seems to come up here w/ 1D data 
+    desired_shape_size = len(tensor_to_match.shape)
+    current_shape_size = len(tensor_needing_matching.shape)
+    assert abs(desired_shape_size - current_shape_size) <= 1
+    if current_shape_size > desired_shape_size:
+        matched_tensor = tensor_needing_matching.squeeze(-1)
+    elif current_shape_size < desired_shape_size:
+        matched_tensor = tensor_needing_matching.unsqueeze(-1)
+    else:
+        matched_tensor = tensor_needing_matching
+
+    matched_tensor_shape_size = len(matched_tensor.shape)
+    assert matched_tensor_shape_size == desired_shape_size
+    return matched_tensor
