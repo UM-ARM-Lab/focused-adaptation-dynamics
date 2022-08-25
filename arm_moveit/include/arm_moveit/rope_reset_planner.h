@@ -48,8 +48,8 @@ class RopeResetPlanner {
  public:
   RopeResetPlanner(std::string const& group_name = "both_arms");
 
-  PlanningResult planWithConstraints(ob::GoalPtr const& goal, ob::StateValidityCheckerFn const& state_validity_fn,
-                                     double timeout);
+  PlanningResult planWithConstraints(planning_scene::PlanningScenePtr const& planning_scene, ob::GoalPtr const& goal,
+                                     ob::StateValidityCheckerFn const& state_validity_fn, double timeout);
 
   PlanningResult planToReset(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
                              double orientation_path_tolerance, double orientation_goal_tolerance, double timeout);

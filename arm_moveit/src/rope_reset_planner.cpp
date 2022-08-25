@@ -79,7 +79,15 @@ void addGripperCollisionSpheres(moveit::core::RobotState &robot_state) {
 
 void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   auto &collision_env = planning_scene->getCollisionEnvNonConst();
-  collision_env->setPadding(0.05);
+  collision_env->setLinkPadding("drive56", 0.05);
+  collision_env->setLinkPadding("drive57", 0.05);
+  collision_env->setLinkPadding("torso", 0.05);
+  collision_env->setLinkPadding("rightgripper_link", 0.05);
+  collision_env->setLinkPadding("rightgripper2_link", 0.05);
+  collision_env->setLinkPadding("end_effector_right", 0.05);
+  collision_env->setLinkPadding("leftgripper_link", 0.05);
+  collision_env->setLinkPadding("leftgripper2_link", 0.05);
+  collision_env->setLinkPadding("end_effector_left", 0.05);
   planning_scene->propogateRobotPadding();
 }
 
@@ -291,7 +299,7 @@ class GripperOrientationStateSampler : public ob::StateSampler {
       throw std::runtime_error(err_ss.str());
     }
 
-     visual_tools_->publishRobotState(*robot_state_ik);
+    // visual_tools_->publishRobotState(*robot_state_ik);
     copy_robot_state_to_ompl_state(group_, *robot_state_ik, s);
   }
 };
@@ -343,17 +351,15 @@ RopeResetPlanner::RopeResetPlanner(std::string const &group_name)
   ss_.setPlanner(planner);
 }
 
-PlanningResult RopeResetPlanner::planWithConstraints(ob::GoalPtr const &goal,
+PlanningResult RopeResetPlanner::planWithConstraints(planning_scene::PlanningScenePtr const &planning_scene,
+                                                     ob::GoalPtr const &goal,
                                                      ob::StateValidityCheckerFn const &state_validity_fn,
                                                      double timeout) {
   robot_trajectory::RobotTrajectory traj(model_, group_name_);
 
-  scene_monitor_->lockSceneRead();
-  auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
-  scene_monitor_->unlockSceneRead();
   auto start_robot_state = planning_scene->getCurrentState();
 
-  addLinkPadding(planning_scene);
+  addLinkPadding(planning_scene);  // FIXME: does this really work?
   // for safety, we add collision spheres around the "tool" points and pad all the links
   addGripperCollisionSpheres(start_robot_state);
 
@@ -402,11 +408,9 @@ PlanningResult RopeResetPlanner::planWithConstraints(ob::GoalPtr const &goal,
 PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
                                              geometry_msgs::Pose const &right_pose, double orientation_path_tolerance,
                                              double orientation_goal_tolerance, double timeout) {
-  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "0");
   scene_monitor_->lockSceneRead();
   auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
   scene_monitor_->unlockSceneRead();
-  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "1");
 
   auto goal = std::make_shared<PosesGoal>(model_, group_, visual_tools_, si_, left_pose, right_pose, 0.01,
                                           orientation_goal_tolerance);
@@ -424,6 +428,10 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
 
         auto const collision_free = planning_scene->isStateValid(robot_state);
 
+        auto &collision_env = planning_scene->getCollisionEnvNonConst();
+
+        ROS_DEBUG_STREAM_THROTTLE_NAMED(1, LOGGER_NAME + ".padding",
+                                        "PADDING: " << collision_env->getLinkPadding("end_effector_left"));
         ROS_DEBUG_STREAM_THROTTLE_NAMED(1, LOGGER_NAME + ".isStateValid",
                                         ""
                                             << "satisfies bounds? " << si_->satisfiesBounds(s) << "\n"
@@ -439,7 +447,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
   };
   space_->setStateSamplerAllocator(state_sampler_allocator);
 
-  return planWithConstraints(goal, state_validity_fn, timeout);
+  return planWithConstraints(planning_scene, goal, state_validity_fn, timeout);
 }
 
 PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pose,
@@ -485,5 +493,5 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
   };
   space_->setStateSamplerAllocator(state_sampler_allocator);
 
-  return planWithConstraints(goal, state_validity_fn, timeout);
+  return planWithConstraints(planning_scene, goal, state_validity_fn, timeout);
 }

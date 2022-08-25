@@ -103,23 +103,24 @@ def main():
 
             plan_to_start(left_start_pose, right_start_pose, rrp, val)
 
-            state = scenario.get_state()
-            rope_points = state['rope'].reshape([-1, 3])
-            midpoint = rope_points[12]
-            rope_is_in_box = np.linalg.norm(midpoint - np.array([0.0, 0.4, 0.3])) < 0.1
+            # state = scenario.get_state()
+            # rope_points = state['rope'].reshape([-1, 3])
+            # midpoint = rope_points[12]
+            # rope_is_in_box = np.linalg.norm(midpoint - np.array([-0.05, 0.4, 0.32])) < 0.12
+            rope_is_in_box = True
             if not scenario.is_rope_overstretched() and rope_is_in_box:
                 break
         print(f"done {i}")
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
+    pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
     result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, 0.76, 1.2, 0.1, 30)
     if result.status != "Exact solution":
         print("BAD SOLUTION!!!")
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)
-    pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
-    for _ in range(10):
+    for _ in range(5):
         rospy.sleep(0.1)
         pub.publish(display_msg)
     val.raise_on_failure = False
@@ -130,23 +131,17 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
 def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
     orientation_path_tol = 0.1
-    while True:
-        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.1, 10)
-        orientation_path_tol *= 1.5
+    result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.1, 25)
 
-        display_msg = DisplayTrajectory()
-        display_msg.trajectory.append(result.traj)
-        for _ in range(5):
-            rospy.sleep(0.1)
-            pub.publish(display_msg)
+    display_msg = DisplayTrajectory()
+    display_msg.trajectory.append(result.traj)
 
-        if result.status == "Exact solution":
-            break
-        else:
-            print("Bad solution!")
+    for _ in range(5):
+        rospy.sleep(0.1)
+        pub.publish(display_msg)
 
-        if orientation_path_tol > 1:
-            raise RobotPlanningError("could not plan to grasp!")
+    if result.status != "Exact solution":
+        raise RobotPlanningError("could not plan to grasp!")
 
     val.raise_on_failure = False
     result.traj.joint_trajectory.header.stamp = rospy.Time.now()
