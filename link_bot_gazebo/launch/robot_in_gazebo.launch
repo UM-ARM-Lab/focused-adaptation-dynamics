@@ -11,6 +11,7 @@
     <arg name="use_victor" default="false"/>
     <arg name="use_val" default="false"/>
     <arg name="with_husky" default="true"/>
+    <arg name="off_husky" default="true"/>
     <arg name="no_gripper_collisions" default="false"/>
     <arg name="use_sim_time" default="true"/>
     <arg name="robot_name" default="none"/>
@@ -75,6 +76,7 @@
             <arg name="info" value="true"/>
             <arg name="debug" value="$(arg debug_moveit)"/>
             <arg name="with_husky" value="$(arg with_husky)"/>
+            <arg name="off_husky" value="$(arg off_husky)"/>
             <arg name="no_gripper_collisions" value="$(arg no_gripper_collisions)"/>
         </include>
 

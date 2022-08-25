@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 from analysis.analyze_results import planning_results
-from analysis.results_figures import barplot, violinplot
+from analysis.results_figures import barplot, violinplot, boxplot
 from arc_utilities import ros_init
 from moonshine.gpu_config import limit_gpu_mem
 
@@ -43,7 +43,7 @@ def metrics_main(args):
     fig, ax = barplot(df, outdir, 'method_name', 'success_given_solved', 'Success (given solved)', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success_given_solved.png")
-    fig, ax = violinplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
+    fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
     fig, ax = barplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?', ci=90)
     fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
     ax.set_ylim(-0.02, 1.02)
@@ -61,14 +61,14 @@ def main():
     parser.add_argument('results_dirs', help='results directory', type=pathlib.Path, nargs='+')
     parser.add_argument('--no-plot', action='store_true')
     parser.add_argument('--regenerate', action='store_true')
-    parser.add_argument('--style', default='slides')
+    parser.add_argument('--style', default='paper')
     parser.set_defaults(func=metrics_main)
 
     args = parser.parse_args()
 
     plt.style.use(args.style)
-    plt.rcParams['figure.figsize'] = (20, 10)
-    sns.set(rc={'figure.figsize': (7, 4)})
+    # plt.rcParams['figure.figsize'] = (20, 10)
+    # sns.set(rc={'figure.figsize': (4, 1)})
 
     metrics_main(args)
 

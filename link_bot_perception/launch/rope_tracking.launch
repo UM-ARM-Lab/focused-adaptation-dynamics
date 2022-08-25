@@ -2,6 +2,7 @@
     <env name="ROSCONSOLE_CONFIG_FILE" value="$(find link_bot_perception)/custom_rosconsole.conf"/>
 
     <param name="rope_num_points" value="25"/>
+    <arg name="record" value="false"/>
     <!--
         I've found that it's better to under-estimate the length of the rope, because rope_length is a "max" constraint,
         not a term in the objective. So the rope can be as long as rope_length * lambda,
@@ -9,31 +10,27 @@
     -->
     <param name="max_rope_length" value="0.82"/>
 
-    <node pkg="link_bot_perception" type="merge_pointclouds" name="merge_pointclouds" output="screen"
-          args="points1:=/kinect2_tripodA/qhd/points points2:=/kinect2_roof/qhd/points"/>
-
     <!--        <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen" launch-prefix="gdb -ex start &#45;&#45;args">-->
     <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen">
         <param name="kinect_channel" value="qhd"/>
         <param name="kinect_name" value="kinect2_tripodA"/>
-        <!--        <param name="left_tf_name" value="left_tool"/>-->
-        <!--        <param name="right_tf_name" value="right_tool"/>-->
         <param name="points" value="merged_points"/>
-        <param name="left_tf_name" value="mocap_left_hand_left_hand"/>
-        <param name="right_tf_name" value="mocap_right_hand_right_hand"/>
         <param name="use_gripper_constraints" value="true"/>
         <param name="obstacle_cost_weight" value="0.02"/>
         <param name="fixed_points_weight" value="10.0"/>
+        <param name="camera_frame" value="kinect2_tripodA_rgb_optical_frame"/>
         <param name="min_distance_threshold" value="0.01"/>
         <param name="lambda" value="1.0"/>
-        <param name="left_node_idx" value="0"/>
-        <param name="right_node_idx" value="24"/>
         <param name="moveit_enabled" value="true"/>
+        <!-- gripper info should be a space seperated list of [TF_NAME IDX TF_NAME IDX ...] -->
+        <param name="grippers_info" value="$(find link_bot_perception)/gripper_info.yaml"/>
     </node>
 
-    <node pkg="link_bot_perception" type="rope_endpoint_tf.py" name="rope_endpoint_tf" required="true"/>
+    <!--    <node pkg="link_bot_perception" type="rope_endpoint_tf.py" name="rope_endpoint_tf" required="true"/>-->
 
-    <node pkg="arm_video_recorder" type="video_recording.py" name="recording"
-          args="/media/shared/captures/ --camera-name /dev/v4l/by-id/usb-AVerMedia_Technologies__Inc._Live_Gamer_Portable_2_Plus_1311774402370-video-index0"/>
+    <group if="$(arg record)">
+        <node pkg="arm_video_recorder" type="video_recording.py" name="recording"
+              args="/media/shared/captures/ --camera-name /dev/v4l/by-id/usb-AVerMedia_Technologies__Inc._Live_Gamer_Portable_2_Plus_1311774402370-video-index0"/>
+    </group>
 </launch>
 

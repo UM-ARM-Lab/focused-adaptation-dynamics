@@ -31,6 +31,11 @@ def metrics_main(args):
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
+    fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name')
+    ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
+    plt.savefig(outdir / f'success.png')
+
     fig, ax = lineplot(df, iter_key, 'safe_task_error', 'Safe Task Error', hue='method_name')
     ax.axhline(unadapted_df['safe_task_error'].mean(), c='gray', linestyle='--', label='unadapted')
     ax.legend()
@@ -51,14 +56,14 @@ def main():
     parser.add_argument('--order', action='store_true')
     parser.add_argument('--regenerate', action='store_true')
     parser.add_argument('--debug', action='store_true', help='will only run on a few examples to speed up debugging')
-    parser.add_argument('--style', default='slides')
+    parser.add_argument('--style', default='paper')
     parser.set_defaults(func=metrics_main)
 
     args = parser.parse_args()
 
     plt.style.use(args.style)
-    plt.rcParams['figure.figsize'] = (20, 10)
-    sns.set(rc={'figure.figsize': (7, 4)})
+    # plt.rcParams['figure.figsize'] = (20, 10)
+    sns.set(rc={'figure.figsize': (6, 3)})
 
     metrics_main(args)
 

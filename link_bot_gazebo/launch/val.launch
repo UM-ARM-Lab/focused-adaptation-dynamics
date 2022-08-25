@@ -4,6 +4,7 @@
     <arg name="use_cdcpd" default="false"/>
     <arg name="debug_gazebo" default="false"/>
     <arg name="with_husky" default="true"/>
+    <arg name="off_husky" default="false"/>
     <arg name="no_gripper_collisions" default="true"/>
 
     <include file="$(find link_bot_gazebo)/launch/robot_in_gazebo.launch">
@@ -17,6 +18,7 @@
         <arg name="debug_gazebo" value="$(arg debug_gazebo)"/>
         <arg name="debug_moveit" value="false"/>
         <arg name="with_husky" value="$(arg with_husky)"/>
+        <arg name="off_husky" value="$(arg off_husky)"/>
         <arg name="no_gripper_collisions" value="$(arg no_gripper_collisions)"/>
     </include>
 </launch>

@@ -12,8 +12,8 @@
 #include <ompl/base/Goal.h>
 #include <ompl/base/PlannerStatus.h>
 #include <ompl/base/SpaceInformation.h>
+#include <ompl/base/StateSampler.h>
 #include <ompl/base/StateValidityChecker.h>
-#include <ompl/base/ValidStateSampler.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ros/ros.h>
@@ -25,22 +25,9 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
-void copy_vector_to_values(ob::RealVectorStateSpace::StateType* state, std::vector<double> vec) {
-  for (auto i{0u}; i < vec.size(); ++i) {
-    (*state)[i] = vec[i];
-  }
-}
-
 class ArmStateSpace : public ob::RealVectorStateSpace {
  public:
   std::vector<std::string> joint_names_;
-  class StateType : public RealVectorStateSpace::StateType {
-   public:
-    StateType() = default;
-
-    void setPositions(std::vector<double> const& positions) { copy_vector_to_values(this, positions); }
-  };
-
   explicit ArmStateSpace(std::vector<std::string> const& joint_names)
       : ob::RealVectorStateSpace(static_cast<unsigned int>(joint_names.size())), joint_names_(joint_names) {
     auto const dim = joint_names.size();
@@ -62,7 +49,7 @@ class RopeResetPlanner {
   RopeResetPlanner(std::string const& group_name = "both_arms");
 
   PlanningResult planWithConstraints(ob::GoalPtr const& goal, ob::StateValidityCheckerFn const& state_validity_fn,
-                                     ob::ValidStateSamplerAllocator const& alloc, double timeout);
+                                     double timeout);
 
   PlanningResult planToReset(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
                              double orientation_path_tolerance, double orientation_goal_tolerance, double timeout);
@@ -75,7 +62,7 @@ class RopeResetPlanner {
   moveit::core::RobotModelConstPtr const model_;
   planning_scene_monitor::PlanningSceneMonitorPtr scene_monitor_;
 
-  moveit_visual_tools::MoveItVisualTools visual_tools_;
+  moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
   ros::NodeHandle nh_;
   trajectory_processing::IterativeParabolicTimeParameterization time_param_;
   std::string group_name_;
