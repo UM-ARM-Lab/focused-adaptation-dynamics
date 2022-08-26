@@ -1,9 +1,12 @@
 {
-  use_mask_train: false
-  use_mask_val: false
-  penalize_segment_length_error: false
-  train_mode: train
-  val_mode: val
+  use_mask_train: true
+  use_mask_val: true
+  iterative_lowest_error: true
+  soft_masking: true
+  low_initial_error: false
+  mask_threshold: 0.08
+  train_mode: all
+  val_mode: all
   state_metadata_keys: []
   state_keys: [
     controlled_container_pos
@@ -28,3 +31,4 @@
     control_volume : 0.1
   }
 }
+

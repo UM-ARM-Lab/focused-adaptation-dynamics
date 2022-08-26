@@ -27,6 +27,7 @@ class UDNN(pl.LightningModule):
 
         datset_params = self.hparams['dataset_hparams']
         self.data_collection_params = datset_params['data_collection_params']
+        self.data_collection_params['scenario_params']['run_flex'] = False
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
         self.dataset_action_description: Dict = self.data_collection_params['action_description']

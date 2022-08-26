@@ -5,7 +5,7 @@
   max_step_size: 100000
   steps_per_traj: 7 
   randomize_n: null
-  res: 0.02
+  res: 0.08
   extent: [
     -0.1
     0.7

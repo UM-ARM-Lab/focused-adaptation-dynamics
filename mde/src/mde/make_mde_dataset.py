@@ -25,7 +25,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                      checkpoint: pathlib.Path,
                      outdir: pathlib.Path,
                      step):
-    model = load_udnn_model_wrapper(checkpoint, with_joint_positions=True)
+    model = load_udnn_model_wrapper(checkpoint, with_joint_positions=False)
 
     mde_dataset_hparams = load_params(dataset_dir)
 
@@ -49,9 +49,14 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
     with get_context("spawn").Pool() as pool:
         results = []
         total_example_idx = 0
+        scenario_cached = None
         for mode in ['test', 'val', 'train']:
             dataset = TorchDynamicsDataset(dataset_dir=dataset_dir, mode=mode)
-            model.scenario = dataset.get_scenario()
+            if scenario_cached is not None:
+                model.scenario  = scenario_cached
+            else:
+                model.scenario = dataset.get_scenario()
+                scenario_cached = model.scenario
             files = []
 
             if len(dataset) > 0:
@@ -60,7 +65,8 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                 for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step)):
                     # NOTE: what if two modes have the example input example? can we check if we've already generated
                     #  it an skip actually re-doing the conversion to MDE and just re-use the existing one?
-                    result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
+                    #result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
+                    result = write_example(outdir, out_example, total_example_idx, 'pkl')
                     results.append(result)
 
                     metadata_filename = index_to_filename('.pkl', total_example_idx)
@@ -72,9 +78,9 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
             write_mode(outdir, files, mode)
 
         # the pool won't close unless we do this
-        print("Waiting while results finish writing...")
-        for result in tqdm(results):
-            result.get()
+        #print("Waiting while results finish writing...")
+        #for result in tqdm(results):
+        #    result.get()
 
     print("Saving wandb dataset")
     wandb_save_dataset(outdir, project='mde')
@@ -102,15 +108,16 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
             inputs_from_start_t = {}
             inputs_from_start_t.update(start_state)
             inputs_from_start_t.update(actions_from_start_t)
-            inputs_from_start_t['scene_msg'] = example['scene_msg']
-            inputs_from_start_t['joint_positions'] = example['joint_positions'][start_t:start_t + 1]
-            inputs_from_start_t['joint_names'] = example['joint_names'][start_t:start_t + 1]
+            #inputs_from_start_t['scene_msg'] = example['scene_msg']
+            #inputs_from_start_t['joint_positions'] = example['joint_positions'][start_t:start_t + 1]
+            #inputs_from_start_t['joint_names'] = example['joint_names'][start_t:start_t + 1]
             _inputs_from_start_t = torchify(add_batch(inputs_from_start_t))
             predictions_from_start_t = model(_inputs_from_start_t)
             predictions_from_start_t = numpify(remove_batch(predictions_from_start_t))
 
             actual_states_from_start_t = {k: example[k][start_t:] for k in state_keys}
-            environment = {k: example[k] for k in dataset.env_keys}
+            missing_keys = ["origin", "res", "origin_point", "extent"]
+            environment = {k: example[k] for k in dataset.env_keys + missing_keys}
 
             for dt in range(0, steps_per_traj - start_t - 1):
                 out_example = {

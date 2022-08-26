@@ -1,4 +1,8 @@
 import numpy as np
+try:
+    import fcl
+except ImportError:
+    print("FCL not there. softgym stack will not work")
 
 from arm_gazebo_msgs.srv import ComputeOccupancyResponse
 
@@ -22,11 +26,11 @@ class SoftGymServices():
         #Needs to be implemented but not used. Ideal to roswarn once
         return None
 
-    def is_occupied(self, x, y, z, env_indices, res):
+    def is_occupied(self, x, y, z, env_indices, res, sphere):
         coords = env_indices[x, y, z]
         obj_idxs = ["plant", "poured"]
         radius = res/2.
-        return self._scene.in_collision_sphere(coords, radius=radius, obj_idxs=obj_idxs)
+        return self._scene.in_collision_sphere_premade(coords, sphere, obj_idxs=obj_idxs)
 
     def pause(self):
         pass
@@ -60,10 +64,13 @@ class SoftGymServices():
         grid = np.zeros((x_dims, y_dims, z_dims))
         env_coords = self.create_env_coords(x_dims, y_dims, z_dims, center, res)
         response = ComputeOccupancyResponse()
+        sphere_shape = fcl.Sphere(res/2.)
+        tf = fcl.Transform(np.array([0,0,0]))
+        sphere = fcl.CollisionObject(sphere_shape, tf)
         for x in range(x_dims):
             for y in range(y_dims):
                 for z in range(z_dims):
-                    if self.is_occupied(x, y, z, env_coords, res):
+                    if self.is_occupied(x, y, z, env_coords, res, sphere):
                         grid[x, y, z] = 1
         response.grid = grid
         return response

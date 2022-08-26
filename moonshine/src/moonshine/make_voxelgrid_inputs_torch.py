@@ -44,7 +44,13 @@ class VoxelgridInfo:
 
         # insert the rastered states
         for (k, state_component_t) in state_t.items():
-            points = state_component_t.reshape([batch_size, -1, 3])
+            if state_component_t.shape[1] < 3:
+                points = state_component_t.reshape([batch_size, -1, state_component_t.shape[1]])
+                padding = torch.zeros((points.shape[0], points.shape[1], 3-points.shape[2]))
+                padding = padding.to(points.device)
+                points = torch.cat((points, padding), dim=-1)
+            else:
+                points = state_component_t.reshape([batch_size, -1, 3])
             num_densify = 5
             points = densify_points(batch_size=batch_size, points=points, num_densify=num_densify)
             # self.scenario.plot_points_rviz(points[2], label='dense')

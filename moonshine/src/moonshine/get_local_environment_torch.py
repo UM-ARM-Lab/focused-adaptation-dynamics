@@ -2,6 +2,7 @@ from typing import Dict
 from distutils.version import StrictVersion
 import torch.nn.functional as F
 import torch
+import numpy as np
 
 from moonshine.grid_utils_torch import batch_center_res_shape_to_origin_point, batch_align_to_grid, round_to_res, \
     swap_xy
@@ -43,6 +44,9 @@ def get_local_env_and_origin_point(center_point,
                                    c: int,
                                    indices: Dict,
                                    batch_size: int):
+    #lagrassa hack
+    if isinstance(environment['res'], np.ndarray):
+        environment['res'] = torch.from_numpy(environment['res']).to(environment['origin_point'].device)
     res = environment['res']
     full_env_origin_point = environment['origin_point']
     full_env = environment['env']

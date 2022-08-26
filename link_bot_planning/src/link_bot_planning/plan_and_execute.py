@@ -487,7 +487,10 @@ class PlanAndExecute:
     def get_environment(self):
         # get the environment, which here means anything which is assumed constant during planning
         get_env_params = self.planner_params.copy()
-        get_env_params['res'] = self.planner.fwd_model.data_collection_params['res']
+        res = self.planner.classifier_models[0].model.hparams['dataset_hparams']["data_collection_params"]["res"]
+        if not isinstance(res, np.ndarray):
+            res = np.array(res, dtype=np.float32)
+        get_env_params['res'] = res
         return self.scenario.get_environment(get_env_params)
 
     def set_random_seeds_for_trial(self, trial_idx: int):

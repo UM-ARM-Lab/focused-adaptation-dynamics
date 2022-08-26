@@ -44,7 +44,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         if self.params.get("run_flex", False):
             self.service_provider.set_scene(self._scene)
         self.robot = MockRobot()
-        self.robot.disconnect = lambda : None
+        self.robot.disconnect = lambda : self._scene.close()
         self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
@@ -77,6 +77,16 @@ class WaterSimScenario(ScenarioWithVisualization):
         if total_water_in_containers < 0.5:
             return True
         return False
+
+    def classifier_distance_torch(self, s1, s2):
+        """ this is not the distance metric used in planning """
+        container_dist = torch.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
+        target_volume_dist = torch.abs(s1["target_volume"]-s2["target_volume"])
+        control_volume_dist = torch.abs(s1["control_volume"]-s2["control_volume"])
+        target_volume_dist = target_volume_dist.squeeze(-1)
+        control_volume_dist = control_volume_dist.squeeze(-1)
+
+        return container_dist + target_volume_dist + control_volume_dist
 
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
