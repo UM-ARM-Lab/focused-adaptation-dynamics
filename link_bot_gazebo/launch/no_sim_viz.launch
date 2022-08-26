@@ -1,0 +1,13 @@
+<launch>
+    <group ns="hdt_michgian">
+        <include file="$(find hdt_michigan_moveit)/launch/planning_context.launch">
+            <arg name="no_gripper_collisions" value="true"/>
+            <arg name="with_husky" value="true"/>
+            <arg name="off_husky" value="false"/>
+            <arg name="load_robot_description" value="true"/>
+        </include>
+    </group>
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_link2robot_root"
+          args="0 0 0 0 0 0 base_link robot_root"/>
+</launch>
