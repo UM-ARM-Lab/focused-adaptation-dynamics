@@ -11,7 +11,6 @@ from colorama import Fore
 from link_bot_gazebo.gazebo_utils import get_gazebo_processes
 from link_bot_planning.trial_result import planning_trial_name
 
-
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=RuntimeWarning)
     from ompl import util as ou
@@ -19,7 +18,6 @@ with warnings.catch_warnings():
 import rospy
 from arc_utilities.algorithms import nested_dict_update
 from link_bot_data.dataset_utils import git_sha
-from link_bot_gazebo import gazebo_services
 from link_bot_planning import plan_and_execute
 from link_bot_planning.get_planner import get_planner
 from link_bot_planning.my_planner import MyPlanner
@@ -45,7 +43,6 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
                  verbose: int,
                  planner_params: Dict,
                  outdir: pathlib.Path,
-                 use_gt_rope: bool = True,
                  trials: Optional[List[int]] = None,
                  record: Optional[bool] = False,
                  no_execution: Optional[bool] = False,
@@ -56,7 +53,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
                  recovery_seed: int = 0,
                  ):
         super().__init__(planner, trials=trials, verbose=verbose, planner_params=planner_params,
-                         service_provider=service_provider, no_execution=no_execution, use_gt_rope=use_gt_rope,
+                         service_provider=service_provider, no_execution=no_execution,
                          test_scenes_dir=test_scenes_dir, seed=seed, extra_end_conditions=extra_end_conditions,
                          recovery_seed=recovery_seed)
         self.record = record
@@ -168,7 +165,6 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
 
 def evaluate_planning(planner_params: Dict,
                       outdir: pathlib.Path,
-                      use_gt_rope: bool = True,
                       trials: Optional[List[int]] = None,
                       verbose: int = 0,
                       record: bool = False,
@@ -221,7 +217,6 @@ def evaluate_planning(planner_params: Dict,
                               verbose=verbose,
                               planner_params=planner_params,
                               outdir=outdir,
-                              use_gt_rope=use_gt_rope,
                               record=record,
                               no_execution=no_execution,
                               test_scenes_dir=test_scenes_dir,
@@ -242,7 +237,6 @@ def evaluate_planning(planner_params: Dict,
 def evaluate_multiple_planning(outdir: pathlib.Path,
                                planners_params: List[Tuple[str, Dict]],
                                logfile_name: Optional = None,
-                               use_gt_rope: bool = True,
                                trials: Optional[List[int]] = None,
                                start_idx: int = 0,
                                stop_idx: int = -1,
@@ -280,7 +274,6 @@ def evaluate_multiple_planning(outdir: pathlib.Path,
         rospy.loginfo(Fore.GREEN + f"Running method {method_name}")
 
         evaluate_planning(planner_params=planner_params,
-                          use_gt_rope=use_gt_rope,
                           trials=trials,
                           outdir=outdir,
                           verbose=verbose,

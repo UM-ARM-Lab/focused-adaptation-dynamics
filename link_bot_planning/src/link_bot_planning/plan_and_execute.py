@@ -32,7 +32,6 @@ def execute_actions(
         environment: Dict,
         start_state: Dict,
         actions: List[Dict],
-        use_gt_rope: bool = False,
         stop_condition: Optional[Callable] = None,
         plot: bool = False):
     spinner = SynchronousSpinner('Executing actions')
@@ -59,8 +58,6 @@ def execute_actions(
 
         end_trial = scenario.execute_action(environment, before_state, action)
         after_state = scenario.get_state()
-        if use_gt_rope:
-            after_state = dataset_utils.use_gt_rope(after_state)
         actual_path.append(after_state)
 
         if stop_condition is not None:
@@ -100,13 +97,11 @@ class PlanAndExecute:
                  planner_params: Dict,
                  service_provider: BaseServices,
                  no_execution: bool,
-                 use_gt_rope: bool = True,
                  trials: Optional[List[int]] = None,
                  test_scenes_dir: Optional[pathlib.Path] = None,
                  extra_end_conditions: Optional[List[Callable]] = None,
                  seed: int = 0,
                  recovery_seed: int = 0):
-        self.use_gt_rope = use_gt_rope
         self.planner = planner
         self.scenario = self.planner.scenario
         self.trials = trials
@@ -236,8 +231,6 @@ class PlanAndExecute:
             time.sleep(2)  # HACK wait for CDCPD
             start_state = self.scenario.get_state()
             self.service_provider.pause()
-            if self.use_gt_rope:
-                start_state = dataset_utils.use_gt_rope(start_state)
 
             # NOTE: we have assumed the environment does not change after executing, this is a performance optimization
             #  because getting the environment can be slow (~10 seconds)
@@ -269,8 +262,6 @@ class PlanAndExecute:
                     self.service_provider.play()
                     end_state = self.scenario.get_state()
                     self.service_provider.pause()
-                    if self.use_gt_rope:
-                        end_state = dataset_utils.use_gt_rope(end_state)
                     trial_status = TrialStatus.NotProgressingNoRecovery
                     trial_msg = f"Trial {trial_idx} Ended: not progressing, no recovery. {time_since_start:.3f}s"
                     rospy.loginfo(Fore.BLUE + trial_msg + Fore.RESET)
@@ -331,8 +322,6 @@ class PlanAndExecute:
             time.sleep(2)
             end_state = self.scenario.get_state()
             self.service_provider.pause()
-            if self.use_gt_rope:
-                end_state = dataset_utils.use_gt_rope(end_state)
 
             d = self.scenario.distance_to_goal(end_state, planning_query.goal)
             rospy.loginfo(f"distance to goal after execution is {d:.3f}")
@@ -417,8 +406,6 @@ class PlanAndExecute:
         end_trial = False
         if self.no_execution:
             state_t = self.scenario.get_state()
-            if self.use_gt_rope:
-                state_t = dataset_utils.use_gt_rope(state_t)
             actual_path = [state_t]
 
             execution_result = ExecutionResult(path=actual_path,
@@ -439,7 +426,6 @@ class PlanAndExecute:
                                                start_state=planning_query.start,
                                                actions=planning_result.actions,
                                                stop_condition=_stop_condition,
-                                               use_gt_rope=self.use_gt_rope,
                                                plot=True)
 
             self.scenario.robot.raise_on_failure = True
@@ -469,8 +455,6 @@ class PlanAndExecute:
             actual_path = []
         else:
             before_state = self.scenario.get_state()
-            if self.use_gt_rope:
-                before_state = dataset_utils.use_gt_rope(before_state)
             if self.verbose >= 0:
                 self.scenario.plot_action_rviz(before_state, action, label='recovery', color='pink')
             try:
@@ -478,8 +462,6 @@ class PlanAndExecute:
             except RobotPlanningError:
                 pass
             after_state = self.scenario.get_state()
-            if self.use_gt_rope:
-                after_state = dataset_utils.use_gt_rope(after_state)
             actual_path = [before_state, after_state]
         execution_result = ExecutionResult(path=actual_path, end_trial=end_trial, stopped=False, end_t=-1)
         return execution_result

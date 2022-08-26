@@ -42,7 +42,7 @@
 
         <include>
             <uri>model://car_scene5_real</uri>
-            <pose>0.055 0.975 -0.0284</pose>
+            <pose>0.247 0.743 -0.363 0 0 -1.570796</pose>
         </include>
 
 
