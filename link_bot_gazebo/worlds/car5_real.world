@@ -41,8 +41,8 @@
         </include>
 
         <include>
-            <uri>model://car_scene5</uri>
-            <pose>-0.0189 0.95 -0.1 0 0 0</pose>
+            <uri>model://car_scene5_real</uri>
+            <pose>0.055 0.975 -0.0284</pose>
         </include>
 
 
@@ -61,7 +61,7 @@
         <include>
             <name>back_wall</name>
             <uri>model://fake_wall</uri>
-            <pose>0 -.3 0 0 0 0</pose>
+            <pose>0 -.4 0 0 0 0</pose>
         </include>
 
     </world>

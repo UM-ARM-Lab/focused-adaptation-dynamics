@@ -37,7 +37,7 @@ def main():
     left_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, left_preferred_tool_orientation)
     left_tool_post_planning_pose.position.x = -0.2
     left_tool_post_planning_pose.position.y = 0.6
-    left_tool_post_planning_pose.position.z = 0.3
+    left_tool_post_planning_pose.position.z = 0.34
     right_tool_post_planning_pose = deepcopy(left_tool_post_planning_pose)
     right_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, right_preferred_tool_orientation)
     right_tool_post_planning_pose.position.x = 0.2
@@ -74,8 +74,8 @@ def main():
 
     both_tools = ['left_tool', 'right_tool']
     for i in range(100):
-        # res = val.plan_to_poses('both_arms', both_tools,
-        #                         [left_tool_post_planning_pose, right_tool_post_planning_pose])
+        res = val.plan_to_poses('both_arms', both_tools,
+                                [left_tool_post_planning_pose, right_tool_post_planning_pose])
 
         rrp = RopeResetPlanner()
 
@@ -95,11 +95,16 @@ def main():
             val.follow_jacobian_to_position('both_arms', both_tools, [[left_precise], [right_grasp_position_np]])
 
             sleep(1)
-            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0, 0.09])
+            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .2])
             robot2right_hand = scenario.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
             left_up[0] = robot2right_hand[0, 3]
             left_up[1] = robot2right_hand[1, 3]
             val.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
+
+            left_arm_joint_names = val.get_joint_names('left_arm')
+            left_flip_config = val.get_joint_positions(left_arm_joint_names)
+            left_flip_config[-1] -= np.pi
+            val.plan_to_joint_config('left_arm', left_flip_config)
 
             plan_to_start(left_start_pose, right_start_pose, rrp, val)
 
@@ -114,24 +119,30 @@ def main():
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
-    pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
-    result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, 0.76, 1.2, 0.1, 30)
-    if result.status != "Exact solution":
-        print("BAD SOLUTION!!!")
-    display_msg = DisplayTrajectory()
-    display_msg.trajectory.append(result.traj)
-    for _ in range(5):
-        rospy.sleep(0.1)
-        pub.publish(display_msg)
-    val.raise_on_failure = False
-    result.traj.joint_trajectory.header.stamp = rospy.Time.now()
-    execution_result = val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
+    for _ in range(3):
+        pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
+        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, 0.74, 0.5, 0.1, 60)
+        display_msg = DisplayTrajectory()
+        display_msg.trajectory.append(result.traj)
+        for _ in range(5):
+            rospy.sleep(0.1)
+            pub.publish(display_msg)
+
+        if result.status != "Exact solution":
+            print("BAD SOLUTION!!!")
+            continue
+        else:
+            result.traj.joint_trajectory.header.stamp = rospy.Time.now()
+            val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
+            return
+
+    raise RobotPlanningError("failed to plan to start")
 
 
 def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
-    orientation_path_tol = 0.1
-    result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.1, 25)
+    orientation_path_tol = 0.4
+    result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.1, 60)
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)
@@ -143,9 +154,8 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     if result.status != "Exact solution":
         raise RobotPlanningError("could not plan to grasp!")
 
-    val.raise_on_failure = False
     result.traj.joint_trajectory.header.stamp = rospy.Time.now()
-    execution_result = val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
+    val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
 
 
 if __name__ == "__main__":

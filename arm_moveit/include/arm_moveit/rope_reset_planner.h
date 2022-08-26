@@ -58,6 +58,8 @@ class RopeResetPlanner {
                              double max_gripper_dist, double orientation_path_tolerance,
                              double orientation_goal_tolerance, double timeout);
 
+  og::PathGeometric simplify(og::PathGeometric original_path, ob::GoalPtr goal);
+
   robot_model_loader::RobotModelLoaderPtr model_loader_;
   moveit::core::RobotModelConstPtr const model_;
   planning_scene_monitor::PlanningSceneMonitorPtr scene_monitor_;

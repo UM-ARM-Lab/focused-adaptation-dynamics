@@ -68,7 +68,7 @@ def main():
         if not planning_eval_dir.is_dir():
             continue
         for full_run_name, run_name in full_run_names_map.items():
-            if re.match(f"{full_run_name}_iter9-{planner_config_name}", planning_eval_dir.name):
+            if re.match(f"{full_run_name}_iter2-{planner_config_name}", planning_eval_dir.name):
                 n_evals = len(list(planning_eval_dir.glob("*_metrics.pkl.gz")))
                 if run_name not in post_learning_evaluations_map:
                     post_learning_evaluations_map[run_name] = 0
@@ -82,27 +82,27 @@ def main():
 
 
 def print_status(iterations_completed_map, post_learning_evaluations_map):
-    n_seeds = 5
-    n_total_evals = n_seeds * 64
-    print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
-    for name, runs_for_name in iterations_completed_map.items():
-        print(f"{name}")
-        for seed, (_, completed_iters, last_updated) in runs_for_name.items():
-            if completed_iters == 10:
-                color = Style.DIM
-                dt_str = ""
-            else:
-                color = ''
-                dt = datetime.now() - last_updated
-                if dt > timedelta(minutes=10):
-                    dt_color = Fore.RED
-                else:
-                    dt_color = Fore.GREEN
-                hours, remainder = divmod(dt.seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                dt_str = dt_color + f"Last Updated {hours}hr {minutes}m {seconds}s" + Fore.RESET
-            print(color + f"\tSeed {seed} Completed: {completed_iters}/10 {dt_str}" + Style.RESET_ALL)
-    print('')
+    n_seeds = 10
+    n_total_evals = n_seeds * 24
+    # print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
+    # for name, runs_for_name in iterations_completed_map.items():
+    #     print(f"{name}")
+    #     for seed, (_, completed_iters, last_updated) in runs_for_name.items():
+    #         if completed_iters == 10:
+    #             color = Style.DIM
+    #             dt_str = ""
+    #         else:
+    #             color = ''
+    #             dt = datetime.now() - last_updated
+    #             if dt > timedelta(minutes=10):
+    #                 dt_color = Fore.RED
+    #             else:
+    #                 dt_color = Fore.GREEN
+    #             hours, remainder = divmod(dt.seconds, 3600)
+    #             minutes, seconds = divmod(remainder, 60)
+    #             dt_str = dt_color + f"Last Updated {hours}hr {minutes}m {seconds}s" + Fore.RESET
+    #         print(color + f"\tSeed {seed} Completed: {completed_iters}/10 {dt_str}" + Style.RESET_ALL)
+    # print('')
 
     print(Style.BRIGHT + "Post-Learning Evaluations:" + Style.RESET_ALL)
     for name, n_evals in post_learning_evaluations_map.items():
@@ -121,11 +121,11 @@ def print_things_to_run(iterations_completed_map, post_learning_evaluations_map,
             # for name, n_evals in post_learning_evaluations_map.items():
             online_is_done = (completed_iters == 10)
             planning_eval_root = pathlib.Path("/media/shared/planning_results")
-            post_learning_eval_started = (planning_eval_root / f"{full_run_name}_iter9-{planner_config_name}").exists()
+            post_learning_eval_started = (planning_eval_root / f"{full_run_name}_iter2-{planner_config_name}").exists()
             if online_is_done and not post_learning_eval_started:
                 planner_config_path = f"planner_configs/val_car/{planner_config_name}.hjson"
                 online_learning_dir = f"/media/shared/online_adaptation/{full_run_name}"
-                print(f"./scripts/evaluate_online_iter.py {planner_config_path} {online_learning_dir} 9")
+                print(f"./scripts/evaluate_online_iter.py {planner_config_path} {online_learning_dir} 2")
 
 
 def get_name_and_seed(run_dir):
