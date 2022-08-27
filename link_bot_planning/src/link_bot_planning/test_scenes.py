@@ -30,9 +30,9 @@ def get_all_scene_indices(dirname: pathlib.Path):
 
 def get_all_scenes(dirname: pathlib.Path):
     scenes = []
-    bagfilenames = sorted(list(dirname.glob("*.bag")))
-    for bagfilename in bagfilenames:
-        m = re.match(r'scene_(\d+).bag', bagfilename.name)
+    goal_filenames = sorted(list(dirname.glob("goal_*.hjson")))
+    for goal_filename in goal_filenames:
+        m = re.match(r'goal_(\d+).hjson', goal_filename.name)
         idx = int(m.group(1))
         scene = TestScene(dirname, idx)
         scenes.append(scene)
@@ -60,9 +60,13 @@ class TestScene:
         scene_filename = make_scene_filename(self.root, self.idx)
 
         # read the data
-        with rosbag.Bag(scene_filename) as bag:
-            self.joint_state = next(iter(bag.read_messages(topics=['joint_state'])))[1]
-            self.links_states = next(iter(bag.read_messages(topics=['links_states'])))[1]
+        try:
+            with rosbag.Bag(scene_filename) as bag:
+                self.joint_state = next(iter(bag.read_messages(topics=['joint_state'])))[1]
+                self.links_states = next(iter(bag.read_messages(topics=['links_states'])))[1]
+        except FileNotFoundError:
+            rospy.logwarn_once("No bag file of link states and joint states")
+            pass
 
         self.goal = {k: np.array(v, dtype=np.float32) for k, v in goal.items()}
 

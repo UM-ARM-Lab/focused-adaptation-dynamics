@@ -215,9 +215,6 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
         }
         state.update(self.get_robot_state.get_state())
 
-        left_gripper_to_rope = np.linalg.norm(state['left_gripper'] - state['rope'][0:3])
-        right_gripper_to_rope = np.linalg.norm(state['right_gripper'] - state['rope'][-3:])
-
         return state
 
     def plot_state_rviz(self, state: Dict, **kwargs):
@@ -367,6 +364,7 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
                 scene_msg_b, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
+                self.robot.display_robot_state(robot_state, label='debugging', color='red')
                 plan, reached_t = j.plan(group_name='both_arms',
                                          tool_names=tool_names,
                                          preferred_tool_orientations=preferred_tool_orientations,

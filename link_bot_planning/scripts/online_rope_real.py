@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 import argparse
 import itertools
-import multiprocessing
 import pathlib
 import warnings
 from time import perf_counter, sleep
 
+import numpy as np
 import rospkg
 from more_itertools import chunked
 
-from link_bot_planning.planning_evaluation import evaluate_planning
+from link_bot_planning.planning_evaluation import evaluate_planning, load_planner_params
 from link_bot_planning.test_scenes import get_all_scene_indices
+from link_bot_pycommon.get_scenario import get_scenario
 from link_bot_pycommon.pycommon import pathify
 from moonshine.gpu_config import limit_gpu_mem
 from moonshine.magic import wandb_lightning_magic
@@ -24,7 +25,6 @@ from colorama import Fore
 from arc_utilities import ros_init
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_data.wandb_datasets import wandb_save_dataset
-from link_bot_planning.parallel_planning import online_parallel_planning
 from link_bot_planning.results_to_dynamics_dataset import ResultsToDynamicsDataset
 from link_bot_pycommon.job_chunking import JobChunker
 from mde import train_test_mde
@@ -38,7 +38,7 @@ limit_gpu_mem(None)  # just in case TF is used somewhere
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
-    parser.add_argument("--on-exception", default='retry')
+    parser.add_argument("--on-exception", default='raise')
 
     args = parser.parse_args()
 
@@ -49,7 +49,7 @@ def main():
         print("You forgot to put the seed in the nickname!")
         return
 
-    root = pathlib.Path("/media/shared/online_adaptation")
+    root = pathlib.Path("/media/shared/real_online_adaptation")
     outdir = root / args.nickname
     outdir.mkdir(exist_ok=True, parents=True)
     print(Fore.YELLOW + "Output directory: {}".format(outdir) + Fore.RESET)
@@ -84,7 +84,7 @@ def main():
     job_chunker.store_result('unadapted_run_id', unadapted_run_id)
 
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
-                                                               'planner_configs/val_car/mde_online_learning.hjson')
+                                                               'planner_configs/val_car/real_online_learning.hjson')
     test_scenes_dir = job_chunker.load_prompt_filename('test_scenes_dir', 'test_scenes/car5_real')
     iterations = int(job_chunker.load_prompt('iterations', 10))
     n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
@@ -97,6 +97,7 @@ def main():
 
     all_trial_indices = list(get_all_scene_indices(test_scenes_dir))
     trial_indices_generator = chunked(itertools.cycle(all_trial_indices), n_trials_per_iteration)
+    scenario = get_scenario("real_val_with_robot_feasibility_checking", {'rope_name': 'none'})
 
     # initialize with unadapted model
     dynamics_dataset_dirs = []
@@ -107,7 +108,7 @@ def main():
 
         sub_chunker_i = job_chunker.sub_chunker(f'iter{i}')
 
-        prev_mde = "None"
+        prev_mde = None
         if i != 0:
             prev_sub_chunker = job_chunker.sub_chunker(f'iter{i - 1}')
             prev_dynamics_run_id = prev_sub_chunker.get("dynamics_run_id")
@@ -125,31 +126,26 @@ def main():
             t0 = perf_counter()
             planning_outdir = outdir / 'planning_results' / f'iteration_{i}'
             planning_outdir.mkdir(exist_ok=True, parents=True)
-            n_parallel = min(int(multiprocessing.cpu_count() / 6), 2)
-            print(f"{n_parallel=}")
-            evaluate_planning(planner_params=planner_params_filename,
+
+            planner_params = load_planner_params(planner_params_filename)
+            planner_params['method_name'] = method_name
+            planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
+            planner_params["classifier_model_dir"] = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+            if prev_mde is not None:
+                planner_params["classifier_model_dir"].append(prev_mde)
+            evaluate_planning(planner_params=planner_params,
                               outdir=outdir,
-                              trials=args.trials,
-                              verbose=args.verbose,
+                              scenario=scenario,
+                              verbose=1,
+                              trials=planning_trials,
                               how_to_handle=args.on_exception,
-                              test_scenes_dir=args.test_scenes_dir,
-                              seed=args.seed)
-            online_parallel_planning(planner_params=planner_params_filename,
-                                     method_name=method_name,
-                                     dynamics=f'p:model-{prev_dynamics_run_id}:latest',
-                                     mde=prev_mde,
-                                     n_parallel=n_parallel,
-                                     outdir=planning_outdir,
-                                     test_scenes_dir=test_scenes_dir,
-                                     trials=planning_trials,
-                                     seed=seed,
-                                     how_to_handle=args.on_exception)
+                              test_scenes_dir=test_scenes_dir,
+                              seed=seed)
             sub_chunker_i.store_result('planning_outdir', planning_outdir.as_posix())
             dt = perf_counter() - t0
             sub_chunker_i.store_result('planning_outdir_dt', dt)
 
         # convert the planning results to a dynamics dataset
-        # NOTE: if we use random data collection on iter0 this will already be set so conversion will be skipped
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
         if dynamics_dataset_name is None:
             t0 = perf_counter()
@@ -252,4 +248,5 @@ def main():
 
 
 if __name__ == '__main__':
+    np.set_printoptions(suppress=True, precision=4, linewidth=200)
     main()

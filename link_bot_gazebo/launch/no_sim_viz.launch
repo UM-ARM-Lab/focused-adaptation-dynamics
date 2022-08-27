@@ -1,5 +1,5 @@
 <launch>
-    <group ns="hdt_michgian">
+    <group ns="hdt_michigan">
         <include file="$(find hdt_michigan_moveit)/launch/planning_context.launch">
             <arg name="no_gripper_collisions" value="true"/>
             <arg name="with_husky" value="true"/>

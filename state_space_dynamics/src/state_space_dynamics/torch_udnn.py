@@ -208,8 +208,6 @@ class UDNN(pl.LightningModule):
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         self.log('test_loss', test_losses['loss'])
-        # rope_error = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
-        # print(torch.quantile(rope_error.reshape(-1), 0.9))
 
         return test_losses['loss']
 

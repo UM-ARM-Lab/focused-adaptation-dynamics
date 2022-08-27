@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import torch
 
+from link_bot_pycommon.base_dual_arm_rope_scenario import BaseDualArmRopeScenario
 from moonshine.numpify import numpify
 from moonshine.torch_and_tf_utils import remove_batch, add_batch
 from moonshine.torch_utils import sequence_of_dicts_to_dict_of_tensors, dict_of_tensors_to_sequence_of_dicts
@@ -22,8 +23,8 @@ class TorchUDNNDynamicsWrapper:
 
     def __init__(self, checkpoint: str, scenario: Optional = None):
         self.model: UDNN = load_udnn_model_wrapper(checkpoint)
-        #self.model.with_joint_positions was previously hardcoded to True
-        self.model.with_joint_positions = 'joint_positions' in self.model.data_collection_params['state_description']
+        self.model.with_joint_positions = 'joint_positions' in self.model.data_collection_params[
+            'state_description'] or isinstance(scenario, BaseDualArmRopeScenario)
         self.model.eval()
         self.horizon = 2
         self.name = 'MDE'

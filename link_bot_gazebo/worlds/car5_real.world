@@ -22,7 +22,7 @@
         <plugin name="collision_map_plugin" filename="libcollision_map_plugin.so"/>
 
         <model name="moveit_plugin_model">
-            <pose>0 0 0.145 0 0 0</pose>
+            <pose>0 0 0 0 0 0</pose>
             <plugin name="gazebo_ros_moveit_planning_scene" filename="libgazebo_ros_moveit_planning_scene.so">
                 <robotName>hdt_michigan</robotName> <!-- controls the robot name in the scene msg -->
                 <robotNamespace>hdt_michigan</robotNamespace> <!-- controls the publisher topic name -->
@@ -32,24 +32,24 @@
         </model>
 
         <include>
-            <uri>model://box_floor</uri>
-            <pose>0 0 -0.191705 0 0 0</pose>
-        </include>
-
-        <include>
             <uri>model://sun</uri>
         </include>
 
         <include>
             <uri>model://car_scene5_real</uri>
-            <pose>0.247 0.743 -0.363 0 0 -1.570796</pose>
+<!--            <pose>0.247 0.743 -0.363 0 0 -1.570796</pose>-->
+            <pose>0.0384 0.9494 -0.1611 0 0</pose>
         </include>
 
+        <include>
+            <uri>model://box_floor</uri>
+            <pose>0 0 -0.21 0 0 0</pose>
+        </include>
 
         <include>
             <name>left_wall</name>
             <uri>model://fake_wall</uri>
-            <pose>-0.85 0 0 0 0 1.5707</pose>
+            <pose>-0.8 0 0 0 0 1.5707</pose>
         </include>
 
         <include>

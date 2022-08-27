@@ -45,6 +45,8 @@ def metrics_main(args):
     plt.savefig(outdir / "success_given_solved.png")
     fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
     fig, ax = barplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?', ci=90)
+    ax.set_ylim(-0.02, 1.02)
+    plt.savefig(outdir / "plans_found.png")
     fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")

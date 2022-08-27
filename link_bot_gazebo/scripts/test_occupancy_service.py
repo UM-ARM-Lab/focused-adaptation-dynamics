@@ -37,6 +37,7 @@ def main():
 
         try:
             environment = get_environment_for_extents_3d(extent=extent_3d,
+                                                         frame='robot_root',
                                                          res=res,
                                                          service_provider=services,
                                                          excluded_models=['hdt_michigan', 'rope_3d'])

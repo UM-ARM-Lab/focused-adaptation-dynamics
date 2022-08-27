@@ -2,11 +2,8 @@
 import argparse
 import pathlib
 import re
-from datetime import datetime, timedelta
-from itertools import chain
-from time import strftime
 
-from colorama import Fore, Style
+from colorama import Style, Fore
 
 from moonshine.filepath_tools import load_hjson
 
@@ -51,81 +48,74 @@ def main():
                     completed_iters += 1
                 else:
                     break
-
-        last_updated = None
-        for hjson_path in chain(run_dir.rglob("*.hjson"), run_dir.rglob("*.stdout")):
-            time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
-            if last_updated is None or time > last_updated:
-                last_updated = time
-
         if name not in iterations_completed_map:
             iterations_completed_map[name] = {}
-        iterations_completed_map[name][seed] = (full_run_name, completed_iters, last_updated)
+        iterations_completed_map[name][seed] = (full_run_name, completed_iters)
 
     post_learning_evaluations_map = {}
     planning_eval_root = pathlib.Path("/media/shared/planning_results")
     for planning_eval_dir in planning_eval_root.iterdir():
         if not planning_eval_dir.is_dir():
             continue
-        for full_run_name, run_name in full_run_names_map.items():
-            if re.match(f"{full_run_name}_iter2-{planner_config_name}", planning_eval_dir.name):
+        for full_run_name, _ in full_run_names_map.items():
+            m = re.search(f"{full_run_name}_iter(\d+)-{planner_config_name}", planning_eval_dir.name)
+            if m:
+                eval_at_iter = int(m.group(1))
                 n_evals = len(list(planning_eval_dir.glob("*_metrics.pkl.gz")))
-                if run_name not in post_learning_evaluations_map:
-                    post_learning_evaluations_map[run_name] = 0
-                post_learning_evaluations_map[run_name] += n_evals
+                if full_run_name not in post_learning_evaluations_map:
+                    post_learning_evaluations_map[full_run_name] = {}
+                post_learning_evaluations_map[full_run_name][eval_at_iter] = n_evals
+    post_learning_evaluations_map = dict(sorted(post_learning_evaluations_map.items()))
 
-    print_status(iterations_completed_map, post_learning_evaluations_map)
-    print('')
+    print_status(post_learning_evaluations_map)
+    print()
     print('-' * 64)
-    print('')
-    print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name)
+    print()
+    print_things_to_run(iterations_completed_map, planner_config_name)
 
 
-def print_status(iterations_completed_map, post_learning_evaluations_map):
-    n_seeds = 10
-    n_total_evals = n_seeds * 24
-    # print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
-    # for name, runs_for_name in iterations_completed_map.items():
-    #     print(f"{name}")
-    #     for seed, (_, completed_iters, last_updated) in runs_for_name.items():
-    #         if completed_iters == 10:
-    #             color = Style.DIM
-    #             dt_str = ""
-    #         else:
-    #             color = ''
-    #             dt = datetime.now() - last_updated
-    #             if dt > timedelta(minutes=10):
-    #                 dt_color = Fore.RED
-    #             else:
-    #                 dt_color = Fore.GREEN
-    #             hours, remainder = divmod(dt.seconds, 3600)
-    #             minutes, seconds = divmod(remainder, 60)
-    #             dt_str = dt_color + f"Last Updated {hours}hr {minutes}m {seconds}s" + Fore.RESET
-    #         print(color + f"\tSeed {seed} Completed: {completed_iters}/10 {dt_str}" + Style.RESET_ALL)
-    # print('')
-
-    print(Style.BRIGHT + "Post-Learning Evaluations:" + Style.RESET_ALL)
-    for name, n_evals in post_learning_evaluations_map.items():
-        print(f"{name:20s} {n_evals:4d}/{n_total_evals}")
+def print_status(post_learning_evaluations_map):
+    import tabulate
+    table = []
+    headers = ['run'] + [f'iter{i}' for i in range(10)]
+    for run_name, evals in post_learning_evaluations_map.items():
+        row = [0] * 11
+        row[0] = f"{run_name:30s}"
+        for i in range(10):
+            if i in evals:
+                n_evals = evals[i]
+            else:
+                n_evals = 0
+            if n_evals == 0:
+                color = Style.DIM
+            elif n_evals >= 20:
+                color = Style.DIM + Fore.GREEN
+            else:
+                color = Fore.YELLOW
+            row[i + 1] = color + str(n_evals) + Style.RESET_ALL
+        table.append(row)
+    print(tabulate.tabulate(table, headers=headers, tablefmt='simple'))
 
 
-def print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name):
-    print("Things to run:")
+def print_things_to_run(iterations_completed_map, planner_config_name):
+    full_cmds = []
     for name, runs_for_name in iterations_completed_map.items():
-        for seed in range(10):
-            if seed not in runs_for_name:
-                print(f"./scripts/online_rope_sim.py {name}-{seed}")
-    print('')
-    for name, runs_for_name in iterations_completed_map.items():
-        for seed, (full_run_name, completed_iters, _) in runs_for_name.items():
-            # for name, n_evals in post_learning_evaluations_map.items():
-            online_is_done = (completed_iters == 10)
+        for seed, (full_run_name, _) in runs_for_name.items():
             planning_eval_root = pathlib.Path("/media/shared/planning_results")
-            post_learning_eval_started = (planning_eval_root / f"{full_run_name}_iter2-{planner_config_name}").exists()
-            if online_is_done and not post_learning_eval_started:
+            post_learning_eval_done = True
+            for iter_idx in range(10):
+                if not (planning_eval_root / f"{full_run_name}_iter{iter_idx}-{planner_config_name}").exists():
+                    post_learning_eval_done = False
+            if not post_learning_eval_done:
                 planner_config_path = f"planner_configs/val_car/{planner_config_name}.hjson"
                 online_learning_dir = f"/media/shared/online_adaptation/{full_run_name}"
-                print(f"./scripts/evaluate_online_iter.py {planner_config_path} {online_learning_dir} 2")
+                cmd = f"./scripts/evaluate_online_iter.py {planner_config_path} {online_learning_dir} $i -y"
+                full_cmd = f"for i in {{0..9}}; do {cmd}; done;"
+                full_cmds.append(full_cmd)
+    full_cmds = sorted(full_cmds)
+
+    for full_cmd in full_cmds:
+        print(full_cmd)
 
 
 def get_name_and_seed(run_dir):

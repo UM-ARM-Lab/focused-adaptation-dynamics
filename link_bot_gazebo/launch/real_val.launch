@@ -4,6 +4,10 @@
     <arg name="gui" default="true"/>
     <arg name="robot_description" default="hdt_michigan/robot_description"/>
 
+    <node pkg="tf2_ros" type="static_transform_publisher" name="world_broadcaster" required="true"
+          args="0 0 0 0 0 0 robot_root world">
+    </node>
+
     <!-- launch joystick -->
     <node name="xbox_joystick" pkg="joy" type="joy_node">
         <param name="dev"

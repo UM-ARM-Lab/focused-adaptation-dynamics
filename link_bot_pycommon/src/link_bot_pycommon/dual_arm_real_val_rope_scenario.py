@@ -1,18 +1,21 @@
 from copy import deepcopy
+from time import sleep
 from typing import Dict, Optional
 
 import numpy as np
+from pyrope_reset_planner import RopeResetPlanner, PlanningResult
 
 import ros_numpy
-import rosbag
 import rospy
+from arm_robots.cartesian import pose_distance
+from arm_robots.robot import RobotPlanningError
+from geometry_msgs.msg import Pose, Quaternion
 from link_bot_pycommon.base_dual_arm_rope_scenario import BaseDualArmRopeScenario
-from link_bot_pycommon.base_services import BaseServices
 from link_bot_pycommon.dual_arm_rope_action import dual_arm_rope_execute_action
 from link_bot_pycommon.get_cdcpd_state import GetCdcpdState
 from link_bot_pycommon.get_joint_state import GetJointState
+from moveit_msgs.msg import DisplayTrajectory
 from moveit_msgs.srv import GetMotionPlan
-from sensor_msgs.msg import JointState
 from tf.transformations import quaternion_from_euler
 
 
@@ -33,7 +36,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         super().__init__('hdt_michigan', params)
         self.fast = False
         self.left_preferred_tool_orientation = quaternion_from_euler(1.060, -1.351, -3.035)
-        self.right_preferred_tool_orientation = quaternion_from_euler(-2.391, -1.478, 1.373)
+        self.right_preferred_tool_orientation = quaternion_from_euler(-2.309, -1.040, 1.251)
 
         self.get_joint_state = GetJointState(self.robot)
         self.get_cdcpd_state = GetCdcpdState(self.tf, self.root_link)
@@ -115,53 +118,85 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def get_excluded_models_for_env(self):
         return []
 
-    def restore_from_bag(self, service_provider: BaseServices, params: Dict, bagfile_name, force=False):
-        service_provider.restore_from_bag(bagfile_name)
+    def reset_to_start(self, planner_params: Dict, start: Dict):
+        self.robot.store_tool_orientations({
+            'left_tool':  self.left_preferred_tool_orientation,
+            'right_tool': self.right_preferred_tool_orientation,
+        })
 
-        # reset
-        reset_config = dict(params['real_val_rope_reset_joint_config'])
+        left_tool_post_planning_pose = Pose()
+        left_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, self.left_preferred_tool_orientation)
+        left_tool_post_planning_pose.position.x = -0.2
+        left_tool_post_planning_pose.position.y = 0.6
+        left_tool_post_planning_pose.position.z = 0.34
+        right_tool_post_planning_pose = deepcopy(left_tool_post_planning_pose)
+        right_tool_post_planning_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
+        right_tool_post_planning_pose.position.x = 0.2
 
-        current_joint_positions = np.array(self.robot.get_joint_positions(reset_config.keys()))
-        reset_joint_positions = np.array(list(reset_config.values()))
-        near_start = np.max(np.abs(reset_joint_positions - current_joint_positions)) < 0.02
-        if not near_start or not self.robot.is_right_gripper_closed() or force:
-            # move to reset position
-            graph_rope_config = dict(params['real_val_rope_reset_joint_config2'])
-            self.robot.plan_to_joint_config("both_arms", graph_rope_config)
+        left_start_pose = Pose()
+        left_start_pose.orientation = ros_numpy.msgify(Quaternion, self.left_preferred_tool_orientation)
+        left_start_pose.position.x = -0.2
+        left_start_pose.position.y = 0.45
+        left_start_pose.position.z = 0.6
+        right_start_pose = deepcopy(left_start_pose)
+        right_start_pose.position.x = 0.2
+        right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
-            rospy.sleep(15)
+        right_tool_grasp_pose = Pose()
+        right_tool_grasp_pose.position.x = 0.1
+        right_tool_grasp_pose.position.y = 0.3
+        right_tool_grasp_pose.position.z = 0.91
+        right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
-            tool_names = ['left_tool', 'right_tool']
+        left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.82
+        left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
+                                                            quaternion_from_euler(0, np.pi / 2, 0))
 
-            old_tool_orientations = deepcopy(self.robot.stored_tool_orientations)
-            self.robot.store_current_tool_orientations(tool_names)
-            current_right_pos = ros_numpy.numpify(self.robot.get_link_pose('right_tool').position)
+        initial_left_pose = self.robot.get_link_pose("left_tool")
+        initial_right_pose = self.robot.get_link_pose("right_tool")
+        left_pose_error = pose_distance(left_start_pose, initial_left_pose)
+        right_pose_error = pose_distance(right_start_pose, initial_right_pose)
+        if left_pose_error < 0.05 and right_pose_error < 0.05:
+            print("Already at start!")
+            return
 
-            # move up
-            left_up = ros_numpy.numpify(self.robot.get_link_pose('left_tool').position) + np.array([0, 0, 0.1])
-            self.robot.follow_jacobian_to_position('both_arms', tool_names, [[left_up], [current_right_pos]])
+        both_tools = ['left_tool', 'right_tool']
 
-            # go to the start config
-            self.robot.plan_to_joint_config("both_arms", reset_config)
+        rrp = RopeResetPlanner()
 
-            # restore old tool orientations
-            if old_tool_orientations is not None:
-                self.robot.store_tool_orientations(old_tool_orientations)
+        print("Planning to grasp")
+        plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
+        self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
 
-        self.plan_to_bag_joint_config(bagfile_name)
+        # wait for rope to stop swinging
+        print("Waiting for rope to settle")
+        sleep(10)
 
-        # wait for CDCPD to catch up
-        rospy.sleep(30)
+        # servo left hand to where the right hand ended up
+        right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
+        left_precise = ros_numpy.numpify(left_tool_grasp_pose.position)
 
-    def plan_to_bag_joint_config(self, bagfile_name):
-        with rosbag.Bag(bagfile_name) as bag:
-            joint_state: JointState = next(iter(bag.read_messages(topics=['joint_state'])))[1]
-        joint_config = {}
-        # NOTE: this will not work on victor because grippers don't work the same way
-        for joint_name in self.robot.get_joint_names("both_arms"):
-            index_of_joint_name_in_state_msg = joint_state.name.index(joint_name)
-            joint_config[joint_name] = joint_state.position[index_of_joint_name_in_state_msg]
-        self.robot.plan_to_joint_config("both_arms", joint_config)
+        robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
+        left_precise[0] = robot2right_hand[0, 3]
+        left_precise[1] = robot2right_hand[1, 3]
+        self.robot.store_current_tool_orientations(both_tools)
+        self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_precise], [right_grasp_position_np]])
+
+        sleep(1)
+        left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .2])
+        robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
+        left_up[0] = robot2right_hand[0, 3]
+        left_up[1] = robot2right_hand[1, 3]
+        self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
+
+        left_arm_joint_names = self.robot.get_joint_names('left_arm')
+        left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
+        left_flip_config[-1] -= np.pi
+        self.robot.plan_to_joint_config('left_arm', left_flip_config)
+
+        print("Planning to start")
+        plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
 
     def randomize_environment(self, env_rng: np.random.RandomState, params: Dict):
         raise NotImplementedError()
@@ -175,3 +210,45 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
     def grasp_rope_endpoints(self, *args, **kwargs):
         pass
+
+
+def plan_to_start(left_start_pose, right_start_pose, rrp, val):
+    for _ in range(3):
+        pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
+        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.73,
+                                                   orientation_path_tolerance=0.5, orientation_goal_tolerance=0.1,
+                                                   timeout=60)
+        display_msg = DisplayTrajectory()
+        display_msg.trajectory.append(result.traj)
+        for _ in range(5):
+            rospy.sleep(0.1)
+            pub.publish(display_msg)
+
+        if result.status != "Exact solution":
+            print("BAD SOLUTION!!!")
+            continue
+        else:
+            result.traj.joint_trajectory.header.stamp = rospy.Time.now()
+            val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
+            return
+
+    raise RobotPlanningError("failed to plan to start")
+
+
+def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
+    pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
+    orientation_path_tol = 0.4
+    result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.2, 20)
+
+    display_msg = DisplayTrajectory()
+    display_msg.trajectory.append(result.traj)
+
+    for _ in range(5):
+        rospy.sleep(0.1)
+        pub.publish(display_msg)
+
+    if result.status != "Exact solution":
+        raise RobotPlanningError("could not plan to grasp!")
+
+    result.traj.joint_trajectory.header.stamp = rospy.Time.now()
+    val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
