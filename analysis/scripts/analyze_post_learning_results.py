@@ -4,10 +4,9 @@ import pathlib
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 
 from analysis.analyze_results import planning_results
-from analysis.results_figures import barplot, violinplot, boxplot
+from analysis.results_figures import lineplot
 from arc_utilities import ros_init
 from moonshine.gpu_config import limit_gpu_mem
 
@@ -15,19 +14,16 @@ limit_gpu_mem(None)
 
 
 def metrics_main(args):
-    outdir, df = planning_results(args.results_dirs, args.regenerate)
-
-    # Filter the rows to keep only the trails with the same planning conditions
-    # df = df_where(df, 'max_extensions_param', 5_000)
-    # df = df_where(df, 'max_attempts', 3)
-    # df = df_where(df, 'max_planning_attempts', 3)
+    root = pathlib.Path("/media/shared/planning_results/")
+    results_dirs = list(root.glob(args.name + "*"))
+    outdir, df = planning_results(results_dirs, args.regenerate)
 
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {
         # order here matters
-        'all_data_no_mde': 'all_data_no_mde',
-        'all_data':        'all_data',
-        '':                'adaptation',
+        'all_data_no_mde': 'AllDataNoMde',
+        'all_data':        'AllData',
+        '':                'Adaptation (ours)',
     }
 
     method_names = []
@@ -40,19 +36,26 @@ def metrics_main(args):
     df['method_name'] = method_names
     df = df.sort_values("method_name")
 
-    fig, ax = barplot(df, outdir, 'method_name', 'success_given_solved', 'Success (given solved)', ci=90)
+    iter_key = 'ift_iteration'
+
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success_given_solved',
+                       title='Success (given plan found)',
+                       ci=90)
     ax.set_ylim(-0.02, 1.02)
-    plt.savefig(outdir / "success_given_solved.png")
-    fig, ax = boxplot(df, outdir, 'method_name', 'normalized_model_error', 'Model Error')
-    fig, ax = barplot(df, outdir, 'method_name', 'any_solved', 'Plans Found?', ci=90)
+    plt.savefig(outdir / "success_given_plan_found.png")
+
+    lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error', ci=90)
+
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan Found', ci=90)
     ax.set_ylim(-0.02, 1.02)
-    plt.savefig(outdir / "plans_found.png")
-    fig, ax = barplot(df, outdir, 'method_name', 'success', 'Success', ci=90)
+    plt.savefig(outdir / "plan_found.png")
+
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success', ci=90)
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")
-    # fig, ax = boxplot(df, outdir, 'method_name', 'task_error', 'Task Error')
-    # fig, ax = boxplot(df, outdir, 'method_name', 'combined_error', 'Combined Error')
-    plt.show()
+
+    if not args.no_plot:
+        plt.show()
 
 
 @ros_init.with_ros("analyse_online_results")
@@ -60,7 +63,7 @@ def main():
     pd.options.display.max_rows = 999
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('results_dirs', help='results directory', type=pathlib.Path, nargs='+')
+    parser.add_argument('name', help='results directory', type=str)
     parser.add_argument('--no-plot', action='store_true')
     parser.add_argument('--regenerate', action='store_true')
     parser.add_argument('--style', default='paper')
@@ -69,8 +72,7 @@ def main():
     args = parser.parse_args()
 
     plt.style.use(args.style)
-    # plt.rcParams['figure.figsize'] = (20, 10)
-    # sns.set(rc={'figure.figsize': (4, 1)})
+    plt.rcParams['figure.figsize'] = (20, 10)
 
     metrics_main(args)
 
