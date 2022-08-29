@@ -23,24 +23,23 @@ class WateringOmpl(ScenarioOmpl):
     def numpy_to_ompl_state(state_np: Dict, state_out: ob.CompoundState):
         for i in range(2):
             state_out[0][i] = np.float64(state_np['controlled_container_pos'][i])
-        state_out[0][2] = np.float64(0.)
+        state_out[0][2] = np.float64(state_np['controlled_container_angle'][0])
         for i in range(2):
             state_out[1][i] = np.float64(state_np['target_container_pos'][i])
-        state_out[0][2] = np.float64(0.)
-        state_out[2][0] = np.float64(state_np['controlled_container_angle'][0])
-        state_out[3][0] = np.float64(state_np['control_volume'][0])
-        state_out[4][0] = np.float64(state_np['target_volume'][0])
-        state_out[5][0] = np.float64(state_np['num_diverged'][0])
+        state_out[1][2] = np.float64(0)
+        state_out[2][0] = np.float64(state_np['control_volume'][0])
+        state_out[3][0] = np.float64(state_np['target_volume'][0])
+        state_out[4][0] = np.float64(state_np['num_diverged'][0])
 
     @staticmethod
     def ompl_state_to_numpy(ompl_state: ob.CompoundState):
         ompl_state = {
             'controlled_container_pos':   np.array([ompl_state[0][0], ompl_state[0][1]]),
             'target_container_pos':       np.array([ompl_state[1][0], ompl_state[1][1]]),
-            'controlled_container_angle': np.array([ompl_state[2][0]]),
-            'control_volume':             np.array([ompl_state[3][0]]),
-            'target_volume':              np.array([ompl_state[4][0]]),
-            'num_diverged':               np.array([ompl_state[5][0]]),
+            'controlled_container_angle': np.array([ompl_state[0][2]]),
+            'control_volume':             np.array([ompl_state[2][0]]),
+            'target_volume':              np.array([ompl_state[3][0]]),
+            'num_diverged':               np.array([ompl_state[4][0]]),
             'error':                      np.zeros(1, dtype=np.float64),
         }
         return ompl_state
@@ -53,9 +52,11 @@ class WateringOmpl(ScenarioOmpl):
         delta_angle = np.array(ompl_control[0][2])
         target_pos = current_pos + delta_pos
         target_angle = current_angle + delta_angle
+        assert len(target_pos.shape) == len(target_angle.shape)
+
         return {
             'controlled_container_target_pos':   target_pos,
-            'controlled_container_target_angle': np.array([target_angle]),
+            'controlled_container_target_angle': target_angle,
         }
 
     def make_goal_region(self,
@@ -80,7 +81,7 @@ class WateringOmpl(ScenarioOmpl):
 
         self.add_container_subspace(state_space, 'controlled_container')
         self.add_container_subspace(state_space, 'target_container')
-        self.add_1d_subspace(state_space, "controlled_container_angle")
+        #self.add_1d_subspace(state_space, "controlled_container_angle")
         self.add_volume_subspace(state_space, 'control_volume')
         self.add_volume_subspace(state_space, 'target_volume')
 
@@ -96,7 +97,7 @@ class WateringOmpl(ScenarioOmpl):
         def _state_sampler_allocator(state_space):
             return WateringStateSampler(state_space,
                                         scenario_ompl=self,
-                                        extent=self.planner_params['extent'],
+                                        extent=self.planner_params['state_sampler_extent'],
                                         rng=self.state_sampler_rng,
                                         target_container_pos=self._target_container_pos,
                                         plot=self.plot)
@@ -123,8 +124,8 @@ class WateringOmpl(ScenarioOmpl):
     def add_volume_subspace(self, state_space, name="container"):
         volume_subspace = ob.RealVectorStateSpace(1)
         volume_bounds = ob.RealVectorBounds(1)
-        volume_bounds.setLow(-0.01)
-        volume_bounds.setHigh(1.01)
+        volume_bounds.setLow(-0.1)
+        volume_bounds.setHigh(1.5)
         volume_subspace.setBounds(volume_bounds)
         volume_subspace.setName(name)
         state_space.addSubspace(volume_subspace, weight=1)
@@ -147,8 +148,8 @@ class WateringOmpl(ScenarioOmpl):
         controlled_container_control_bounds.setHigh(0, 0.15)
         controlled_container_control_bounds.setLow(1, -0.15)
         controlled_container_control_bounds.setHigh(1, 0.15)
-        controlled_container_control_bounds.setHigh(2, -3)
-        controlled_container_control_bounds.setHigh(2, 3)
+        controlled_container_control_bounds.setHigh(2, -4)
+        controlled_container_control_bounds.setHigh(2, 4)
         controlled_container_control_space.setBounds(controlled_container_control_bounds)
         control_space.addSubspace(controlled_container_control_space)
 
@@ -288,4 +289,4 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
             self.scenario_ompl.s.plot_sampled_goal_state(goal_state_np)
 
     def maxSampleCount(self):
-        return 100
+        return 300

@@ -5,6 +5,7 @@ import multiprocessing
 import pathlib
 import warnings
 from time import perf_counter, sleep
+import numpy as np
 
 import rospkg
 from more_itertools import chunked
@@ -75,7 +76,9 @@ def main():
         return
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online_water.hjson"
-        unadapted_run_id = 'easier_pour_initial_model-9kdiv'
+        #unadapted_run_id = 'easier_pour_initial_model-9kdiv'
+        unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+
     elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
         unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
@@ -94,7 +97,7 @@ def main():
     planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
                                                                'planner_configs/watering/water_in_box.hjson')
     iterations = int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 10))
+    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 100))
     udnn_init_epochs = int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 1))
     mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
@@ -110,7 +113,8 @@ def main():
 
     mde_params_filename = mde_pkg_dir / "hparams" / "water.hjson"
 
-    all_trial_indices = [1,2]
+    #all_trial_indices = [3,4,5,6,7,8,9,10,11,12,12,13,14,15,16,17, 18,19]
+    all_trial_indices = np.arange(1,3000)
     trial_indices_generator = chunked(itertools.cycle(all_trial_indices), n_trials_per_iteration)
 
     # initialize with unadapted model
@@ -148,7 +152,7 @@ def main():
 
                 dynamics_dataset_dir_i = None
                 for dynamics_dataset_dir_i, _ in collect_dynamics_data(collect_data_params_filename,
-                                                                       n_trajs=10,
+                                                                       n_trajs=30,
                                                                        root=outdir,
                                                                        nickname=f'{args.nickname}_dynamics_dataset_{i}',
                                                                        val_split=0,
@@ -168,37 +172,40 @@ def main():
                 planner_params = load_planner_params(planner_params_filename)
                 planner_params["classifier_model_dir"] = [prev_mde, pathlib.Path("cl_trials/new_feasibility_baseline/none")]
                 planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
-                dynamics = planner_params['fwd_model_dir']
-                how_to_handle = "raise"
-                process_idx = 0
-                env = os.environ.copy()
-
-                #evaluate_planning(outdir=planning_outdir,
-                #                  planner_params=planner_params,
-                #                  trials=planning_trials,
-                #                  how_to_handle="raise",
-                #                  verbose=0,
-                #                  test_scenes_dir=None,
-                #                  seed=seed)
-                planning_cmd = [
-                    "python",
-                    "scripts/planning_evaluation2.py",
-                    planner_params_filename,
-                    outdir.as_posix(),
-                    dynamics,
-                    str(prev_mde),
-                    f"--trials={trials_set}",
-                    f"--on-exception={how_to_handle}",
-                    f"--seed={seed}",
-                    f'--method-name={method_name}',
-                ]
-                eval_stdout_filename = outdir / f'{process_idx}_eval.stdout'
-                eval_stdout_file = eval_stdout_filename.open("w")
-                planning_process = subprocess.Popen(planning_cmd, env=env, stdout=eval_stdout_file, stderr=eval_stdout_file)
-                print(f"PID: {planning_process.pid}")
-                return_code = planning_process.wait()
-                print("Return code for planning process", return_code)
-                assert return_code == 0
+                in_thread = False
+                if in_thread: 
+                    evaluate_planning(outdir=planning_outdir,
+                                      planner_params=planner_params,
+                                      trials=planning_trials,
+                                      how_to_handle="raise",
+                                      verbose=0,
+                                      test_scenes_dir=None,
+                                      seed=seed)
+                else:
+                    dynamics = planner_params['fwd_model_dir']
+                    how_to_handle = "raise"
+                    process_idx = i
+                    env = os.environ.copy()
+                
+                    planning_cmd = [
+                        "python",
+                        "scripts/planning_evaluation2.py",
+                        planner_params_filename,
+                        planning_outdir.as_posix(),
+                        dynamics,
+                        str(prev_mde),
+                        f"--trials={trials_set}",
+                        f"--on-exception={how_to_handle}",
+                        f"--seed={seed}",
+                        f'--method-name={method_name}',
+                    ]
+                    eval_stdout_filename = outdir / f'{process_idx}_eval.stdout'
+                    eval_stdout_file = eval_stdout_filename.open("w")
+                    print(planning_cmd)
+                    planning_process = subprocess.Popen(planning_cmd, env=env, stdout=eval_stdout_file, stderr=eval_stdout_file)
+                    print(f"PID: {planning_process.pid}")
+                    return_code = planning_process.wait()
+                    print("Return code for planning process", return_code)
 
 
 
@@ -209,18 +216,19 @@ def main():
         # convert the planning results to a dynamics dataset
         # NOTE: if we use random data collection on iter0 this will already be set so conversion will be skipped
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
-        metadata_dir = outdir
+        metadata_dir = None #outdir
         if dynamics_dataset_name is None:
             t0 = perf_counter()
             r = ResultsToDynamicsDataset(results_dir=planning_outdir,
                                          outname=f'{args.nickname}_dynamics_dataset_{i}',
                                          root=outdir / 'dynamics_datasets',
-                                         traj_length=None,
+                                         traj_length=10,
                                          val_split=0,
                                          test_split=0,
                                          metadata_dir=metadata_dir,
                                          visualize=False)
-            dataset_hparams_fn = outdir / dynamics_dataset_dirs[0] / "hparams.hjson"
+            #dataset_hparams_fn = outdir / dynamics_dataset_dirs[0] / "hparams.hjson"
+            dataset_hparams_fn = collect_data_params_filename #outdir / "hparams.hjson"
             dynamics_dataset_dir_i = r.run(dataset_hparams_fn = dataset_hparams_fn)
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
             dynamics_dataset_name = dynamics_dataset_dir_i.name

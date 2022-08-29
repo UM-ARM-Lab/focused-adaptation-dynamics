@@ -48,7 +48,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
-        softgym_env_name = "PourWater"
+        softgym_env_name = "PourWaterPlant"
         env_kwargs = env_arg_dict[softgym_env_name]
 
         # Generate and save the initial states for running this environment for the first time
@@ -149,9 +149,11 @@ class WaterSimScenario(ScenarioWithVisualization):
         angle_traj = np.linspace(controlled_container_angle_start, controlled_container_angle_end, steps)
         for idx, t in enumerate(np.linspace(step_size, 1, steps)):
             controlled_container_t = controlled_container_start + controlled_container_delta * t
+            controlled_container_target_angle_interpolated = np.array([angle_traj[idx]])
+            controlled_container_target_angle_interpolated = _match_2d_1d_tensor_shapes(controlled_container_t, controlled_container_target_angle_interpolated)
             action = {
                 'controlled_container_target_pos':  controlled_container_t,
-                'controlled_container_target_angle': np.array([[angle_traj[idx]]])
+                'controlled_container_target_angle': controlled_container_target_angle_interpolated
             }
             interpolated_actions.append(action)
         return interpolated_actions
@@ -208,7 +210,13 @@ class WaterSimScenario(ScenarioWithVisualization):
         current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
             action_types = ["free_space", "over_target", "tilt"]
-            action_type_probs = [0.2, 0.4, 0.4]
+            if self.is_pour_valid_for_state(state): 
+                action_type_probs = [0.2, 0.1, 0.7]
+            elif state["controlled_container_pos"][1] < 0.02: #on ground only one thing works
+                action_type_probs = [0.7, 0.3, 0.0]
+            else:
+                action_type_probs = [0.3, 0.7, 0.0]
+
             action_type = np.random.choice(action_types, p=action_type_probs)
             if action_type == "tilt":
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
@@ -299,6 +307,8 @@ class WaterSimScenario(ScenarioWithVisualization):
 
         current_pos = state["controlled_container_pos"]
         current_angle = state["controlled_container_angle"]
+        target_angle = _match_2d_1d_tensor_shapes(current_angle, target_angle)
+        assert target_angle.shape == current_angle.shape
 
         delta_pos = target_pos - current_pos
         delta_angle = target_angle - current_angle
@@ -319,6 +329,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         local_action = {"controlled_container_target_pos":   state["current_controlled_container_pos"] + delta_pos,
                         "controlled_container_target_angle": (
                                 curr_angle + delta_angle)}
+        local_action["controlled_container_target_angle"] =  _match_2d_1d_tensor_shapes(local_action["controlled_container_target_pos"], local_action["controlled_container_target_angle"])
         return local_action
 
     @staticmethod
