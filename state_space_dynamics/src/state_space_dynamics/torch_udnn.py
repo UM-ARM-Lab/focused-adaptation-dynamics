@@ -26,7 +26,10 @@ class UDNN(pl.LightningModule):
         self.save_hyperparameters()
 
         datset_params = self.hparams['dataset_hparams']
-        self.data_collection_params = datset_params['data_collection_params']
+        if 'data_collection_params' in datset_params.keys():
+            self.data_collection_params = datset_params['data_collection_params']
+        else:
+            self.data_collection_params = datset_params
         self.data_collection_params['scenario_params']['run_flex'] = False
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
@@ -38,6 +41,7 @@ class UDNN(pl.LightningModule):
         self.total_action_dim = sum([self.dataset_action_description[k] for k in self.hparams.action_keys])
         self.with_joint_positions = with_joint_positions
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
+        self.mae = torch.nn.L1Loss()
         self.loss_scaling_by_key = self.hparams.get("loss_scaling_by_key", {})
 
         in_size = self.total_state_dim + self.total_action_dim
@@ -48,7 +52,7 @@ class UDNN(pl.LightningModule):
         layers = []
         for fc_layer_size in self.hparams.fc_layer_sizes:
             layers.append(Linear(in_size, fc_layer_size))
-            layers.append(torch.nn.ReLU())
+            layers.append(torch.nn.LeakyReLU())
             in_size = fc_layer_size
         layers.append(Linear(fc_layer_size, self.total_state_dim))
 
@@ -101,7 +105,10 @@ class UDNN(pl.LightningModule):
                                                                                          j=self.scenario.robot.jacobian_follower)
             pred_states_dict['joint_positions'] = torchify(joint_positions).float()
             pred_states_dict['joint_names'] = joint_names
-
+         
+        #if inputs['controlled_container_target_angle'].item() > 0.4:
+        #    #print(inputs['controlled_container_target_pos'])
+        #    print("target volume ", pred_states_dict["target_volume"][-1][:])
         return pred_states_dict
 
     def one_step_forward(self, action_t, s_t):
@@ -124,7 +131,6 @@ class UDNN(pl.LightningModule):
             else:
                 states_and_actions += list(s_t.values())
         z_t = torch.cat(states_and_actions, -1)
-
         z_t = self.mlp(z_t)
         delta_s_t = vector_to_dict(self.state_description, z_t, self.device)
         s_t_plus_1 = self.scenario.integrate_dynamics(s_t, delta_s_t)
@@ -190,7 +196,12 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
-
+        target_poses = train_batch["controlled_container_pos"][:,1,:].reshape(-1,2)
+        pred_poses = outputs["controlled_container_pos"][:,1,:].reshape(-1,2)
+        mae = self.mae(target_poses, pred_poses)
+        self.log('pos_only_train_mae', mae)
+        self.log('target_volume_train_mae', self.mae(train_batch["target_volume"][:,1].flatten(), outputs["target_volume"][:,1].flatten()))
+        self.log('control_volume_train_mae', self.mae(train_batch["control_volume"][:,1].flatten(), outputs["control_volume"][:,1].flatten()))
         return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
@@ -201,9 +212,17 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
         self.log('val_loss', val_losses['loss'])
+        target_poses = val_batch["controlled_container_pos"][:,1,:].reshape(-1,2)
+        pred_poses = val_udnn_outputs["controlled_container_pos"][:,1,:].reshape(-1,2)
+        mae = self.mae(target_poses, pred_poses)
+        self.log('pos_only_val_mae', mae)
+        self.log('target_volume_val_mae', self.mae(val_batch["target_volume"][:,1].flatten(), val_udnn_outputs["target_volume"][:,1].flatten()))
+        self.log('control_volume_val_mae', self.mae(val_batch["control_volume"][:,1].flatten(), val_udnn_outputs["control_volume"][:,1].flatten()))
+ 
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
+        import ipdb; ipdb.set_trace()
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)

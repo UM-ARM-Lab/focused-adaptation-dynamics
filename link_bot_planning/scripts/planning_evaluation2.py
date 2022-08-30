@@ -41,7 +41,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('planner_params', type=pathlib.Path, help='planner params hjson file')
-    parser.add_argument("test_scenes_dir", type=pathlib.Path)
+    #parser.add_argument("test_scenes_dir", type=pathlib.Path)
     parser.add_argument("outdir", type=pathlib.Path, help='used in making the output directory')
     parser.add_argument('dynamics', type=pathlib.Path)
     parser.add_argument('mde', type=pathlib.Path)
@@ -53,12 +53,9 @@ def main():
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
 
     args = parser.parse_args()
+    args.test_scenes_dir = None
 
     outdir = args.outdir
-
-    if not args.test_scenes_dir.exists():
-        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
-        return
 
     if args.trials is None:
         args.trials = list(get_all_scene_indices(args.test_scenes_dir))
@@ -88,7 +85,7 @@ def main():
     if not args.yes and args.mde is not None:
         check_mde_and_dynamics_match(args.dynamics, args.mde)
 
-    rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
+    #rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
 
     evaluate_planning(outdir=outdir,
                       planner_params=planner_params,

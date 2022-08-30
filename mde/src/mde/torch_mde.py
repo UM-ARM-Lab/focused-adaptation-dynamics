@@ -35,7 +35,11 @@ class MDE(pl.LightningModule):
         self.save_hyperparameters()
 
         datset_params = self.hparams['dataset_hparams']
-        data_collection_params = datset_params['data_collection_params']
+        if 'data_collection_params' not in datset_params:
+            data_collection_params = datset_params
+        else:
+            data_collection_params = datset_params['data_collection_params']
+
         self.scenario = get_scenario(self.hparams.scenario, params=data_collection_params['scenario_params'])
 
         self.local_env_h_rows = self.hparams['local_env_h_rows']

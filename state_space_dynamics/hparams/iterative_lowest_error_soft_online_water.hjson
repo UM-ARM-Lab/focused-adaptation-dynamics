@@ -4,9 +4,9 @@
   iterative_lowest_error: true
   soft_masking: true
   low_initial_error: false
-  mask_threshold: 0.08
-  train_mode: all
-  val_mode: all
+  mask_threshold: 0.15
+  train_mode: train 
+  val_mode: val
   state_metadata_keys: []
   state_keys: [
     controlled_container_pos
@@ -22,13 +22,14 @@
   fc_layer_sizes: [
     1024
     1024
-    1024
+    1024 
     1024
   ]
   learning_rate: 0.001
   loss_scaling_by_key: {
-    target_volume : 0.1
-    control_volume : 0.1
+    target_volume : 0.55
+    control_volume : 0.55
+    controlled_container_target_angle : 0.3
   }
 }
 

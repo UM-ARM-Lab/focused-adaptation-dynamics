@@ -1,8 +1,7 @@
 {
-  accept_type: strict
   method_name: mde
   smooth: true
-  max_shortcut_length: 8
+  max_shortcut_length: 20
   n_shortcut_attempts: 85
   service_provider: softgym
   scenario_params: {
@@ -10,8 +9,8 @@
     k_angle: 2.0
     controller_max_horizon: 80
     run_flex: true
-    gui: false
-    max_dist_for_pour : 0.1
+    gui: 0
+    max_dist_for_pour : 0.10
     max_move_dist : 0.2
   }
   goal_params: {
@@ -22,12 +21,12 @@
     threshold: 0.02
   }
   termination_criteria: {
-    total_timeout: 500
-    timeout: 500
-    max_extensions: 300
+    total_timeout: 100000000
+    timeout: 100000000
+    max_extensions: 1500
     max_attempts: 1
     max_planning_attempts: 1
-    attempted_extensions_threshold: 128
+    attempted_extensions_threshold: 100
   }
-  dmax: 0.1
+  dmax: 0.3
 }

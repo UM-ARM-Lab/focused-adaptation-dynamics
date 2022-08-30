@@ -29,7 +29,7 @@ PROJECT = 'udnn'
 
 
 def load_udnn_model_wrapper(checkpoint, with_joint_positions=False):
-    model = load_model_artifact(checkpoint, UDNN, 'udnn', version='best', user='armlab',
+    model = load_model_artifact(checkpoint, UDNN, 'udnn', version='latest', user='armlab',
                                 with_joint_positions=with_joint_positions)
     model.eval()
     return model
@@ -79,7 +79,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
         ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
 
-    trainer = pl.Trainer(gpus=1,
+    trainer = pl.Trainer(gpus=0,
                          logger=wb_logger,
                          enable_model_summary=False,
                          max_epochs=epochs,

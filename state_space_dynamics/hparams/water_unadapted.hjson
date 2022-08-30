@@ -22,9 +22,10 @@
     1024
     1024
   ]
-  learning_rate: 0.001
+  learning_rate: 0.004
   loss_scaling_by_key: {
-    target_volume : 0.1
-    control_volume : 0.1
+    target_volume : 0.25
+    control_volume : 0.25
+    controlled_container_angle : 0.5
   }
 }

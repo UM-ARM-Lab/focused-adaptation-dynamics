@@ -156,6 +156,13 @@ class WaterSimScenario(ScenarioWithVisualization):
                 'controlled_container_target_angle': controlled_container_target_angle_interpolated
             }
             interpolated_actions.append(action)
+        if len(interpolated_actions) == 0: #really nothing to interpolate, just give a "null action"
+            controlled_container_angle_end_matched = _match_2d_1d_tensor_shapes(controlled_container_end, np.array([controlled_container_angle_end]))
+            null_action = {
+                'controlled_container_target_pos':  controlled_container_end,
+                'controlled_container_target_angle': controlled_container_angle_end_matched,
+            }
+            return [null_action]
         return interpolated_actions
 
     def _on_execution_complete(self, _, __, ___, is_fail=False, idx=0):

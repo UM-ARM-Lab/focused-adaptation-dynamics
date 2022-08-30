@@ -124,8 +124,8 @@ class WateringOmpl(ScenarioOmpl):
     def add_volume_subspace(self, state_space, name="container"):
         volume_subspace = ob.RealVectorStateSpace(1)
         volume_bounds = ob.RealVectorBounds(1)
-        volume_bounds.setLow(-0.1)
-        volume_bounds.setHigh(1.5)
+        volume_bounds.setLow(-2) #more conservative to allow for some dynamics errors
+        volume_bounds.setHigh(2)
         volume_subspace.setBounds(volume_bounds)
         volume_subspace.setName(name)
         state_space.addSubspace(volume_subspace, weight=1)
@@ -188,9 +188,10 @@ class WateringControlSampler(oc.ControlSampler):
             control_out[0][2] = self.rng.uniform(self.action_params["theta_min"],
                                                  self.action_params["theta_max"]) - undo_angle
         else:
-            control_out[0][0] = self.rng.uniform(-self.max_d_control, self.max_d_control)
-            control_out[0][1] = self.rng.uniform(-self.max_d_control, self.max_d_control)
+            control_out[0][0] = self.rng.uniform(-1*self.max_d_control, self.max_d_control)
+            control_out[0][1] = self.rng.uniform(-1.0*self.max_d_control, self.max_d_control)
             control_out[0][2] = -undo_angle
+            #print(state_np["controlled_container_pos"])
 
     def sampleStepCount(self, min_steps, max_steps):
         step_count = self.rng.randint(min_steps, max_steps)

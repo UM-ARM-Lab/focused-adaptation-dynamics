@@ -30,8 +30,13 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
     mde_dataset_hparams = load_params(dataset_dir)
 
     def _set_keys_hparam(mde_dataset_hparams, k1, k2):
-        mde_dataset_hparams[f'{k1}_keys'] = list(
-            mde_dataset_hparams['data_collection_params'][f'{k2}_description'].keys())
+        if 'data_collection_params' not in mde_dataset_hparams.keys():
+            mde_dataset_hparams[f'{k1}_keys'] = list(
+                mde_dataset_hparams[f'{k2}_description'].keys())
+
+        else:
+            mde_dataset_hparams[f'{k1}_keys'] = list(
+                mde_dataset_hparams['data_collection_params'][f'{k2}_description'].keys())
 
     mde_dataset_hparams['dataset_dir'] = dataset_dir.as_posix()
     mde_dataset_hparams['fwd_model_hparams'] = model.hparams

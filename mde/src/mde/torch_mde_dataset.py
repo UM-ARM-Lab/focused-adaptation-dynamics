@@ -19,7 +19,10 @@ class TorchMDEDataset(MyTorchDataset):
                  is_empty=False):
         super().__init__(dataset_dir, mode, transform, only_metadata, is_empty)
         self.model_hparams = self.params['fwd_model_hparams']
-        self.data_collection_params = self.params['data_collection_params']
+        if 'data_collection_params' in self.params.keys():
+            self.data_collection_params = self.params['data_collection_params']
+        else:
+            self.data_collection_params = self.params
         self.scenario_params = self.data_collection_params['scenario_params']
         self.state_description = self.data_collection_params['state_description']
         self.predicted_state_keys = [add_predicted(k) for k in self.model_hparams['state_keys']]

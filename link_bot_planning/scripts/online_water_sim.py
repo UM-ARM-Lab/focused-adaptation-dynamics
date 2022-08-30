@@ -78,10 +78,12 @@ def main():
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online_water.hjson"
         #unadapted_run_id = 'easier_pour_initial_model-9kdiv'
         unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+        #unadapted_run_id = "notreeunadapted_8_31-2smuh"
 
     elif method_name in ['all_data', 'all_data_no_mde']:
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
-        unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online_water.hjson"
+        #unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
+        unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
@@ -223,8 +225,8 @@ def main():
                                          outname=f'{args.nickname}_dynamics_dataset_{i}',
                                          root=outdir / 'dynamics_datasets',
                                          traj_length=10,
-                                         val_split=0,
-                                         test_split=0,
+                                         val_split=0.1,
+                                         test_split=0.1,
                                          metadata_dir=metadata_dir,
                                          visualize=False)
             #dataset_hparams_fn = outdir / dynamics_dataset_dirs[0] / "hparams.hjson"
@@ -250,8 +252,8 @@ def main():
                                                                      steps=-1,
                                                                      epochs=int(
                                                                          udnn_init_epochs + i * udnn_scale_epochs),
-                                                                     repeat=100,
-                                                                     no_val=True,
+                                                                     repeat=10,
+                                                                     no_val=False,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab',
@@ -285,12 +287,12 @@ def main():
             if i == 0:
                 mde_run_id = train_test_mde.train_main(dataset_dir=mde_dataset_dirs,
                                                        params_filename=mde_params_filename,
-                                                       batch_size=2,
+                                                       batch_size=32,
                                                        steps=-1,
                                                        epochs=int(mde_init_epochs + i * mde_scale_epochs),
-                                                       train_mode='all',
-                                                       val_mode='all',  # yes needed env if no_val=True
-                                                       no_val=True,
+                                                       train_mode='train',
+                                                       val_mode='val',  # yes needed env if no_val=True
+                                                       no_val=False,
                                                        seed=seed,
                                                        user='armlab',
                                                        nickname=f'{args.nickname}_mde_{i}',
@@ -305,9 +307,9 @@ def main():
                                                            batch_size=32,
                                                            steps=-1,
                                                            epochs=mde_init_epochs + i * mde_scale_epochs,
-                                                           train_mode='all',
-                                                           val_mode='all',
-                                                           no_val=True,
+                                                           train_mode='train',
+                                                           val_mode='val',
+                                                           no_val=False,
                                                            seed=seed,
                                                            user='armlab',
                                                            nickname=f'{args.nickname}_mde_{i}',

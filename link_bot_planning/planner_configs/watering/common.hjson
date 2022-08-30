@@ -1,6 +1,6 @@
 {
-  accept_type: strict
-  probabilistic_accept_k: 0.01
+  accept_type: probabilistic
+  probabilistic_accept_k: 0.1
   scenario: watering 
   filter_model_dir: [
     filter_trials/none/none
@@ -19,7 +19,7 @@
   accept_threshold: 0.5
   real_time_rate: 0.0
   horizon: 2
-  state_close_keys : ["controlled_container_pos"]
+  state_close_keys : ["controlled_container_pos", "target_volume", "control_volume"]
   # Local Planner Parameters
   use_local_planner: false
   service_provider: softgym
@@ -33,19 +33,18 @@
   extent: [
     -0.1
     0.6
-    -1
-    1
     -0.01
-    0.8
+    1.2
+    -0.04
+    4.14
   ]
   state_sampler_extent: [
-    # this is set to be a bit more conservative than "extent" to avoid annoying out-of-bounds edge cases
-    -0.08
-    0.54
-    -0.6
-    0.6
-    -0.02
-    0.78
+    -0.09
+    0.48
+    0.01
+    1.1
+    0.01
+    3.13
   ]
   environment_randomization: {
   }
