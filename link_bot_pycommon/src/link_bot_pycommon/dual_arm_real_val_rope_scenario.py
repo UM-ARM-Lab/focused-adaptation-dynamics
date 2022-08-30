@@ -35,7 +35,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def __init__(self, params: Optional[dict] = None):
         super().__init__('hdt_michigan', params)
         self.fast = False
-        self.left_preferred_tool_orientation = quaternion_from_euler(1.060, -1.351, -3.035)
+        self.left_preferred_tool_orientation = quaternion_from_euler(-1.801, -1.141, -0.335)
         self.right_preferred_tool_orientation = quaternion_from_euler(-2.309, -1.040, 1.251)
 
         self.get_joint_state = GetJointState(self.robot)
@@ -166,37 +166,49 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         rrp = RopeResetPlanner()
 
         print("Planning to grasp")
-        plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
-        self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
+        try:
+            # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
+            plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
 
-        # wait for rope to stop swinging
-        print("Waiting for rope to settle")
-        sleep(10)
+            # wait for rope to stop swinging
+            print("Waiting for rope to settle")
+            sleep(10)
 
-        # servo left hand to where the right hand ended up
-        right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
-        left_precise = ros_numpy.numpify(left_tool_grasp_pose.position)
+            # servo left hand to where the right hand ended up
+            right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
+            left_precise = ros_numpy.numpify(left_tool_grasp_pose.position)
 
-        robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
-        left_precise[0] = robot2right_hand[0, 3]
-        left_precise[1] = robot2right_hand[1, 3]
-        self.robot.store_current_tool_orientations(both_tools)
-        self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_precise], [right_grasp_position_np]])
+            robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
+            left_precise[0] = robot2right_hand[0, 3]
+            left_precise[1] = robot2right_hand[1, 3]
+            self.robot.store_current_tool_orientations(both_tools)
+            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_precise], [right_grasp_position_np]])
 
-        sleep(1)
-        left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .2])
-        robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
-        left_up[0] = robot2right_hand[0, 3]
-        left_up[1] = robot2right_hand[1, 3]
-        self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
+            sleep(1)
+            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .2])
+            robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
+            left_up[0] = robot2right_hand[0, 3]
+            left_up[1] = robot2right_hand[1, 3]
+            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
 
-        left_arm_joint_names = self.robot.get_joint_names('left_arm')
-        left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
-        left_flip_config[-1] -= np.pi
-        self.robot.plan_to_joint_config('left_arm', left_flip_config)
+            left_arm_joint_names = self.robot.get_joint_names('left_arm')
+            left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
+            left_flip_config[-1] -= np.pi
+            self.robot.plan_to_joint_config('left_arm', left_flip_config)
 
-        print("Planning to start")
-        plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
+            print("Planning to start")
+            plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
+        except RobotPlanningError:
+            # at this point give up and ask peter to fix the rope
+            self.robot.plan_to_poses('both_arms', both_tools, [left_start_pose, right_start_pose])
+            input("Please fix the rope!")
+
+        # restore
+        self.robot.store_tool_orientations({
+            'left_tool':  self.left_preferred_tool_orientation,
+            'right_tool': self.right_preferred_tool_orientation,
+        })
+        print("done.")
 
     def randomize_environment(self, env_rng: np.random.RandomState, params: Dict):
         raise NotImplementedError()
@@ -231,14 +243,22 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
             result.traj.joint_trajectory.header.stamp = rospy.Time.now()
             val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
             return
-
     raise RobotPlanningError("failed to plan to start")
 
 
 def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
     orientation_path_tol = 0.4
-    result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.2, 20)
+
+    while True:
+        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.2, 20)
+        if result.status == 'Invalid start':
+            orientation_path_tol += 0.1
+        else:
+            break
+
+        if orientation_path_tol >= 1:
+            raise RobotPlanningError("could not plan to grasp due to Invalid start!")
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)

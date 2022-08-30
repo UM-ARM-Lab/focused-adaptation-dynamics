@@ -134,7 +134,7 @@ def main():
             if prev_mde is not None:
                 planner_params["classifier_model_dir"].append(prev_mde)
             evaluate_planning(planner_params=planner_params,
-                              outdir=outdir,
+                              outdir=planning_outdir,
                               scenario=scenario,
                               verbose=1,
                               trials=planning_trials,

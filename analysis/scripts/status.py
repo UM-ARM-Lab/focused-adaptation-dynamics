@@ -68,10 +68,8 @@ def main():
     post_learning_evaluations_map = dict(sorted(post_learning_evaluations_map.items()))
 
     print_status(post_learning_evaluations_map)
-    print()
     print('-' * 64)
-    print()
-    print_things_to_run(iterations_completed_map, planner_config_name)
+    print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name)
 
 
 def print_status(post_learning_evaluations_map):
@@ -97,15 +95,18 @@ def print_status(post_learning_evaluations_map):
     print(tabulate.tabulate(table, headers=headers, tablefmt='simple'))
 
 
-def print_things_to_run(iterations_completed_map, planner_config_name):
+def print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name):
     full_cmds = []
     for name, runs_for_name in iterations_completed_map.items():
         for seed, (full_run_name, _) in runs_for_name.items():
-            planning_eval_root = pathlib.Path("/media/shared/planning_results")
             post_learning_eval_done = True
             for iter_idx in range(10):
-                if not (planning_eval_root / f"{full_run_name}_iter{iter_idx}-{planner_config_name}").exists():
+                if iter_idx not in post_learning_evaluations_map[full_run_name]:
                     post_learning_eval_done = False
+                else:
+                    n_evals = post_learning_evaluations_map[full_run_name][iter_idx]
+                    if n_evals < 20:
+                        post_learning_eval_done = False
             if not post_learning_eval_done:
                 planner_config_path = f"planner_configs/val_car/{planner_config_name}.hjson"
                 online_learning_dir = f"/media/shared/online_adaptation/{full_run_name}"
