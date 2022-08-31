@@ -130,11 +130,13 @@ def main():
             planner_params = load_planner_params(planner_params_filename)
             planner_params['method_name'] = method_name
             planner_params['fwd_model_dir'] = f'p:model-{prev_dynamics_run_id}:latest'
-            planner_params["classifier_model_dir"] = [pathlib.Path("cl_trials/new_feasibility_baseline/none")]
+            planner_params["classifier_model_dir"] = [pathlib.Path("cl_trials/new_feasibility_baseline/none"),
+                                                      pathlib.Path("cl_trials/gd_baseline/none")]
             if prev_mde is not None:
                 planner_params["classifier_model_dir"].append(prev_mde)
             evaluate_planning(planner_params=planner_params,
                               outdir=planning_outdir,
+                              record=True,
                               scenario=scenario,
                               verbose=1,
                               trials=planning_trials,

@@ -4,7 +4,6 @@ import pathlib
 import shutil
 from multiprocessing import get_context
 
-import numpy as np
 from tqdm import tqdm
 
 from arc_utilities import ros_init
@@ -17,12 +16,7 @@ def process_example(args):
     i, dataset, outdir = args
     example = dataset[i]
 
-    modify_pad_env(example, 70, 50, 67)
-    # jn = np.array(['front_left_wheel', 'front_right_wheel', 'rear_left_wheel', 'rear_right_wheel', 'joint56', 'joint57',
-    #                'joint41', 'joint42', 'joint43', 'joint44', 'joint45', 'joint46', 'joint47', 'leftgripper',
-    #                'leftgripper2', 'joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'rightgripper',
-    #                'rightgripper2'])
-    # example['joint_names'] = np.array(2 * [jn])
+    modify_pad_env(example, 47, 47, 60)
 
     pkl_write_example(outdir, example, example['metadata']['example_idx'])
 

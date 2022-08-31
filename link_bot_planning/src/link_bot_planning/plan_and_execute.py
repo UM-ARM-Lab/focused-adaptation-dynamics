@@ -12,7 +12,6 @@ from arm_robots.robot import RobotPlanningError
 from gazebo_msgs.msg import LinkStates
 from jsk_recognition_msgs.msg import BoundingBox
 from link_bot_classifiers import recovery_policy_utils
-from link_bot_data import dataset_utils
 from link_bot_data.dynamics_dataset import DynamicsDatasetLoader
 from link_bot_gazebo.gazebo_utils import get_gazebo_processes
 from link_bot_planning.my_planner import MyPlannerStatus, PlanningQuery, PlanningResult, MyPlanner, SetupInfo
@@ -113,7 +112,7 @@ class PlanAndExecute:
         self.goal_rng = np.random.RandomState(0)
         self.recovery_rng = np.random.RandomState(recovery_seed)
         self.seed = seed
-        self.test_scenes_dir = test_scenes_dir 
+        self.test_scenes_dir = test_scenes_dir
         self.extra_end_conditions = extra_end_conditions
         if has_keys(self.planner_params, ['recovery', 'use_recovery']):
             recovery_model_dir = pathlib.Path(self.planner_params['recovery']['recovery_model_dir'])
@@ -291,7 +290,9 @@ class PlanAndExecute:
                             rospy.loginfo("Chosen Recovery Action:")
                             rospy.loginfo(recovery_action)
                         self.service_provider.play()
+                        self.on_before_action(trial_idx, attempt_idx)
                         execution_result = self.execute_recovery_action(environment, recovery_action)
+                        self.on_after_action()
                         self.service_provider.pause()
 
                     # Extract planner data now before it goes out of scope (in C++)
@@ -307,7 +308,9 @@ class PlanAndExecute:
                 planning_attempt_idx += 1
 
                 self.service_provider.play()
+                self.on_before_action(trial_idx, attempt_idx)
                 execution_result = self.execute(planning_query, planning_result)
+                self.on_after_action()
                 self.service_provider.pause()
                 steps_data.append({
                     'type':             'executed_plan',
@@ -514,4 +517,10 @@ class PlanAndExecute:
         pass
 
     def on_before_run(self):
+        pass
+
+    def on_before_action(self, trial_idx, attempt_idx):
+        pass
+
+    def on_after_action(self):
         pass

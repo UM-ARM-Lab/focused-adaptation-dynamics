@@ -100,13 +100,18 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
         if self.verbose >= 1:
             rospy.loginfo("End randomizing env")
 
-    def on_after_planning(self, trial_idx, attempt_idx):
+    def on_before_action(self, trial_idx, attempt_idx):
         if self.record:
             self.service_provider.stop_record_trial()
-            filename = f"{trial_idx:04d}-{attempt_idx:04d}-{int(time())}.avi"
-            filename = pathlib.Path('/media/shared/captures') / self.outdir / filename
+            filename = f"{trial_idx:04d}-{attempt_idx:04d}-{int(time())}.mp4"
+            filename = pathlib.Path('/media/shared/captures/icra_2023') / self.outdir / filename
             filename.parent.mkdir(exist_ok=True, parents=True)
             self.service_provider.start_record_trial(str(filename))
+
+    def on_after_action(self):
+        if self.record:
+            sleep(1)
+            self.service_provider.stop_record_trial()
 
     def on_trial_complete(self, trial_data: Dict, trial_idx: int):
         extra_trial_data = {
@@ -118,10 +123,6 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
         trial_data.update(extra_trial_data)
         full_data_filename = get_results_filename(self.outdir, trial_idx)
         dump_gzipped_pickle(trial_data, full_data_filename)
-
-        if self.record:
-            sleep(1)
-            self.service_provider.stop_record_trial()
 
         # print some useful information
         goal = trial_data['planning_queries'][0].goal
@@ -153,7 +154,7 @@ class EvaluatePlanning(plan_and_execute.PlanAndExecute):
     def setup_test_scene(self, trial_idx: int):
         if self.record:
             self.service_provider.stop_record_trial()
-            filename = pathlib.Path('/media/shared/captures') / self.outdir / f"{trial_idx:04d}-reset.avi"
+            filename = pathlib.Path('/media/shared/captures') / self.outdir / f"{trial_idx:04d}-reset.mp4"
             filename.parent.mkdir(exist_ok=True, parents=True)
             self.service_provider.start_record_trial(str(filename))
         super().setup_test_scene(trial_idx)

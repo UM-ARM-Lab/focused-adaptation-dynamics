@@ -418,23 +418,11 @@ def get_all_results_subdirs(dirs: Union[pathlib.Path, List[pathlib.Path]], regen
     results_subdirs = []
     for dir in dirs:
         cache_filename = dir / 'results_subdirs.txt'
-        if regenerate:
-            results_subdirs_in_dir = get_results_subdirs_in_dir(dir)
-            with cache_filename.open('w') as cache_f:
-                for d in results_subdirs_in_dir:
-                    cache_f.write(d.as_posix())
-                    cache_f.write('\n')
-        else:
-            if cache_filename.exists():
-                with cache_filename.open("r") as cache_f:
-                    results_subdirs_in_dir = [pathlib.Path(l.strip("\n")) for l in cache_f.readlines()]
-            else:
-                results_subdirs_in_dir = get_results_subdirs_in_dir(dir)
-                with cache_filename.open('w') as cache_f:
-                    for d in results_subdirs_in_dir:
-                        cache_f.write(d.as_posix())
-                        cache_f.write('\n')
-
+        results_subdirs_in_dir = get_results_subdirs_in_dir(dir)
+        with cache_filename.open('w') as cache_f:
+            for d in results_subdirs_in_dir:
+                cache_f.write(d.as_posix())
+                cache_f.write('\n')
         results_subdirs.extend(results_subdirs_in_dir)
 
     return results_subdirs

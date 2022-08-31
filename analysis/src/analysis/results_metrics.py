@@ -332,7 +332,7 @@ def normalized_model_error(_: pathlib.Path, scenario: ExperimentScenario, __: Di
             total_model_error += model_error
             n_total_actions += 1
     if n_total_actions == 0:
-        return 0
+        return np.NAN
     return total_model_error / n_total_actions
 
 

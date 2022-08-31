@@ -54,6 +54,7 @@ def main():
 
     post_learning_evaluations_map = {}
     planning_eval_root = pathlib.Path("/media/shared/planning_results")
+    total_n_evals = 0
     for planning_eval_dir in planning_eval_root.iterdir():
         if not planning_eval_dir.is_dir():
             continue
@@ -62,11 +63,14 @@ def main():
             if m:
                 eval_at_iter = int(m.group(1))
                 n_evals = len(list(planning_eval_dir.glob("*_metrics.pkl.gz")))
+                total_n_evals += n_evals
                 if full_run_name not in post_learning_evaluations_map:
                     post_learning_evaluations_map[full_run_name] = {}
                 post_learning_evaluations_map[full_run_name][eval_at_iter] = n_evals
     post_learning_evaluations_map = dict(sorted(post_learning_evaluations_map.items()))
 
+    expected_total_n_evals = 20 * 10 * 30
+    print(f"{total_n_evals}/{expected_total_n_evals} ({total_n_evals/expected_total_n_evals:.0%})")
     print_status(post_learning_evaluations_map)
     print('-' * 64)
     print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name)

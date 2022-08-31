@@ -21,7 +21,7 @@ def metrics_main(args):
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {
         # order here matters
-        'all_data_no_mde': 'AllDataNoMde',
+        'all_data_no_mde': 'AllDataNoMDE',
         'all_data':        'AllData',
         '':                'Adaptation (ours)',
     }
@@ -39,18 +39,27 @@ def metrics_main(args):
     iter_key = 'ift_iteration'
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success_given_solved',
-                       title='Success (given plan found)',
+                       title='Success (given plan found) ⬆',
                        ci=90)
     ax.set_ylim(-0.02, 1.02)
+    ax.set_xlabel("Online Learning Iteration")
+    ax.set_ylabel("Success Rate")
     plt.savefig(outdir / "success_given_plan_found.png")
 
-    lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error', ci=90)
+    lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', ci=90)
+    ax.set_xlabel("Online Learning Iteration")
+    ax.set_ylabel("Model Error")
+    plt.savefig(outdir / "model_error.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan Found', ci=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan Found ⬆', ci=90)
+    ax.set_xlabel("Online Learning Iteration")
     ax.set_ylim(-0.02, 1.02)
+    ax.set_ylabel("% where plan was found")
     plt.savefig(outdir / "plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success', ci=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', ci=90)
+    ax.set_xlabel("Online Learning Iteration")
+    ax.set_ylabel("Success Rate")
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")
 
@@ -72,7 +81,7 @@ def main():
     args = parser.parse_args()
 
     plt.style.use(args.style)
-    plt.rcParams['figure.figsize'] = (20, 10)
+    plt.rcParams['figure.figsize'] = (14, 8)
 
     metrics_main(args)
 

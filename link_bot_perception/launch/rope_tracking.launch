@@ -30,7 +30,7 @@
 
     <group if="$(arg record)">
         <node pkg="arm_video_recorder" type="video_recording.py" name="recording"
-              args="/media/shared/captures/icra_2023/ --camera-name /dev/v4l/by-id/usb-AVerMedia_Technologies__Inc._Live_Gamer_Portable_2_Plus_1311774402370-video-index0"/>
+              args="rosrun arm_video_recorder video_recording.py --directory /media/shared/captures/icra_2023/ --camera-name /dev/v4l/by-id/usb-046d_HD_Pro_Webcam_C920_471A8C8F-video-index0 --fps 5"/>
     </group>
 </launch>
 

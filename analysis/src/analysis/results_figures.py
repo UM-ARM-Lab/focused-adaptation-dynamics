@@ -39,6 +39,7 @@ def lineplot(df,
             ax=ax)
     ax.plot([], [], ' ', label=f"shaded {ci}% c.i.")
     ax.set_title(title)
+    ax.legend()
     return fig, ax
 
 

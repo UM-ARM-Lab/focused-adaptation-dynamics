@@ -149,7 +149,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.82
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.83
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2, 0))
 
@@ -257,7 +257,7 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
         else:
             break
 
-        if orientation_path_tol >= 1:
+        if orientation_path_tol >= 1.5:
             raise RobotPlanningError("could not plan to grasp due to Invalid start!")
 
     display_msg = DisplayTrajectory()

@@ -47,7 +47,9 @@ def make_dataframe_worker(args):
     if not df_filename.exists() or regenerate:
         scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
 
-        scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
+        # scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
+        # NOTE: hard-coded here because using the "real val" scenario wasn't working for some reason
+        scenario = get_scenario_cached('dual_arm_rope_sim_val_with_robot_feasibility_checking', params=scenario_params)
         data = []
         for data_filename in data_filenames:
             datum = load_gzipped_pickle(data_filename)
@@ -88,6 +90,12 @@ def make_row(datum: Dict, data_filename: pathlib.Path, metadata: Dict, scenario:
     ift_iteration = metadata.get('ift_iteration', None)
     try:
         m = re.search(r'.*iter([0-9]+)', results_folder_name)
+        if m:
+            ift_iteration = int(m.group(1))
+    except ValueError:
+        pass
+    try:
+        m = re.search(r'.*iteration_([0-9]+)', results_folder_name)
         if m:
             ift_iteration = int(m.group(1))
     except ValueError:

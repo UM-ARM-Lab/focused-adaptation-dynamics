@@ -90,6 +90,12 @@ void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   collision_env->setLinkPadding("leftgripper2_link", 0.05);
   collision_env->setLinkPadding("end_effector_left", 0.05);
   collision_env->setLinkPadding("left_tool", 0.03);
+  collision_env->setLinkPadding("leftforearm", 0.03);
+  collision_env->setLinkPadding("rightforearm", 0.03);
+  collision_env->setLinkPadding("lefttube", 0.03);
+  collision_env->setLinkPadding("righttube", 0.03);
+  collision_env->setLinkPadding("drive6", 0.03);
+  collision_env->setLinkPadding("drive46", 0.03);
   planning_scene->propogateRobotPadding();
 }
 
@@ -442,8 +448,8 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
 
   auto state_validity_fn = [&](const ob::State *s) {
     auto const robot_state = omplStateToRobotState(s, model_, space_);
-    //visual_tools_->publishRobotState(robot_state);
-    //usleep(1'000'000);
+    // visual_tools_->publishRobotState(robot_state);
+    // usleep(1'000'000);
 
     const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
 
@@ -451,7 +457,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
     tf::poseMsgToEigen(right_pose, right_target_pose);
     auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
     auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
-    //std::cout << right_orientation_error << std::endl;
+    // std::cout << right_orientation_error << std::endl;
 
     auto const collision_free = planning_scene->isStateValid(robot_state);
 
