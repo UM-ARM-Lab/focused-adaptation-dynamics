@@ -50,6 +50,11 @@ def metrics_main(args):
     ax.legend()
     plt.savefig(outdir / f'task_error.png')
 
+    fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
+    ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.legend()
+    plt.savefig(outdir / f'task_error.png')
+
     if not args.no_plot:
         plt.show()
 

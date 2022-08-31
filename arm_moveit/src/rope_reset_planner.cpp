@@ -79,19 +79,23 @@ void addGripperCollisionSpheres(moveit::core::RobotState &robot_state) {
 
 void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   auto &collision_env = planning_scene->getCollisionEnvNonConst();
-  collision_env->setLinkPadding("drive56", 0.02);
-  collision_env->setLinkPadding("drive57", 0.02);
-  collision_env->setLinkPadding("torso", 0.03);
-  collision_env->setLinkPadding("rightgripper_link", 0.02);
-  collision_env->setLinkPadding("rightgripper2_link", 0.02);
-  collision_env->setLinkPadding("leftgripper_link", 0.02);
-  collision_env->setLinkPadding("leftgripper2_link", 0.02);
-  collision_env->setLinkPadding("leftforearm", 0.02);
-  collision_env->setLinkPadding("rightforearm", 0.02);
-  collision_env->setLinkPadding("lefttube", 0.02);
-  collision_env->setLinkPadding("righttube", 0.02);
-  collision_env->setLinkPadding("drive6", 0.02);
-  collision_env->setLinkPadding("drive46", 0.02);
+  collision_env->setLinkPadding("drive56", 0.05);
+  collision_env->setLinkPadding("drive57", 0.05);
+  collision_env->setLinkPadding("torso", 0.05);
+  collision_env->setLinkPadding("right_tool", 0.03);
+  collision_env->setLinkPadding("rightgripper_link", 0.05);
+  collision_env->setLinkPadding("rightgripper2_link", 0.05);
+  collision_env->setLinkPadding("end_effector_right", 0.05);
+  collision_env->setLinkPadding("leftgripper_link", 0.05);
+  collision_env->setLinkPadding("leftgripper2_link", 0.05);
+  collision_env->setLinkPadding("end_effector_left", 0.05);
+  collision_env->setLinkPadding("left_tool", 0.03);
+  collision_env->setLinkPadding("leftforearm", 0.03);
+  collision_env->setLinkPadding("rightforearm", 0.03);
+  collision_env->setLinkPadding("lefttube", 0.03);
+  collision_env->setLinkPadding("righttube", 0.03);
+  collision_env->setLinkPadding("drive6", 0.03);
+  collision_env->setLinkPadding("drive46", 0.03);
   planning_scene->propogateRobotPadding();
 }
 
@@ -190,11 +194,7 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
     auto const right_translation_error = (right_goal_pose_.translation() - right_tool_pose.translation()).norm();
     auto const translation_error = left_translation_error + right_translation_error;
-
-    auto const joint56_err = abs(*robot_state.getJointPositions("joint56"));
-    auto const joint57_err = std::max(*robot_state.getJointPositions("joint57") - (-0.05), 0.0);
-
-    return translation_error + orientation_error + joint56_err + joint57_err;
+    return translation_error + orientation_error;
   }
 
   bool isSatisfied(const ob::State *s, double *dist) const override {
@@ -209,13 +209,8 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
     auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
     auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
-
-    auto const torso_ok = *robot_state.getJointPositions("joint57") < -0.05;
-    auto const torso_ok2 = abs(*robot_state.getJointPositions("joint56")) < 0.25;
-
     return (left_translation_error < translation_tolerance_) && (right_translation_error < translation_tolerance_) &&
-           (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_) &&
-           torso_ok && torso_ok2;
+           (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_);
   }
 
   bool isSatisfied(const ob::State * /*s*/) const override { throw std::runtime_error("Not implemented!"); }
@@ -315,7 +310,7 @@ class StrictRightGripperOrientationStateSampler : public ob::StateSampler {
       throw std::runtime_error(err_ss.str());
     }
 
-     visual_tools_->publishRobotState(*robot_state_ik);
+    // visual_tools_->publishRobotState(*robot_state_ik);
     copy_robot_state_to_ompl_state(group_, *robot_state_ik, s);
   }
 };
@@ -375,7 +370,7 @@ PlanningResult RopeResetPlanner::planWithConstraints(planning_scene::PlanningSce
 
   auto start_robot_state = planning_scene->getCurrentState();
 
-  addLinkPadding(planning_scene);
+  addLinkPadding(planning_scene);  // FIXME: does this really work?
   // for safety, we add collision spheres around the "tool" points and pad all the links
   addGripperCollisionSpheres(start_robot_state);
 
@@ -443,7 +438,7 @@ og::PathGeometric RopeResetPlanner::simplify(og::PathGeometric original_path, ob
 
 PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
                                              geometry_msgs::Pose const &right_pose, double orientation_path_tolerance,
-                                             double orientation_goal_tolerance, double timeout, bool debug_collisions) {
+                                             double orientation_goal_tolerance, double timeout) {
   scene_monitor_->lockSceneRead();
   auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
   scene_monitor_->unlockSceneRead();
@@ -462,25 +457,20 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
     tf::poseMsgToEigen(right_pose, right_target_pose);
     auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
     auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
+    // std::cout << right_orientation_error << std::endl;
 
-    auto const collision_free = [&]() {
-      if (debug_collisions) {
-        return planning_scene->isStateValid(robot_state, "", true);
-      } else {
-        return planning_scene->isStateValid(robot_state);
-      }
-    }();
-    // visual_tools_->publishRobotState(robot_state);
+    auto const collision_free = planning_scene->isStateValid(robot_state);
 
-    auto const joint56_ok = abs(*robot_state.getJointPositions("joint56")) < 1.2;
+    auto &collision_env = planning_scene->getCollisionEnvNonConst();
 
+    ROS_DEBUG_STREAM_THROTTLE_NAMED(1, LOGGER_NAME + ".padding",
+                                    "PADDING: " << collision_env->getLinkPadding("end_effector_left"));
     ROS_DEBUG_STREAM_NAMED(LOGGER_NAME + ".isStateValid", ""
                                                               << "satisfies bounds? " << si_->satisfiesBounds(s) << "\n"
                                                               << "orientation? " << right_orientation_satisfied << "\n"
-                                                              << "joint56_ok? " << joint56_ok << "\n"
                                                               << "collision free? " << collision_free << "\n");
 
-    return si_->satisfiesBounds(s) && right_orientation_satisfied && collision_free && joint56_ok;
+    return si_->satisfiesBounds(s) && right_orientation_satisfied && collision_free;
   };
 
   auto state_sampler_allocator = [&](const ob::StateSpace *space) {
@@ -495,7 +485,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
 PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pose,
                                              geometry_msgs::Pose const &right_pose, double max_gripper_dist,
                                              double orientation_path_tolerance, double orientation_goal_tolerance,
-                                             double timeout, bool debug_collisions) {
+                                             double timeout) {
   scene_monitor_->lockSceneRead();
   auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
   scene_monitor_->unlockSceneRead();
@@ -515,7 +505,7 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
 
         const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
         auto const left_orientation_error = rotMatDist(left_target_pose.rotation(), left_tool_pose.rotation());
-        auto const left_orientation_satisfied = left_orientation_error < initial_left_orientation_error + 0.5;
+        auto const left_orientation_satisfied = left_orientation_error < initial_left_orientation_error + 0.4;
 
         const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
         Eigen::Isometry3d right_target_pose;
@@ -523,19 +513,10 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
         auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
         auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
 
-        auto const collision_free = [&]() {
-          if (debug_collisions) {
-            return planning_scene->isStateValid(robot_state, "", true);
-          } else {
-            return planning_scene->isStateValid(robot_state);
-          }
-        }();
+        auto const collision_free = planning_scene->isStateValid(robot_state);
 
         auto const grippers_dist = (right_tool_pose.translation() - left_tool_pose.translation()).norm();
         auto const grippers_close = grippers_dist < max_gripper_dist;
-
-        auto const joint56_ok = abs(*robot_state.getJointPositions("joint56")) < 1;
-        auto const joint57_ok = *robot_state.getJointPositions("joint57") < 0.15;
 
         ROS_DEBUG_STREAM_THROTTLE_NAMED(1, LOGGER_NAME + ".isStateValid",
                                         ""
@@ -543,11 +524,9 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
                                             << "left orientation? " << left_orientation_satisfied << "\n"
                                             << "right orientation? " << right_orientation_satisfied << "\n"
                                             << "collision free? " << collision_free << "\n"
-                                            << "joint56 ok? " << joint56_ok << "\n"
-                                            << "joint57 ok? " << joint57_ok << "\n"
                                             << "grippers close? " << grippers_close);
         return si_->satisfiesBounds(s) && left_orientation_satisfied && right_orientation_satisfied && collision_free &&
-               grippers_close && joint56_ok && joint57_ok;
+               grippers_close;
       };
 
   auto state_sampler_allocator = [&](const ob::StateSpace *space) {

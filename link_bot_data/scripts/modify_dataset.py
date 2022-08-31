@@ -16,7 +16,7 @@ def process_example(args):
     i, dataset, outdir = args
     example = dataset[i]
 
-    modify_pad_env(example, 47, 47, 62)
+    modify_pad_env(example, 47, 47, 60)
 
     pkl_write_example(outdir, example, example['metadata']['example_idx'])
 
