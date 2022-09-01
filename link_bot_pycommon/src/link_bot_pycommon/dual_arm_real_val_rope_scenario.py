@@ -145,13 +145,15 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_tool_grasp_pose = Pose()
         right_tool_grasp_pose.position.x = 0.1
         right_tool_grasp_pose.position.y = 0.3
-        right_tool_grasp_pose.position.z = 0.94
-        right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
+        right_tool_grasp_pose.position.z = 0.925
+        right_tool_grasp_orientation = quaternion_from_euler(-1.5707, -1.5707, 0.6)
+        right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_tool_grasp_orientation)
+        self.tf.send_transform_from_pose_msg(right_tool_grasp_pose, 'robot_root', 'right_grasp')
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.83
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.835
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
-                                                            quaternion_from_euler(0, np.pi / 2, 0))
+                                                            quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
 
         initial_left_pose = self.robot.get_link_pose("left_tool")
         initial_right_pose = self.robot.get_link_pose("right_tool")
@@ -252,15 +254,13 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
 
     while True:
         result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, 60)
-        if result.status != 'Invalid start':
-            orientation_path_tol += 0.1
-        elif result.status == 'Timeout':
-            orientation_path_tol += 0.1
-        else:
-            continue
+        if result.status == 'Exact solution':
+            break
+
+        orientation_path_tol += 0.1
 
         if orientation_path_tol >= 1.5:
-            raise RobotPlanningError("could not plan to grasp due to Invalid start!")
+            raise RobotPlanningError("could not plan to grasp due!")
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)
