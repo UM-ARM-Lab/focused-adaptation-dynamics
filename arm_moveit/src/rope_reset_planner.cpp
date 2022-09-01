@@ -82,14 +82,12 @@ void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   collision_env->setLinkPadding("drive56", 0.05);
   collision_env->setLinkPadding("drive57", 0.05);
   collision_env->setLinkPadding("torso", 0.05);
-  collision_env->setLinkPadding("right_tool", 0.03);
   collision_env->setLinkPadding("rightgripper_link", 0.05);
   collision_env->setLinkPadding("rightgripper2_link", 0.05);
   collision_env->setLinkPadding("end_effector_right", 0.05);
   collision_env->setLinkPadding("leftgripper_link", 0.05);
   collision_env->setLinkPadding("leftgripper2_link", 0.05);
   collision_env->setLinkPadding("end_effector_left", 0.05);
-  collision_env->setLinkPadding("left_tool", 0.03);
   collision_env->setLinkPadding("leftforearm", 0.03);
   collision_env->setLinkPadding("rightforearm", 0.03);
   collision_env->setLinkPadding("lefttube", 0.03);
@@ -460,6 +458,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
     // std::cout << right_orientation_error << std::endl;
 
     auto const collision_free = planning_scene->isStateValid(robot_state);
+    //visual_tools_->publishRobotState(robot_state);
 
     auto &collision_env = planning_scene->getCollisionEnvNonConst();
 

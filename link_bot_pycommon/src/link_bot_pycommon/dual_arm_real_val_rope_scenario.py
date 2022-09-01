@@ -145,7 +145,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_tool_grasp_pose = Pose()
         right_tool_grasp_pose.position.x = 0.1
         right_tool_grasp_pose.position.y = 0.3
-        right_tool_grasp_pose.position.z = 0.91
+        right_tool_grasp_pose.position.z = 0.94
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
@@ -251,11 +251,13 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     orientation_path_tol = 0.4
 
     while True:
-        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.2, 20)
-        if result.status == 'Invalid start':
+        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, 60)
+        if result.status != 'Invalid start':
+            orientation_path_tol += 0.1
+        elif result.status == 'Timeout':
             orientation_path_tol += 0.1
         else:
-            break
+            continue
 
         if orientation_path_tol >= 1.5:
             raise RobotPlanningError("could not plan to grasp due to Invalid start!")
