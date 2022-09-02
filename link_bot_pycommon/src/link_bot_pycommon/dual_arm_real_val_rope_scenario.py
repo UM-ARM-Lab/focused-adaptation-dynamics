@@ -230,14 +230,12 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         else:
             res = params["res"]
 
-        env = {}
-
+        # from link_bot_pycommon.get_occupancy import get_environment_for_extents_3d
         # voxel_grid_env = get_environment_for_extents_3d(extent=params['extent'],  # TODO: use merged_points?
         #                                                 res=res,
         #                                                 frame='robot_root',
         #                                                 service_provider=self.service_provider,
         #                                                 excluded_models=self.get_excluded_models_for_env())
-        # env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
 
         r = rospkg.RosPack()
         perception_pkg_dir = r.get_path('link_bot_perception')
@@ -258,13 +256,16 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         channels = valid_indices[:, 2]
         vg[rows, cols, channels] = 1.0
 
-        env['env'] = vg
-        env['extent'] = extent
-        env['res'] = res
-        env['origin_point'] = origin_point
+        env_pcd = {
+            'env':          vg,
+            'extent':       extent,
+            'res':          res,
+            'origin_point': origin_point
+        }
 
         # self.plot_points_rviz(points, label='env_points')
         # self.plot_environment_rviz(env)
+        env = {k: np.array(v).astype(np.float32) for k, v in env_pcd.items()}
 
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
