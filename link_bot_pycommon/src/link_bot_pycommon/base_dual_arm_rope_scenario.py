@@ -266,7 +266,6 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
                                                         frame='robot_root',
                                                         service_provider=self.service_provider,
                                                         excluded_models=self.get_excluded_models_for_env())
-
         env = {}
         env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
 

@@ -156,14 +156,18 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
 
-        # initial_left_pose = self.robot.get_link_pose("left_tool")
-        # initial_right_pose = self.robot.get_link_pose("right_tool")
-        # left_pose_error = pose_distance(left_start_pose, initial_left_pose)
-        # right_pose_error = pose_distance(right_start_pose, initial_right_pose)
-        # if left_pose_error < 0.05 and right_pose_error < 0.05:
-        #     print("Already at start!")
-        #     return
-        #
+        initial_left_pose = self.robot.get_link_pose("left_tool")
+        initial_right_pose = self.robot.get_link_pose("right_tool")
+        left_pose_error = pose_distance(left_start_pose, initial_left_pose)
+        right_pose_error = pose_distance(right_start_pose, initial_right_pose)
+        if left_pose_error < 0.05 and right_pose_error < 0.05:
+            q = input("Already at start! Should I skip the reset? [N/y] ")
+            if q in ['Y', 'y']:
+                print("Skipping reset")
+                return
+            else:
+                print("Doing reset anyways")
+
         both_tools = ['left_tool', 'right_tool']
 
         rrp = RopeResetPlanner()
@@ -213,6 +217,52 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
     def grasp_rope_endpoints(self, *args, **kwargs):
         pass
+
+    def get_environment(self, params: Dict, **kwargs):
+        default_res = 0.02
+        if 'res' not in params:
+            rospy.logwarn(f"res not in params, using default {default_res}", logger_name=Path(__file__).stem)
+            res = default_res
+        else:
+            res = params["res"]
+
+        env = {}
+
+        # voxel_grid_env = get_environment_for_extents_3d(extent=params['extent'],  # TODO: use merged_points?
+        #                                                 res=res,
+        #                                                 frame='robot_root',
+        #                                                 service_provider=self.service_provider,
+        #                                                 excluded_models=self.get_excluded_models_for_env())
+        # env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
+
+        r = rospkg.RosPack()
+        perception_pkg_dir = r.get_path('link_bot_perception')
+        pcd = o3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
+        points = np.asarray(pcd.points)
+
+        extent = params['extent']
+        origin_point = extent_res_to_origin_point(extent, res)
+        shape = extent_to_env_shape(extent, res)
+        vg = np.zeros(shape, dtype=np.float32)
+        indices = ((points - origin_point) / res).astype(np.int64)
+        in_bounds_lower = np.all(indices > 0, axis=1)
+        in_bounds_upper = np.all(indices < shape, axis=1)
+        which_indices_are_valid = np.where(np.logical_and(in_bounds_lower, in_bounds_upper))[0]
+        valid_indices = indices[which_indices_are_valid]
+        rows = valid_indices[:, 0]
+        cols = valid_indices[:, 1]
+        channels = valid_indices[:, 2]
+        vg[rows, cols, channels] = 1.0
+
+        env['env'] = vg
+        env['extent'] = extent
+        env['res'] = res
+        env['origin_point'] = origin_point
+
+        env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
+
+        return env
+
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
