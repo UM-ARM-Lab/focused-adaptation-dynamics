@@ -3,6 +3,8 @@ from time import sleep
 from typing import Dict, Optional
 
 import numpy as np
+import open3d
+import rospkg
 from pyrope_reset_planner import RopeResetPlanner, PlanningResult
 
 import ros_numpy
@@ -14,6 +16,8 @@ from link_bot_pycommon.base_dual_arm_rope_scenario import BaseDualArmRopeScenari
 from link_bot_pycommon.dual_arm_rope_action import dual_arm_rope_execute_action
 from link_bot_pycommon.get_cdcpd_state import GetCdcpdState
 from link_bot_pycommon.get_joint_state import GetJointState
+from link_bot_pycommon.grid_utils_np import extent_res_to_origin_point, extent_to_env_shape
+from link_bot_pycommon.moveit_planning_scene_mixin import MoveitPlanningSceneScenarioMixin
 from moveit_msgs.msg import DisplayTrajectory
 from moveit_msgs.srv import GetMotionPlan
 from tf.transformations import quaternion_from_euler
@@ -237,7 +241,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         r = rospkg.RosPack()
         perception_pkg_dir = r.get_path('link_bot_perception')
-        pcd = o3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
+        pcd = open3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
         points = np.asarray(pcd.points)
 
         extent = params['extent']
@@ -249,8 +253,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         in_bounds_upper = np.all(indices < shape, axis=1)
         which_indices_are_valid = np.where(np.logical_and(in_bounds_lower, in_bounds_upper))[0]
         valid_indices = indices[which_indices_are_valid]
-        rows = valid_indices[:, 0]
-        cols = valid_indices[:, 1]
+        rows = valid_indices[:, 1]
+        cols = valid_indices[:, 0]
         channels = valid_indices[:, 2]
         vg[rows, cols, channels] = 1.0
 
@@ -259,10 +263,12 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         env['res'] = res
         env['origin_point'] = origin_point
 
+        # self.plot_points_rviz(points, label='env_points')
+        # self.plot_environment_rviz(env)
+
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
         return env
-
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
