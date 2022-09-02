@@ -270,15 +270,6 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
         env = {}
         env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
 
-        # removed to speed things up, and we aren't currently using this
-        # from moonshine.tfa_sdf import compute_sdf_and_gradient_batch
-        # sdf, sdf_grad = remove_batch(*compute_sdf_and_gradient_batch(*add_batch(voxel_grid_env['env'],
-        #                                                                         voxel_grid_env['res'])))
-        # sdf = numpify(sdf)
-        # sdf_grad = numpify(sdf_grad)
-        # env['sdf'] = sdf
-        # env['sdf_grad'] = sdf_grad
-
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
         return env

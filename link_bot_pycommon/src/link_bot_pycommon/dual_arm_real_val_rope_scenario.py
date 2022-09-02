@@ -136,7 +136,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         left_start_pose = Pose()
         left_start_pose.orientation = ros_numpy.msgify(Quaternion, self.left_preferred_tool_orientation)
         left_start_pose.position.x = -0.2
-        left_start_pose.position.y = 0.45
+        left_start_pose.position.y = 0.48
         left_start_pose.position.z = 0.6
         right_start_pose = deepcopy(left_start_pose)
         right_start_pose.position.x = 0.2
@@ -152,17 +152,18 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
         left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.835
+        left_tool_grasp_pose.position.y += 0.01
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
 
-        initial_left_pose = self.robot.get_link_pose("left_tool")
-        initial_right_pose = self.robot.get_link_pose("right_tool")
-        left_pose_error = pose_distance(left_start_pose, initial_left_pose)
-        right_pose_error = pose_distance(right_start_pose, initial_right_pose)
-        if left_pose_error < 0.05 and right_pose_error < 0.05:
-            print("Already at start!")
-            return
-
+        # initial_left_pose = self.robot.get_link_pose("left_tool")
+        # initial_right_pose = self.robot.get_link_pose("right_tool")
+        # left_pose_error = pose_distance(left_start_pose, initial_left_pose)
+        # right_pose_error = pose_distance(right_start_pose, initial_right_pose)
+        # if left_pose_error < 0.05 and right_pose_error < 0.05:
+        #     print("Already at start!")
+        #     return
+        #
         both_tools = ['left_tool', 'right_tool']
 
         rrp = RopeResetPlanner()
@@ -174,23 +175,11 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
             # wait for rope to stop swinging
             print("Waiting for rope to settle")
-            sleep(10)
+            sleep(12)
 
-            # servo left hand to where the right hand ended up
-            right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
-            left_precise = ros_numpy.numpify(left_tool_grasp_pose.position)
-
-            robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
-            left_precise[0] = robot2right_hand[0, 3]
-            left_precise[1] = robot2right_hand[1, 3]
             self.robot.store_current_tool_orientations(both_tools)
-            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_precise], [right_grasp_position_np]])
-
-            sleep(1)
-            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .2])
-            robot2right_hand = self.tf.get_transform('robot_root', 'mocap_right_hand_right_hand')
-            left_up[0] = robot2right_hand[0, 3]
-            left_up[1] = robot2right_hand[1, 3]
+            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .25])
+            right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
             self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
 
             left_arm_joint_names = self.robot.get_joint_names('left_arm')
@@ -227,25 +216,32 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
-    for _ in range(3):
-        pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
-        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.73,
-                                                   orientation_path_tolerance=0.5, orientation_goal_tolerance=0.1,
-                                                   timeout=60)
-        display_msg = DisplayTrajectory()
-        display_msg.trajectory.append(result.traj)
-        for _ in range(5):
-            rospy.sleep(0.1)
-            pub.publish(display_msg)
+    pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
 
-        if result.status != "Exact solution":
-            print("BAD SOLUTION!!!")
-            continue
-        else:
-            result.traj.joint_trajectory.header.stamp = rospy.Time.now()
-            val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
-            return
-    raise RobotPlanningError("failed to plan to start")
+    orientation_path_tol = 0.4
+    while True:
+        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.73,
+                                                   orientation_path_tolerance=orientation_path_tol,
+                                                   orientation_goal_tolerance=0.2,
+                                                   timeout=60)
+        print(result.status)
+
+        if result.status == "Exact solution":
+            break
+
+        orientation_path_tol += 0.1
+
+        if orientation_path_tol >= 1.5:
+            raise RobotPlanningError("could not plan to start!")
+
+    display_msg = DisplayTrajectory()
+    display_msg.trajectory.append(result.traj)
+    for _ in range(5):
+        rospy.sleep(0.1)
+        pub.publish(display_msg)
+
+    result.traj.joint_trajectory.header.stamp = rospy.Time.now()
+    val.follow_arms_joint_trajectory(result.traj.joint_trajectory)
 
 
 def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
@@ -260,7 +256,7 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
         orientation_path_tol += 0.1
 
         if orientation_path_tol >= 1.5:
-            raise RobotPlanningError("could not plan to grasp due!")
+            raise RobotPlanningError("could not plan to grasp!")
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)
@@ -268,9 +264,6 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     for _ in range(5):
         rospy.sleep(0.1)
         pub.publish(display_msg)
-
-    if result.status != "Exact solution":
-        raise RobotPlanningError("could not plan to grasp!")
 
     result.traj.joint_trajectory.header.stamp = rospy.Time.now()
     val.follow_arms_joint_trajectory(result.traj.joint_trajectory)

@@ -201,9 +201,6 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     trainer.fit(model, data_module, ckpt_path=ckpt_path)
     wandb.finish()
 
-    # script = model.to_torchscript()
-    # torch.jit.save(script, "model.pt")
-
     # eval_main(dataset_dir,
     #           run_id,
     #           mode='test',

@@ -212,6 +212,8 @@ class PlanAndExecute:
 
         self.on_start_trial(trial_idx)
 
+        time.sleep(30)  # HACK wait for CDCPD
+
         start_time = time.perf_counter()
         total_timeout = self.planner_params['termination_criteria']['total_timeout']
 
@@ -228,7 +230,7 @@ class PlanAndExecute:
         while True:
             # get start states
             self.service_provider.play()
-            time.sleep(3)  # HACK wait for CDCPD
+            time.sleep(10)  # HACK wait for CDCPD
             start_state = self.scenario.get_state()
             self.service_provider.pause()
 
