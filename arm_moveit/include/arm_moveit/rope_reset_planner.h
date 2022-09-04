@@ -52,11 +52,11 @@ class RopeResetPlanner {
                                      ob::StateValidityCheckerFn const& state_validity_fn, double timeout);
 
   PlanningResult planToReset(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
-                             double orientation_path_tolerance, double orientation_goal_tolerance, double timeout);
+                             double orientation_path_tolerance, double orientation_goal_tolerance, double timeout, bool debug_collisions);
 
   PlanningResult planToStart(geometry_msgs::Pose const& left_pose, geometry_msgs::Pose const& right_pose,
                              double max_gripper_dist, double orientation_path_tolerance,
-                             double orientation_goal_tolerance, double timeout);
+                             double orientation_goal_tolerance, double timeout, bool debug_collisions);
 
   og::PathGeometric simplify(og::PathGeometric original_path, ob::GoalPtr goal);
 

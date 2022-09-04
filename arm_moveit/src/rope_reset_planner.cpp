@@ -79,21 +79,21 @@ void addGripperCollisionSpheres(moveit::core::RobotState &robot_state) {
 
 void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   auto &collision_env = planning_scene->getCollisionEnvNonConst();
-  collision_env->setLinkPadding("drive56", 0.05);
-  collision_env->setLinkPadding("drive57", 0.05);
-  collision_env->setLinkPadding("torso", 0.05);
-  collision_env->setLinkPadding("rightgripper_link", 0.05);
-  collision_env->setLinkPadding("rightgripper2_link", 0.05);
-  collision_env->setLinkPadding("end_effector_right", 0.05);
-  collision_env->setLinkPadding("leftgripper_link", 0.05);
-  collision_env->setLinkPadding("leftgripper2_link", 0.05);
-  collision_env->setLinkPadding("end_effector_left", 0.05);
-  collision_env->setLinkPadding("leftforearm", 0.03);
-  collision_env->setLinkPadding("rightforearm", 0.03);
-  collision_env->setLinkPadding("lefttube", 0.03);
-  collision_env->setLinkPadding("righttube", 0.03);
-  collision_env->setLinkPadding("drive6", 0.03);
-  collision_env->setLinkPadding("drive46", 0.03);
+  collision_env->setLinkPadding("drive56", 0.02);
+  collision_env->setLinkPadding("drive57", 0.02);
+  collision_env->setLinkPadding("torso", 0.02);
+  collision_env->setLinkPadding("rightgripper_link", 0.02);
+  collision_env->setLinkPadding("rightgripper2_link", 0.02);
+  collision_env->setLinkPadding("end_effector_right", 0.02);
+  collision_env->setLinkPadding("leftgripper_link", 0.02);
+  collision_env->setLinkPadding("leftgripper2_link", 0.02);
+  collision_env->setLinkPadding("end_effector_left", 0.02);
+  collision_env->setLinkPadding("leftforearm", 0.02);
+  collision_env->setLinkPadding("rightforearm", 0.02);
+  collision_env->setLinkPadding("lefttube", 0.02);
+  collision_env->setLinkPadding("righttube", 0.02);
+  collision_env->setLinkPadding("drive6", 0.02);
+  collision_env->setLinkPadding("drive46", 0.02);
   planning_scene->propogateRobotPadding();
 }
 
@@ -368,7 +368,7 @@ PlanningResult RopeResetPlanner::planWithConstraints(planning_scene::PlanningSce
 
   auto start_robot_state = planning_scene->getCurrentState();
 
-  addLinkPadding(planning_scene);  // FIXME: does this really work?
+  addLinkPadding(planning_scene);
   // for safety, we add collision spheres around the "tool" points and pad all the links
   addGripperCollisionSpheres(start_robot_state);
 
@@ -436,7 +436,7 @@ og::PathGeometric RopeResetPlanner::simplify(og::PathGeometric original_path, ob
 
 PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pose,
                                              geometry_msgs::Pose const &right_pose, double orientation_path_tolerance,
-                                             double orientation_goal_tolerance, double timeout) {
+                                             double orientation_goal_tolerance, double timeout, bool debug_collisions) {
   scene_monitor_->lockSceneRead();
   auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
   scene_monitor_->unlockSceneRead();
@@ -455,10 +455,15 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
     tf::poseMsgToEigen(right_pose, right_target_pose);
     auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
     auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
-    // std::cout << right_orientation_error << std::endl;
 
-    auto const collision_free = planning_scene->isStateValid(robot_state);
-    //visual_tools_->publishRobotState(robot_state);
+    auto const collision_free = [&]() {
+      if (debug_collisions) {
+        return planning_scene->isStateValid(robot_state, "", true);
+      } else {
+        return planning_scene->isStateValid(robot_state);
+      }
+    }();
+    // visual_tools_->publishRobotState(robot_state);
 
     auto &collision_env = planning_scene->getCollisionEnvNonConst();
 
@@ -484,7 +489,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
 PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pose,
                                              geometry_msgs::Pose const &right_pose, double max_gripper_dist,
                                              double orientation_path_tolerance, double orientation_goal_tolerance,
-                                             double timeout) {
+                                             double timeout, bool debug_collisions) {
   scene_monitor_->lockSceneRead();
   auto planning_scene = planning_scene::PlanningScene::clone(scene_monitor_->getPlanningScene());
   scene_monitor_->unlockSceneRead();
@@ -512,7 +517,13 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
         auto const right_orientation_error = rotMatDist(right_target_pose.rotation(), right_tool_pose.rotation());
         auto const right_orientation_satisfied = right_orientation_error < orientation_path_tolerance;
 
-        auto const collision_free = planning_scene->isStateValid(robot_state);
+        auto const collision_free = [&]() {
+          if (debug_collisions) {
+            return planning_scene->isStateValid(robot_state, "", true);
+          } else {
+            return planning_scene->isStateValid(robot_state);
+          }
+        }();
 
         auto const grippers_dist = (right_tool_pose.translation() - left_tool_pose.translation()).norm();
         auto const grippers_close = grippers_dist < max_gripper_dist;

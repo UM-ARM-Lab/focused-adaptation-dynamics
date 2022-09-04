@@ -16,7 +16,7 @@ from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 
 def soft_mask(global_step, mask_threshold, error):
-    return 1 - torch.sigmoid(global_step * (error - mask_threshold))
+    return 1 - torch.sigmoid(0.5 * global_step * (error - mask_threshold))
 
 
 class UDNN(pl.LightningModule):

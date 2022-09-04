@@ -1,3 +1,4 @@
+import pathlib
 from copy import deepcopy
 from time import sleep
 from typing import Dict, Optional
@@ -5,6 +6,8 @@ from typing import Dict, Optional
 import numpy as np
 import open3d
 import rospkg
+from cdcpd.msg import GripperConstraint
+from cdcpd.srv import SetGripperConstraintsRequest, SetGripperConstraints
 from pyrope_reset_planner import RopeResetPlanner, PlanningResult
 
 import ros_numpy
@@ -48,6 +51,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         self.reset_move_group = 'both_arms'
 
         self.plan_srv = rospy.ServiceProxy("/hdt_michigan/plan_kinematic_path", GetMotionPlan)
+        self.cdcpd_constraint_srv = rospy.ServiceProxy("cdcpd_node/set_gripper_constraints", SetGripperConstraints)
 
     def execute_action(self, environment, state, action: Dict):
         action_fk = self.action_relative_to_fk(action, state)
@@ -147,18 +151,19 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         right_tool_grasp_pose = Pose()
-        right_tool_grasp_pose.position.x = 0.1
-        right_tool_grasp_pose.position.y = 0.3
-        right_tool_grasp_pose.position.z = 0.925
+        right_tool_grasp_pose.position.x = 0.06
+        right_tool_grasp_pose.position.y = 0.34
+        right_tool_grasp_pose.position.z = 0.93
         right_tool_grasp_orientation = quaternion_from_euler(-1.5707, -1.5707, 0.6)
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_tool_grasp_orientation)
         self.tf.send_transform_from_pose_msg(right_tool_grasp_pose, 'robot_root', 'right_grasp')
+        right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
         left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.835
-        left_tool_grasp_pose.position.y += 0.01
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
+        # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
 
         initial_left_pose = self.robot.get_link_pose("left_tool")
         initial_right_pose = self.robot.get_link_pose("right_tool")
@@ -178,22 +183,33 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         print("Planning to grasp")
         try:
-            # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
+            # first move up a bit in case the torso is in collision?
+
             plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
+            self.robot.store_current_tool_orientations(both_tools)
+
+            # change CDCPD constraints
+            self.set_cdcpd_right_only()
 
             # wait for rope to stop swinging
             print("Waiting for rope to settle")
-            sleep(12)
+            sleep(35)
 
-            self.robot.store_current_tool_orientations(both_tools)
-            left_up = ros_numpy.numpify(left_tool_grasp_pose.position) + np.array([0, 0.05, .25])
-            right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
+            # servo to the rope?
+            cdcpd_state = self.get_cdcpd_state.get_state()
+            left_at_rope = cdcpd_state['rope'].reshape([25, 3])[-1]
+            left_at_rope[2] = left_tool_grasp_pose.position.z
+            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_at_rope], [right_grasp_position_np]])
+
+            sleep(5)
+
+            left_up = left_at_rope + np.array([0, 0, .2])
             self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
 
-            left_arm_joint_names = self.robot.get_joint_names('left_arm')
-            left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
-            left_flip_config[-1] -= np.pi
-            self.robot.plan_to_joint_config('left_arm', left_flip_config)
+            # change CDCPD constraints
+            self.set_cdcpd_both()
+
+            self.flip_left_wrist()
 
             print("Planning to start")
             plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
@@ -208,6 +224,46 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
             'right_tool': self.right_preferred_tool_orientation,
         })
         print("done.")
+
+    def flip_left_wrist(self):
+        left_arm_joint_names = self.robot.get_joint_names('left_arm')
+        left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
+        left_flip_config[-1] -= np.pi
+        self.robot.plan_to_joint_config('left_arm', left_flip_config)
+
+    def move_torso_back(self):
+        torso_joint_names = self.robot.get_joint_names('torso')
+        back_config = self.robot.get_joint_positions(torso_joint_names)
+        back_config[1] -= 0.2
+        self.robot.plan_to_joint_config('torso', back_config)
+
+    def set_cdcpd_both(self):
+        left_gripper_cdcpd_constraint = GripperConstraint()
+        left_gripper_cdcpd_constraint.frame_id = "mocap_left_hand_left_hand"
+        left_gripper_cdcpd_constraint.node_index = 0
+        right_gripper_cdcpd_constraint = GripperConstraint()
+        right_gripper_cdcpd_constraint.frame_id = "mocap_right_hand_right_hand"
+        right_gripper_cdcpd_constraint.node_index = 24
+        set_cdcpd_constraints = SetGripperConstraintsRequest()
+        set_cdcpd_constraints.constraints.append(left_gripper_cdcpd_constraint)
+        set_cdcpd_constraints.constraints.append(right_gripper_cdcpd_constraint)
+        self.cdcpd_constraint_srv(set_cdcpd_constraints)
+
+    def set_cdcpd_right_only(self):
+        right_gripper_cdcpd_constraint = GripperConstraint()
+        right_gripper_cdcpd_constraint.frame_id = "mocap_right_hand_right_hand"
+        right_gripper_cdcpd_constraint.node_index = 0
+        set_cdcpd_constraints = SetGripperConstraintsRequest()
+        set_cdcpd_constraints.constraints.append(right_gripper_cdcpd_constraint)
+        self.cdcpd_constraint_srv(set_cdcpd_constraints)
+
+    def set_cdcpd_left_only(self):
+        left_gripper_cdcpd_constraint = GripperConstraint()
+        left_gripper_cdcpd_constraint.frame_id = "mocap_left_hand_left_hand"
+        left_gripper_cdcpd_constraint.node_index = 0
+        set_cdcpd_constraints = SetGripperConstraintsRequest()
+        set_cdcpd_constraints.constraints.append(left_gripper_cdcpd_constraint)
+        self.cdcpd_constraint_srv(set_cdcpd_constraints)
 
     def randomize_environment(self, env_rng: np.random.RandomState, params: Dict):
         raise NotImplementedError()
@@ -225,7 +281,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def get_environment(self, params: Dict, **kwargs):
         default_res = 0.02
         if 'res' not in params:
-            rospy.logwarn(f"res not in params, using default {default_res}", logger_name=Path(__file__).stem)
+            rospy.logwarn(f"res not in params, using default {default_res}", logger_name=pathlib.Path(__file__).stem)
             res = default_res
         else:
             res = params["res"]
@@ -245,10 +301,11 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         extent = params['extent']
         origin_point = extent_res_to_origin_point(extent, res)
         shape = extent_to_env_shape(extent, res)
+        shape_yxz = np.array([shape[1], shape[0], shape[2]])
         vg = np.zeros(shape, dtype=np.float32)
         indices = ((points - origin_point) / res).astype(np.int64)
         in_bounds_lower = np.all(indices > 0, axis=1)
-        in_bounds_upper = np.all(indices < shape, axis=1)
+        in_bounds_upper = np.all(indices < shape_yxz, axis=1)
         which_indices_are_valid = np.where(np.logical_and(in_bounds_lower, in_bounds_upper))[0]
         valid_indices = indices[which_indices_are_valid]
         rows = valid_indices[:, 1]
@@ -275,20 +332,20 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
 
-    orientation_path_tol = 0.4
+    orientation_path_tol = 0.6
     while True:
         result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.73,
                                                    orientation_path_tolerance=orientation_path_tol,
                                                    orientation_goal_tolerance=0.2,
-                                                   timeout=60)
+                                                   timeout=250, debug_collisions=False)
         print(result.status)
 
         if result.status == "Exact solution":
             break
 
-        orientation_path_tol += 0.1
+        orientation_path_tol += 0.2
 
-        if orientation_path_tol >= 1.5:
+        if orientation_path_tol >= 2:
             raise RobotPlanningError("could not plan to start!")
 
     display_msg = DisplayTrajectory()
@@ -303,17 +360,19 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
 
 def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
-    orientation_path_tol = 0.4
+    orientation_path_tol = 0.6
 
     while True:
-        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, 60)
+        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, timeout=250,
+                                   debug_collisions=True)
+        print(result.status)
         if result.status == 'Exact solution':
             break
 
-        orientation_path_tol += 0.1
+        orientation_path_tol += 0.2
 
-        if orientation_path_tol >= 1.5:
-            raise RobotPlanningError("could not plan to grasp!")
+        if orientation_path_tol >= 2:
+           raise RobotPlanningError("could not plan to grasp!")
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)

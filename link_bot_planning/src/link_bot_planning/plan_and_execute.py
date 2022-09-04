@@ -36,8 +36,8 @@ def execute_actions(
     spinner = SynchronousSpinner('Executing actions')
 
     # FIXME hacky. this lets us execute as much of the jacobian action as possible
-    if scenario.robot.robot_namespace != "mock_robot":
-        scenario.robot.called.jacobian_target_not_reached_is_failure = False
+    # if scenario.robot.robot_namespace != "mock_robot":
+    #     scenario.robot.called.jacobian_target_not_reached_is_failure = False
 
     before_state = start_state
     actual_path = [before_state]
@@ -82,8 +82,8 @@ def execute_actions(
     time.sleep(2)  # FIXME: hack for CDCPD to catch up, only needed in the real world
 
     # FIXME hacky reset
-    if scenario.robot.robot_namespace != "mock_robot":
-        scenario.robot.called.jacobian_target_not_reached_is_failure = True
+    # if scenario.robot.robot_namespace != "mock_robot":
+    #     scenario.robot.called.jacobian_target_not_reached_is_failure = True
 
     execution_result = ExecutionResult(path=actual_path, end_trial=end_trial, stopped=stopped, end_t=t)
     return execution_result
