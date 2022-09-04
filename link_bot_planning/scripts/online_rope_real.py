@@ -42,7 +42,7 @@ def main():
 
     args = parser.parse_args()
 
-    ou.setLogLevel(ou.LOG_ERROR)
+    ou.setLogLevel(ou.LOG_INFO)
     wandb_lightning_magic()
 
     if '-' not in args.nickname:
@@ -69,7 +69,7 @@ def main():
         print(f"{args.nickname=} doesn't make sense with {method_name=}, aborting!")
         return
     if method_name == 'adaptation':
-        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online.hjson"
+        dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online_real.hjson"
         unadapted_run_id = 'sim_rope_unadapted-dme7l'
     elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online.hjson"
