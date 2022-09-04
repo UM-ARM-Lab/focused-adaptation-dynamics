@@ -5,6 +5,10 @@
   scenario_params: {
     rope_name: none
   }
+  recovery: {
+    recovery_model_dir: recovery_trials/real_val_random/none
+    use_recovery: true
+  }
   termination_criteria: {
     total_timeout: 99999
     timeout: 99999
