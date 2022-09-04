@@ -36,10 +36,10 @@ def metrics_main(args):
     ax.legend()
     plt.savefig(outdir / f'success.png')
 
-    fig, ax = lineplot(df, iter_key, 'safe_task_error', 'Safe Task Error', hue='method_name')
-    ax.axhline(unadapted_df['safe_task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    fig, ax = lineplot(df, iter_key, 'any_solved', 'Plan to goal found?', hue='method_name')
+    ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
     ax.legend()
-    plt.savefig(outdir / f'safe_task_error.png')
+    plt.savefig(outdir / f'any_solved.png')
 
     fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
     ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
