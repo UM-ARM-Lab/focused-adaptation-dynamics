@@ -25,7 +25,7 @@ class GetCdcpdState:
             return points
 
         last_points = None
-        for _ in range(100):
+        for _ in range(20):
             points = get_cdcpd_points()
             rospy.sleep(0.5)
 
