@@ -25,6 +25,10 @@ from moveit_msgs.msg import DisplayTrajectory
 from moveit_msgs.srv import GetMotionPlan
 from tf.transformations import quaternion_from_euler
 
+planning_link_padding = 0.02
+execution_link_padding = 0.0
+links_to_pad = []
+
 
 def wiggle_positions(current, n, s=0.02):
     rng = np.random.RandomState(0)
@@ -56,15 +60,15 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def execute_action(self, environment, state, action: Dict):
         action_fk = self.action_relative_to_fk(action, state)
         try:
+            # remove padding here since we only want planning to be conservative
+            for link_name in links_to_pad:
+                for link_padding in environment['scene_msg'].link_padding:
+                    if link_padding.link_name == link_name:
+                        link_padding.padding = execution_link_padding
             dual_arm_rope_execute_action(self, self.robot, environment, state, action_fk, vel_scaling=1.0,
                                          check_overstretching=False)
         except RuntimeError as e:
             print(e)
-
-        if not self.fast:
-            # NOTE sleeping because CDCPD is laggy.
-            #  We sleep here instead of in get_state because we only need to sleep after we've moved
-            rospy.sleep(4)
 
     def action_relative_to_fk(self, action, state):
         robot_state = self.get_robot_state.get_state()
@@ -193,7 +197,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
             # wait for rope to stop swinging
             print("Waiting for rope to settle")
-            sleep(35)
+            sleep(20)
 
             # servo to the rope?
             cdcpd_state = self.get_cdcpd_state.get_state()
@@ -326,6 +330,11 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
+        for link_name in links_to_pad:
+            for link_padding in env['scene_msg'].link_padding:
+                if link_padding.link_name == link_name:
+                    link_padding.padding = planning_link_padding
+
         return env
 
 
@@ -364,7 +373,7 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
 
     while True:
         result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, timeout=250,
-                                   debug_collisions=True)
+                                   debug_collisions=False)
         print(result.status)
         if result.status == 'Exact solution':
             break
@@ -372,7 +381,7 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
         orientation_path_tol += 0.2
 
         if orientation_path_tol >= 2:
-           raise RobotPlanningError("could not plan to grasp!")
+            raise RobotPlanningError("could not plan to grasp!")
 
     display_msg = DisplayTrajectory()
     display_msg.trajectory.append(result.traj)

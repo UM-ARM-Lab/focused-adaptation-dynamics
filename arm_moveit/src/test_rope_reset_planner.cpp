@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   auto pub = nh.advertise<moveit_msgs::DisplayTrajectory>("ompl_plan", 10);
 
   RopeResetPlanner rope_reset_planner;
-  auto result = rope_reset_planner.planToReset(left_tool_grasp_pose, right_tool_grasp_pose, 0.2, 0.1, 30);
+  auto result = rope_reset_planner.planToReset(left_tool_grasp_pose, right_tool_grasp_pose, 0.2, 0.1, 30, false);
 
   moveit_msgs::DisplayTrajectory display_msg;
   display_msg.trajectory.emplace_back(result.traj);

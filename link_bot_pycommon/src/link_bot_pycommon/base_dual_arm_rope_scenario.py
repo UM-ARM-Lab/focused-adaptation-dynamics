@@ -363,6 +363,7 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
                                          grippers=grippers,
                                          max_velocity_scaling_factor=0.1,
                                          max_acceleration_scaling_factor=0.1)
+
                 pred_joint_positions_t = get_joint_positions_given_state_and_plan(plan, robot_state)
 
                 target_reached.append(reached_t)

@@ -36,8 +36,8 @@ def execute_actions(
     spinner = SynchronousSpinner('Executing actions')
 
     # FIXME hacky. this lets us execute as much of the jacobian action as possible
-    # if scenario.robot.robot_namespace != "mock_robot":
-    #     scenario.robot.called.jacobian_target_not_reached_is_failure = False
+    if scenario.robot.robot_namespace != "mock_robot":
+        scenario.robot.called.jacobian_target_not_reached_is_failure = False
 
     before_state = start_state
     actual_path = [before_state]
@@ -79,11 +79,9 @@ def execute_actions(
     if not stopped:
         spinner.stop()
 
-    time.sleep(2)  # FIXME: hack for CDCPD to catch up, only needed in the real world
-
     # FIXME hacky reset
-    # if scenario.robot.robot_namespace != "mock_robot":
-    #     scenario.robot.called.jacobian_target_not_reached_is_failure = True
+    if scenario.robot.robot_namespace != "mock_robot":
+        scenario.robot.called.jacobian_target_not_reached_is_failure = True
 
     execution_result = ExecutionResult(path=actual_path, end_trial=end_trial, stopped=stopped, end_t=t)
     return execution_result
@@ -212,7 +210,7 @@ class PlanAndExecute:
 
         self.on_start_trial(trial_idx)
 
-        time.sleep(30)  # HACK wait for CDCPD
+        time.sleep(10)  # HACK wait for CDCPD
 
         start_time = time.perf_counter()
         total_timeout = self.planner_params['termination_criteria']['total_timeout']
@@ -230,7 +228,7 @@ class PlanAndExecute:
         while True:
             # get start states
             self.service_provider.play()
-            time.sleep(10)  # HACK wait for CDCPD
+            time.sleep(5)  # HACK wait for CDCPD
             start_state = self.scenario.get_state()
             self.service_provider.pause()
 
@@ -325,7 +323,7 @@ class PlanAndExecute:
                 self.on_execution_complete(planning_query, planning_result, execution_result)
 
             self.service_provider.play()
-            time.sleep(3)
+            time.sleep(1)
             end_state = self.scenario.get_state()
             self.service_provider.pause()
 
