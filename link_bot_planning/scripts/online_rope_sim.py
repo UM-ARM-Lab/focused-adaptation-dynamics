@@ -296,6 +296,8 @@ if __name__ == '__main__':
         'hdt_michigan_moveit',
         'planning_context.launch',
         'no_gripper_collisions:=true',
+        'with_husky:=true',
+        'off_husky:=false',
         '--no-summary',
     ]
     p = subprocess.Popen(cmd, env=ros_env)
