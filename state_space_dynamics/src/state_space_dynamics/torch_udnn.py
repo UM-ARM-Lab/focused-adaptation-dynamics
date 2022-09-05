@@ -16,8 +16,8 @@ from moonshine.torchify import torchify
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 
 
-def soft_mask(global_step, mask_threshold, error):
-    return 1 - torch.sigmoid(0.5 * global_step * (error - mask_threshold))
+def soft_mask(global_step, mask_threshold, error, k_global=1):
+    return 1 - torch.sigmoid(k_global * global_step * (error - mask_threshold))
 
 
 class UDNN(pl.LightningModule):
@@ -181,7 +181,7 @@ class UDNN(pl.LightningModule):
     def soft_mask(self, error, global_step=None):
         if global_step is None:
             global_step = self.global_step
-        low_error_mask = soft_mask(global_step, self.hparams['mask_threshold'], error)
+        low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error, k_global = self.hparams.get("k_global", 1.0))
         return low_error_mask
 
     def compute_loss(self, inputs, outputs, use_mask: bool):

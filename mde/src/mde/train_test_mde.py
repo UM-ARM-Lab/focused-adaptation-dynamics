@@ -72,7 +72,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
 
     callbacks = []
     if is_nn_mde:
-        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user, **params)
+        model = load_model_artifact(checkpoint, MDE, project, version='latest', user=user, **params)
     else:
         from mde.gp_mde import GPRMDE
         model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint, **params)
@@ -168,6 +168,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
             'resume': True,
         }
     callbacks = []
+    params['dataset_hparams']['scenario_params']['run_flex'] = False
     if is_nn_mde:
         model = MDE(**params)
     else:
@@ -227,7 +228,7 @@ def eval_main(dataset_dir: pathlib.Path,
         os.environ['WANDB_MODE'] = "offline"
 
     if is_nn_mde:
-        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
+        model = load_model_artifact(checkpoint, MDE, project, version='latest', user=user)
     else:
         from mde.gp_mde import GPRMDE
         model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)

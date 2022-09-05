@@ -332,7 +332,7 @@ class MDE(pl.LightningModule):
 class MDEConstraintChecker:
 
     def __init__(self, checkpoint):
-        self.model: MDE = load_model_artifact(checkpoint, MDE, project='mde', version='best', user='armlab')
+        self.model: MDE = load_model_artifact(checkpoint, MDE, project='mde', version='latest', user='armlab')
         self.model.eval()
         self.horizon = 2
         self.name = 'MDE'

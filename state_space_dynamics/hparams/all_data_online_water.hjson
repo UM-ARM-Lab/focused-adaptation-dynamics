@@ -1,13 +1,13 @@
 {
-  use_mask_train: true
-  use_mask_val: true
-  iterative_lowest_error: true
-  soft_masking: true
-  k_global : 0.005
+  use_global_frame: false 
+  use_mask_train: false
+  use_mask_val: false
+  iterative_mask: false
   low_initial_error: false
-  mask_threshold: 0.15
-  train_mode: train 
+  mask_threshold: null
+  train_mode: train
   val_mode: val
+  shuffle_buffer_size: 64
   state_metadata_keys: []
   state_keys: [
     controlled_container_pos
@@ -23,7 +23,7 @@
   fc_layer_sizes: [
     1024
     1024
-    1024 
+    1024
     1024
   ]
   learning_rate: 0.001
@@ -32,5 +32,6 @@
     control_volume : 0.55
     controlled_container_target_angle : 0.3
   }
-}
 
+  beta_sample_weights: 0.001
+}

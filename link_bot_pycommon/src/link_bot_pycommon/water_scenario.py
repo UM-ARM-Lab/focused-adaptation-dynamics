@@ -2,6 +2,7 @@ from typing import Dict, Optional, List
 
 import numpy as np
 import torch
+import os
 
 from dm_envs.softgym_services import SoftGymServices
 from link_bot_pycommon.experiment_scenario import MockRobot
@@ -38,6 +39,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.control_volumes = []
         self.target_volumes = []
         #self.params['run_flex'] = False
+        #Hack for when you really don't want to run flex for environment reasons
+        if "NO_FLEX" in os.environ:
+            self.params["run_flex"] = False
         if self.params.get("run_flex", False):
             self._make_softgym_env()
         self.service_provider = SoftGymServices()
