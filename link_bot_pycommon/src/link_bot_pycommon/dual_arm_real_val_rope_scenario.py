@@ -6,8 +6,6 @@ from typing import Dict, Optional
 import numpy as np
 import open3d
 import rospkg
-from cdcpd.msg import GripperConstraint
-from cdcpd.srv import SetGripperConstraintsRequest, SetGripperConstraints
 from pyjacobian_follower import JacobianFollower
 from pyrope_reset_planner import RopeResetPlanner, PlanningResult
 
@@ -59,6 +57,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         self.reset_move_group = 'both_arms'
 
+        from cdcpd.srv import SetGripperConstraints
         self.plan_srv = rospy.ServiceProxy("/hdt_michigan/plan_kinematic_path", GetMotionPlan)
         self.cdcpd_constraint_srv = rospy.ServiceProxy("cdcpd_node/set_gripper_constraints", SetGripperConstraints)
 
@@ -247,6 +246,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         self.robot.plan_to_joint_config('torso', back_config)
 
     def set_cdcpd_both(self):
+        from cdcpd.msg import GripperConstraint
+        from cdcpd.srv import SetGripperConstraintsRequest
         left_gripper_cdcpd_constraint = GripperConstraint()
         left_gripper_cdcpd_constraint.frame_id = "mocap_left_hand_left_hand"
         left_gripper_cdcpd_constraint.node_index = 0
@@ -259,6 +260,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         self.cdcpd_constraint_srv(set_cdcpd_constraints)
 
     def set_cdcpd_right_only(self):
+        from cdcpd.msg import GripperConstraint
+        from cdcpd.srv import SetGripperConstraintsRequest
         right_gripper_cdcpd_constraint = GripperConstraint()
         right_gripper_cdcpd_constraint.frame_id = "mocap_right_hand_right_hand"
         right_gripper_cdcpd_constraint.node_index = 0
@@ -267,6 +270,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         self.cdcpd_constraint_srv(set_cdcpd_constraints)
 
     def set_cdcpd_left_only(self):
+        from cdcpd.msg import GripperConstraint
+        from cdcpd.srv import SetGripperConstraintsRequest
         left_gripper_cdcpd_constraint = GripperConstraint()
         left_gripper_cdcpd_constraint.frame_id = "mocap_left_hand_left_hand"
         left_gripper_cdcpd_constraint.node_index = 0
