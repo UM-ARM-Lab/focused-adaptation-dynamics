@@ -488,11 +488,16 @@ class WaterSimScenario(ScenarioWithVisualization):
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
         goal_target_volume_range = goal["goal_target_volume_range"]
         curr_target_volume = state["target_volume"].item()
+        curr_control_volume = state["control_volume"].item()
+        total_volume = curr_target_volume + curr_control_volume
         if curr_target_volume > goal_target_volume_range[0] and curr_target_volume < goal_target_volume_range[1]:
             return 0
         too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
         too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
-        return min(too_low_amount, too_high_amount)
+        desired_volume_dist =  min(too_low_amount, too_high_amount)
+        spill_penalty = 1000
+        desired_spill_dist = spill_penalty * np.abs(1-total_volume)
+        return desired_spill_dist + desired_volume_dist
 
     def distance_to_goal_pos(self, state: Dict, goal: Dict, use_torch=False):
         goal_pos = goal["controlled_container_pos"]
