@@ -172,8 +172,13 @@ class ResultsToDynamicsDataset:
                     if k == 'joint_names':
                         pad_state[k] = v
                     else:
-                        pad_state[k] = np.zeros_like(v)
-                pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
+                        pad_state[k] = v #np.zeros_like(v)
+
+                #pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
+                pad_action = {}
+                pad_action["controlled_container_target_pos"] = pad_state["controlled_container_pos"]
+                pad_action["controlled_container_target_angle"] = pad_state["controlled_container_angle"]
+
                 states_padded = states + n_pad * [pad_state]
                 actions_padded = actions + (n_pad - 1) * [pad_action]
                 state_subsequences = [states_padded]

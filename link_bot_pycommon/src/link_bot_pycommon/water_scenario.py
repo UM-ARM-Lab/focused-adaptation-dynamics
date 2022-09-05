@@ -116,8 +116,8 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
-
-        voxel_grid_env = get_environment_for_extents_3d(extent=params['extent'],
+        extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
+        voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
                                                         frame='map',
                                                         service_provider=self.service_provider,
@@ -125,7 +125,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
         env = {}
         env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
-        env["origin_point"] = extent_res_to_origin_point(extent=params['extent'], res=res)
+        env["origin_point"] = extent_res_to_origin_point(extent=params[extent_key], res=res)
         env["res"] = res
         return env
 

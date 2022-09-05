@@ -107,7 +107,7 @@ class WateringOmpl(ScenarioOmpl):
         return state_space
 
     def add_container_subspace(self, state_space, name="container"):
-        min_x, max_x, min_y, max_y, min_z, max_z = self.planner_params['extent']
+        min_x, max_x, min_y, max_y, min_z, max_z = self.planner_params['state_extent']
         container_subspace = ob.RealVectorStateSpace(3)
         container_bounds = ob.RealVectorBounds(3)
         # these bounds are not used for sampling

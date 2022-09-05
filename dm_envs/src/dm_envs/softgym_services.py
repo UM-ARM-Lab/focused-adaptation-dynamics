@@ -12,12 +12,15 @@ class SoftGymServices():
     def __init__(self):
         super().__init__()
         self._scene = None
+        self.cached_grid = None
 
     def setup_env(self, *args, **kwargs):
         pass
 
     def set_scene(self, scene):
         self._scene = scene
+        self.cached_grid = np.load("/home/lagrassa/catkin_ws/src/link_bot/link_bot_data/cached_grid.npy")
+
 
     def __call__(self, args, **kwargs):
         self.compute_occupancy(*args, **kwargs)
@@ -62,15 +65,20 @@ class SoftGymServices():
         y_dims = req.h_rows
         z_dims = req.c_channels
         grid = np.zeros((x_dims, y_dims, z_dims))
-        env_coords = self.create_env_coords(x_dims, y_dims, z_dims, center, res)
         response = ComputeOccupancyResponse()
-        sphere_shape = fcl.Sphere(res/2.)
-        tf = fcl.Transform(np.array([0,0,0]))
-        sphere = fcl.CollisionObject(sphere_shape, tf)
-        for x in range(x_dims):
-            for y in range(y_dims):
-                for z in range(z_dims):
-                    if self.is_occupied(x, y, z, env_coords, res, sphere):
-                        grid[x, y, z] = 1
+        if self.cached_grid is not None:
+            assert grid.shape == self.cached_grid.shape
+            response.grid = self.cached_grid
+        else:
+            env_coords = self.create_env_coords(x_dims, y_dims, z_dims, center, res)
+            sphere_shape = fcl.Sphere(res/2.)
+            tf = fcl.Transform(np.array([0,0,0]))
+            sphere = fcl.CollisionObject(sphere_shape, tf)
+            for x in range(x_dims):
+                print(f"{x} out of {x_dims}")
+                for y in range(y_dims):
+                    for z in range(z_dims):
+                        if self.is_occupied(x, y, z, env_coords, res, sphere):
+                            grid[x, y, z] = 1
         response.grid = grid
         return response
