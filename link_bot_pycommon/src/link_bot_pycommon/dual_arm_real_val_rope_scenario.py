@@ -234,7 +234,10 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def flip_left_wrist(self):
         left_arm_joint_names = self.robot.get_joint_names('left_arm')
         left_flip_config = self.robot.get_joint_positions(left_arm_joint_names)
-        left_flip_config[-1] -= np.pi
+        if left_flip_config[-1] > 0:
+            left_flip_config[-1] -= np.pi
+        else:
+            left_flip_config[-1] += np.pi
         self.robot.plan_to_joint_config('left_arm', left_flip_config)
 
     def move_torso_back(self):
