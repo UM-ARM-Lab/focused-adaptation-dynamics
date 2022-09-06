@@ -90,7 +90,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         target_volume_dist = target_volume_dist.squeeze(-1)
         control_volume_dist = control_volume_dist.squeeze(-1)
 
-        return container_dist + target_volume_dist + control_volume_dist
+        return container_dist + 0.5*target_volume_dist + 0.5*control_volume_dist
 
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
@@ -100,7 +100,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         target_volume_dist = target_volume_dist[0]
         control_volume_dist = control_volume_dist[0]
 
-        return container_dist + target_volume_dist + control_volume_dist
+        return container_dist + 0.5*target_volume_dist + 0.5*control_volume_dist
 
     def local_planner_cost_function_torch(self, planner):
         def _local_planner_cost_function(actions: List[Dict],
