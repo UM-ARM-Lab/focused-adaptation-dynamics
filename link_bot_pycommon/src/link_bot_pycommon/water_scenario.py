@@ -62,8 +62,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['render'] = True
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
-        #default_config = {"save_frames": True, 'img_size': 200}
-        default_config = {"save_frames": False, 'img_size': 64}
+        #default_config = {"save_frames": True, 'img_size': 300}
+        default_config = {"save_frames": False, 'img_size': 10}
         self._save_cfg = self.params.get("save_cfg", default_config)
 
         if not env_kwargs['use_cached_states']:
@@ -174,6 +174,7 @@ class WaterSimScenario(ScenarioWithVisualization):
             save_name = f"test_{is_fail}_{idx}.gif"
             save_numpy_as_gif(np.array(self.frames), save_name)
             print("Saved to", save_name)
+            self.frames = []
 
     def on_after_data_collection(self, params: Dict):
         if self._save_frames:
@@ -491,11 +492,12 @@ class WaterSimScenario(ScenarioWithVisualization):
         curr_control_volume = state["control_volume"].item()
         total_volume = curr_target_volume + curr_control_volume
         if curr_target_volume > goal_target_volume_range[0] and curr_target_volume < goal_target_volume_range[1]:
-            return 0
-        too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
-        too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
-        desired_volume_dist =  min(too_low_amount, too_high_amount)
-        spill_penalty = 1000
+            desired_volume_dist =  0
+        else:
+            too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
+            too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
+            desired_volume_dist =  min(too_low_amount, too_high_amount)
+        spill_penalty = 100
         desired_spill_dist = spill_penalty * np.abs(1-total_volume)
         return desired_spill_dist + desired_volume_dist
 
