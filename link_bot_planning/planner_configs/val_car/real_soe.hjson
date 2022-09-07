@@ -1,0 +1,39 @@
+{
+  accept_type: strict
+  method_name: real_soe
+  scenario: real_val_with_robot_feasibility_checking
+  scenario_params: {
+    rope_name: none
+  }
+  recovery: {
+    recovery_model_dir: recovery_trials/real_val_random/none
+    use_recovery: true
+  }
+  termination_criteria: {
+    total_timeout: 99999
+    timeout: 99999
+    max_extensions: 6000
+    max_attempts: 5
+    max_planning_attempts: 5
+    attempted_extensions_threshold: 128
+  }
+  stop_on_error_above: 0.35
+  dmax: 0.06
+  extent: [
+    -0.55
+    0.4
+    0.30
+    1.3
+    -0.15
+    1.1
+  ]
+  state_sampler_extent: [
+    -0.52
+    0.38
+    0.45
+    1.25
+    0.05
+    1.1
+  ]
+  real_time_rate: 1
+}

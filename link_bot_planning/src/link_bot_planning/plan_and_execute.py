@@ -31,6 +31,7 @@ def execute_actions(
         environment: Dict,
         start_state: Dict,
         actions: List[Dict],
+        planned_path: List[Dict],
         stop_condition: Optional[Callable] = None,
         plot: bool = False):
     spinner = SynchronousSpinner('Executing actions')
@@ -54,6 +55,13 @@ def execute_actions(
             scenario.plot_environment_rviz(environment)
             scenario.plot_state_rviz(before_state, label='actual', color='pink')
             scenario.plot_executed_action(before_state, action)
+            try:
+                pred_state = planned_path[t]
+                model_error = scenario.classifier_distance(before_state, pred_state)
+                scenario.plot_error_rviz(model_error)
+            except Exception as e:
+                print("failed to plot error!")
+                print(e)
 
         end_trial = scenario.execute_action(environment, before_state, action)
         after_state = scenario.get_state()
@@ -217,6 +225,7 @@ class PlanAndExecute:
 
         # Get the goal (default is to randomly sample one)
         environment = self.get_environment()
+
         goal = self.get_goal(trial_idx, environment)
 
         attempt_idx = 0
@@ -228,13 +237,8 @@ class PlanAndExecute:
         while True:
             # get start states
             self.service_provider.play()
-            time.sleep(5)  # HACK wait for CDCPD
             start_state = self.scenario.get_state()
             self.service_provider.pause()
-
-            # NOTE: we have assumed the environment does not change after executing, this is a performance optimization
-            #  because getting the environment can be slow (~10 seconds)
-            # environment = self.get_environment()
 
             # Try to make the seeds reproducible, but it needs to change based on attempt idx or we would just keep
             # trying the same plans over and over
@@ -426,6 +430,7 @@ class PlanAndExecute:
                 return self.stop_condition(predicted_after_state, after_state)
 
             execution_result = execute_actions(scenario=self.scenario,
+                                               planned_path=planning_result.path,
                                                environment=planning_query.environment,
                                                start_state=planning_query.start,
                                                actions=planning_result.actions,
@@ -493,11 +498,7 @@ class PlanAndExecute:
     def on_plan_complete(self,
                          planning_query: PlanningQuery,
                          planning_result: PlanningResult):
-        # visualize the plan
-        if self.verbose >= 1:
-            self.scenario.animate_final_path(environment=planning_query.environment,
-                                             planned_path=planning_result.path,
-                                             actions=planning_result.actions)
+        pass
 
     def on_before_execute(self):
         pass

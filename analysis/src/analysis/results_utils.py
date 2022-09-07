@@ -111,7 +111,7 @@ def labeling_params_from_planner_params(planner_params, fallback_labeling_params
     return labeling_params
 
 
-def get_paths(datum: Dict, verbose: int = 0, full_path: bool = True):
+def get_paths(datum: Dict, verbose: int = 0, full_plan: bool = True):
     steps = datum['steps']
 
     if len(steps) == 0:
@@ -152,7 +152,7 @@ def get_paths(datum: Dict, verbose: int = 0, full_path: bool = True):
 
         types = [step['type']] * len(actions)
         j = range(len(actions) + 1)
-        if full_path:
+        if full_plan:
             full_path_for_step = zip_repeat_shorter(actions, actual_states, predicted_states, types, j)
             yield from [(e, *p_t) for p_t in full_path_for_step]
         else:
@@ -171,8 +171,8 @@ def get_paths(datum: Dict, verbose: int = 0, full_path: bool = True):
 
 
 def get_recovery_transitions(datum: Dict):
-    paths = get_paths(datum, full_path=False)
-    next_paths = get_paths(datum, full_path=False)
+    paths = get_paths(datum, full_plan=False)
+    next_paths = get_paths(datum, full_plan=False)
     try:
         next(next_paths)
 
@@ -371,6 +371,11 @@ def plot_steps(scenario: ScenarioWithVisualization,
 
         c = 'r'
         if s_t_pred is not None:
+            left_gripper_error = np.linalg.norm(s_t_pred['left_gripper'] - s_t['left_gripper'])
+            right_gripper_error = np.linalg.norm(s_t_pred['right_gripper'] - s_t['right_gripper'])
+            if left_gripper_error > 0.05 or right_gripper_error > 0.05:
+                print(Fore.RED + "failed action!" + Fore.RESET)
+
             if 'error' in s_t_pred:
                 pred_error = np.squeeze(s_t_pred['error'])
                 scenario.plot_pred_error_rviz(pred_error)

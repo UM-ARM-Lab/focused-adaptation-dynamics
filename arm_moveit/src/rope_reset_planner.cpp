@@ -207,8 +207,12 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const left_orientation_error = rotMatDist(left_goal_pose_.rotation(), left_tool_pose.rotation());
     auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
     auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
+
+    auto const torso_ok = *robot_state.getJointPositions("joint57") < 0.05;
+
     return (left_translation_error < translation_tolerance_) && (right_translation_error < translation_tolerance_) &&
-           (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_);
+           (left_orientation_error < orientation_tolerance_) && (right_orientation_error < orientation_tolerance_) &&
+           torso_ok;
   }
 
   bool isSatisfied(const ob::State * /*s*/) const override { throw std::runtime_error("Not implemented!"); }

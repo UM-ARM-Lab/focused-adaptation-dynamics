@@ -4,7 +4,7 @@ import pathlib
 from moviepy.editor import *
 from moviepy.video.fx.freeze import freeze
 
-from link_bot_pycommon.args import int_set_arg
+from analysis.combine_videos import combine_videos_for_iter
 
 
 def hold_end(clip, duration):
@@ -19,7 +19,7 @@ def make_learning_progress_video(args):
     speed = 10
     iteration_videos = []
     for iteration in args.iterations:
-        method_iteration_videos = make_method_iteration_videos(args, iteration, speed, w)
+        method_iteration_videos = make_method_iteration_videos(args.roots, iteration, speed, w)
         max_duration, method_iteration_videos_held = add_holds(method_iteration_videos)
 
         iter_txt = TextClip(f'Iteration {iteration + 1}',
@@ -61,9 +61,9 @@ def add_holds(method_iteration_videos):
     return max_duration, method_iteration_videos_held
 
 
-def make_method_iteration_videos(args, iteration, speed, w):
+def make_method_iteration_videos(roots, iteration, speed, w):
     method_iteration_videos = {}
-    for root in args.roots:
+    for root in roots:
         with (root / 'method_name').open("r") as f:
             method_name = f.readline().strip("\n")
         method_iteration_video = make_method_iteration_video(iteration, root, method_name, speed, w)
@@ -73,38 +73,18 @@ def make_method_iteration_videos(args, iteration, speed, w):
     return method_iteration_videos
 
 
-def make_method_iteration_video(iteration, root, method_name, speed, w):
-    iteration_dir = root / 'planning_results' / f"iteration_{iteration:04d}_planning"
-    iteration_video_filenames = filter(lambda f: 'reset' not in f.as_posix(), iteration_dir.glob("*.avi"))
-    method_iteration_clips = []
-    for iteration_video_filename in iteration_video_filenames:
-        method_iteration_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
-        method_iteration_clip = method_iteration_clip.crop(x1=260).resize(width=w).speedx(speed)
-        method_iteration_clips.append(method_iteration_clip)
-    method_iteration_video = concatenate_videoclips(method_iteration_clips)
-
-    method_name_txt = TextClip(method_name,
-                               font='Ubuntu-Bold',
-                               fontsize=90,
-                               color='white')
-
-    h = method_iteration_video.h
-    method_name_txt = method_name_txt.set_pos((w / 2 - method_name_txt.w / 2, h - 10))
-    size = (method_iteration_video.w, method_iteration_video.h + method_name_txt.h)
-    method_iteration_video_w_txt = CompositeVideoClip([method_iteration_video, method_name_txt], size=size)
-    method_iteration_video_w_txt = method_iteration_video_w_txt.set_duration(method_iteration_video.duration)
-
-    return method_iteration_video_w_txt
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('roots', type=pathlib.Path, nargs='+')
-    parser.add_argument('iterations', type=int_set_arg)
 
     args = parser.parse_args()
 
-    make_learning_progress_video(args)
+    for root in args.roots:
+        for episode in [1, 2, 3, 4, 5]:
+            combined_video = combine_videos_for_iter(root, episode)
+
+            outfilename = root / f'episode{episode:04d}_combined.mp4'
+            combined_video.write_videofile(outfilename.as_posix(), fps=6)
 
 
 if __name__ == '__main__':

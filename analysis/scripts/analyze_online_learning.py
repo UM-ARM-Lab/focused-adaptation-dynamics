@@ -18,31 +18,30 @@ def metrics_main(args):
     outdir, df = planning_results(args.results_dirs, args.regenerate)
 
     # manually add the results for what iter0 would do, which are currently based on:
-    unadapted_path = pathlib.Path(
-        "/media/shared/planning_results/unadapted_eval_for_online_iter0_1659632839_babbe85f3a")
-
-    _, unadapted_df = planning_results([unadapted_path], args.regenerate)
-    unadapted_df['method_name'] = ['unadapted'] * len(unadapted_df)
-
     iter_key = 'ift_iteration'
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
-    ax.axhline(unadapted_df['normalized_model_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.set_xticks(range(20))
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
     fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name')
-    ax.axhline(unadapted_df['success'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.set_xticks(range(20))
     ax.legend()
     plt.savefig(outdir / f'success.png')
 
+    fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given Plan To Goal Found)', hue='method_name')
+    ax.set_xticks(range(20))
+    ax.legend()
+    plt.savefig(outdir / f'success_given_solved.png')
+
     fig, ax = lineplot(df, iter_key, 'any_solved', 'Plan to goal found?', hue='method_name')
-    ax.axhline(unadapted_df['any_solved'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.set_xticks(range(20))
     ax.legend()
     plt.savefig(outdir / f'any_solved.png')
 
     fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
-    ax.axhline(unadapted_df['task_error'].mean(), c='gray', linestyle='--', label='unadapted')
+    ax.set_xticks(range(20))
     ax.legend()
     plt.savefig(outdir / f'task_error.png')
 

@@ -10,6 +10,9 @@
     -->
     <param name="max_rope_length" value="0.82"/>
 
+    <rosparam command="load" param="fake_robot_description" file="$(find cdcpd)/fake_robot.urdf"/>
+    <rosparam command="load" param="fake_robot_description_semantic" file="$(find cdcpd)/fake_robot.srdf"/>
+
     <!--        <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen" launch-prefix="gdb -ex start &#45;&#45;args">-->
     <node pkg="cdcpd" type="cdcpd_node" name="cdcpd_node" respawn="false" output="screen">
         <param name="kinect_channel" value="qhd"/>
@@ -18,6 +21,7 @@
         <param name="use_gripper_constraints" value="true"/>
         <param name="obstacle_cost_weight" value="0.02"/>
         <param name="fixed_points_weight" value="10.0"/>
+        <param name="max_dist_from_tracked_point" value="0.10"/>
         <param name="camera_frame" value="kinect2_tripodA_rgb_optical_frame"/>
         <param name="min_distance_threshold" value="0.01"/>
         <param name="lambda" value="1.0"/>

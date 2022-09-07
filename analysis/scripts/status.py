@@ -2,6 +2,8 @@
 import argparse
 import pathlib
 import re
+from datetime import timedelta, datetime
+from itertools import chain
 
 from colorama import Style, Fore
 
@@ -36,7 +38,7 @@ def main():
         if not logfilename.exists():
             continue
         log = load_hjson(logfilename)
-        for i in range(10):
+        for i in range(20):
             k = f'iter{i}'
             if k in log:
                 log_i = log[k]
@@ -48,9 +50,16 @@ def main():
                     completed_iters += 1
                 else:
                     break
+
+        last_updated = None
+        for hjson_path in chain(run_dir.rglob("*.hjson"), run_dir.rglob("*.stdout")):
+            time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
+            if last_updated is None or time > last_updated:
+                last_updated = time
+
         if name not in iterations_completed_map:
             iterations_completed_map[name] = {}
-        iterations_completed_map[name][seed] = (full_run_name, completed_iters)
+        iterations_completed_map[name][seed] = (full_run_name, completed_iters, last_updated)
 
     post_learning_evaluations_map = {}
     planning_eval_root = pathlib.Path("/media/shared/planning_results")
@@ -69,32 +78,66 @@ def main():
                 post_learning_evaluations_map[full_run_name][eval_at_iter] = n_evals
     post_learning_evaluations_map = dict(sorted(post_learning_evaluations_map.items()))
 
-    expected_total_n_evals = 20 * 10 * 30
-    print(f"{total_n_evals}/{expected_total_n_evals} ({total_n_evals/expected_total_n_evals:.0%})")
-    print_status(post_learning_evaluations_map)
+    print_online_learning_status(iterations_completed_map)
     print('-' * 64)
-    print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name)
+
+    expected_total_n_evals = 10 * 10 * 30
+    print(f"{total_n_evals}/{expected_total_n_evals} ({total_n_evals / expected_total_n_evals:.0%})")
+    print_post_learning_evaluation_status(post_learning_evaluations_map)
 
 
-def print_status(post_learning_evaluations_map):
+def print_online_learning_status(iterations_completed_map):
+    print(Style.BRIGHT + "Online Learning:" + Style.RESET_ALL)
+    for name, runs_for_name in iterations_completed_map.items():
+        print(f"{name}")
+        runs_for_name_sorted = dict(sorted(runs_for_name.items()))
+        for seed, (_, completed_iters, last_updated) in runs_for_name_sorted.items():
+            if completed_iters == 20:
+                color = Style.DIM
+                dt_str = ""
+            else:
+                color = ''
+                dt = datetime.now() - last_updated
+                if dt > timedelta(minutes=20):
+                    dt_color = Fore.RED
+                else:
+                    dt_color = Fore.GREEN
+                hours, remainder = divmod(dt.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                dt_str = dt_color + f"Last Updated {hours}hr {minutes}m {seconds}s" + Fore.RESET
+            print(color + f"\tSeed {seed} Completed: {completed_iters}/20 {dt_str}" + Style.RESET_ALL)
+
+
+def print_post_learning_evaluation_status(post_learning_evaluations_map):
     import tabulate
-    table = []
-    headers = ['run'] + [f'iter{i}' for i in range(10)]
+    table_dict = {}
+    headers = ['run'] + [f'{i}' for i in range(20)]
     for run_name, evals in post_learning_evaluations_map.items():
-        row = [0] * 11
-        row[0] = f"{run_name:30s}"
-        for i in range(10):
+        name, seed = get_name_and_seed_from_name(run_name)
+        if name not in table_dict:
+            table_dict[name] = [0] * 21
+        row = table_dict[name]
+        row[0] = name
+        for i in range(20):
             if i in evals:
                 n_evals = evals[i]
             else:
                 n_evals = 0
-            if n_evals == 0:
-                color = Style.DIM
-            elif n_evals >= 20:
-                color = Style.DIM + Fore.GREEN
-            else:
+            row[i + 1] += n_evals
+            if row[i + 1] >= 100:
+                row[i + 1] = 100
+
+    table = []
+    for dict_row in table_dict.values():
+        row = [dict_row[0]]
+        for n_evals in dict_row[1:]:
+            if n_evals >= 100:
+                color = Fore.GREEN
+            elif n_evals > 0:
                 color = Fore.YELLOW
-            row[i + 1] = color + str(n_evals) + Style.RESET_ALL
+            else:
+                color = ""
+            row.append(color + str(n_evals) + Fore.RESET)
         table.append(row)
     print(tabulate.tabulate(table, headers=headers, tablefmt='simple'))
 
@@ -102,14 +145,14 @@ def print_status(post_learning_evaluations_map):
 def print_things_to_run(iterations_completed_map, post_learning_evaluations_map, planner_config_name):
     full_cmds = []
     for name, runs_for_name in iterations_completed_map.items():
-        for seed, (full_run_name, _) in runs_for_name.items():
+        for seed, (full_run_name, _, __) in runs_for_name.items():
             post_learning_eval_done = True
             for iter_idx in range(10):
                 if iter_idx not in post_learning_evaluations_map[full_run_name]:
                     post_learning_eval_done = False
                 else:
                     n_evals = post_learning_evaluations_map[full_run_name][iter_idx]
-                    if n_evals < 20:
+                    if n_evals < 10:
                         post_learning_eval_done = False
             if not post_learning_eval_done:
                 planner_config_path = f"planner_configs/val_car/{planner_config_name}.hjson"
@@ -124,11 +167,15 @@ def print_things_to_run(iterations_completed_map, post_learning_evaluations_map,
 
 
 def get_name_and_seed(run_dir):
-    if '-' in run_dir.name:
-        name_without_seed, seed = run_dir.name.split('-')
+    return get_name_and_seed_from_name(run_dir.name)
+
+
+def get_name_and_seed_from_name(run_name):
+    if '-' in run_name:
+        name_without_seed, seed = run_name.split('-')
         seed = int(seed)
     else:
-        name_without_seed = run_dir.name
+        name_without_seed = run_name
         seed = 0
     if 'all_data' not in name_without_seed and "adaptation" not in name_without_seed:
         name_without_seed += '_adaptation'

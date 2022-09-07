@@ -145,15 +145,15 @@ def combined_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, tria
 
 
 @metrics_funcs
-def safe_task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
-    for _, _, actual_state_t, planned_state_t, type_t, _ in get_paths(trial_datum):
-        if planned_state_t is not None:
-            model_error = scenario.classifier_distance(actual_state_t, planned_state_t)
-            if model_error >= 0.25:
-                break
-    goal = trial_datum['goal']
-    task_error = scenario.distance_to_goal(actual_state_t, goal)
-    return numpify(task_error)
+def num_failed_actions(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_datum: Dict):
+    failed_actions = 0
+    for _, _, actual_state_t, planned_state_t, type_t, _ in get_paths(trial_datum, False):
+        if planned_state_t is not None and actual_state_t is not None:
+            left_gripper_error = np.linalg.norm(planned_state_t['left_gripper'] - actual_state_t['left_gripper'])
+            right_gripper_error = np.linalg.norm(planned_state_t['right_gripper'] - actual_state_t['right_gripper'])
+            if left_gripper_error > 0.05 or right_gripper_error > 0.05:
+                failed_actions += 1
+    return failed_actions
 
 
 @metrics_funcs
@@ -162,7 +162,6 @@ def task_error(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, trial_da
     final_actual_state = trial_datum['end_state']
     final_execution_to_goal_error = scenario.distance_to_goal(final_actual_state, goal)
     return numpify(final_execution_to_goal_error)
-
 
 
 @metrics_funcs
