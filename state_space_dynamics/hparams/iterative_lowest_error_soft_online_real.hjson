@@ -4,7 +4,7 @@
   iterative_lowest_error: true
   soft_masking: true
   low_initial_error: false
-  mask_threshold: 0.12
+  mask_threshold: 0.2
   train_mode: all
   val_mode: all
   state_metadata_keys: []

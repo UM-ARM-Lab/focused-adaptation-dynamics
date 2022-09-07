@@ -206,10 +206,6 @@ def eval_main(dataset_dir: pathlib.Path,
         for k, v in metrics_i.items():
             print(f"{k:20s}: {v:0.6f}")
 
-    import torch
-    test_errors = torch.cat(model.test_errors, 0).reshape([-1])
-    print(f"std test error: {torch.std(test_errors).detach().cpu().numpy():.2f}")
-
     return metrics
 
 
@@ -234,24 +230,22 @@ def viz_main(dataset_dir: pathlib.Path,
         inputs = dataset[dataset_anim.t()]
         print(inputs['example_idx'])
 
-        if 'time_mask' in inputs:
-            n_time_steps = int(inputs['time_mask'].sum())
-        else:
-            n_time_steps = inputs['time_idx'].shape[0]
-        time_anim = RvizAnimationController(n_time_steps=n_time_steps)
+        time_anim = RvizAnimationController(n_time_steps=inputs['left_gripper_position'].shape[0])
 
         inputs_batch = torchify(add_batch(inputs))
         outputs_batch = model(inputs_batch)
-        # low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=100)))
+        low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=10000)))
         outputs = remove_batch(outputs_batch)
 
         time_anim.reset()
         while not time_anim.done:
             t = time_anim.t()
+            if inputs['time_mask'][t] == 0:
+                break
 
             init_viz_env(s, inputs, t)
             viz_pred_actual_t(original_dataset, model, inputs, outputs, s, t, threshold=0.08)
-            # s.plot_weight_rviz(low_error_mask[t])
+            s.plot_weight_rviz(low_error_mask[t])
             time_anim.step()
 
         n_examples_visualized += 1

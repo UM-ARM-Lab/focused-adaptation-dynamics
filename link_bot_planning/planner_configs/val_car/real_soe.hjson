@@ -6,19 +6,19 @@
     rope_name: none
   }
   recovery: {
-    recovery_model_dir: recovery_trials/real_up/none
+    recovery_model_dir: recovery_trials/real_val_random/none
     use_recovery: true
   }
   termination_criteria: {
     total_timeout: 99999
     timeout: 99999
-    max_extensions: 8000
+    max_extensions: 6000
     max_attempts: 5
     max_planning_attempts: 5
-    attempted_extensions_threshold: 256
+    attempted_extensions_threshold: 128
   }
-  stop_on_error_above: 0.45
-  dmax: 0.08
+  stop_on_error_above: 0.5
+  dmax: 0.1
   extent: [
     -0.55
     0.4
@@ -33,7 +33,7 @@
     0.45
     1.25
     0.05
-    0.80
+    1.1
   ]
   real_time_rate: 1
 }

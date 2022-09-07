@@ -2,14 +2,13 @@ import pathlib
 import re
 
 import cv2
-import moviepy
+import matplotlib.pyplot as plt
 import numpy as np
-from moviepy.editor import *  # you actually have to do this or seemingly random functions won't exist
-from tqdm import trange
+from moviepy.video.VideoClip import TextClip, VideoClip, ImageClip
+from moviepy.video.compositing.concatenate import concatenate_videoclips
+from moviepy.video.fx.freeze import freeze
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
-from analysis import results_metrics
-from link_bot_pycommon.get_scenario import get_scenario_cached
-from link_bot_pycommon.serialization import load_gzipped_pickle
 from moonshine.filepath_tools import load_hjson
 
 
@@ -17,164 +16,88 @@ class NoVideoError(Exception):
     pass
 
 
-method_name_map = {
-    'all_data_no_mde': 'AllDataNoMDE',
-    'adaptation':      'FOCUS (ours)',
-}
+def hold_end(clip, duration):
+    clip.get_frame(-1)
+    end = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
+    return end
 
 
-def make_success_clip(clip, success: bool, duration):
-    if success:
-        icon_clip = ImageClip("~/Pictures/icons/check_mark.png")
-    else:
-        icon_clip = ImageClip("~/Pictures/icons/cross_mark.png")
-    icon_clip = icon_clip.resize(width=clip.w * 0.1)
-    icon_clip = icon_clip.set_pos((15, 15))
-    icon_clip.duration = duration
-    clip_with_icon = CompositeVideoClip([clip, icon_clip])
-    clip_with_icon.duration = duration
-    return clip_with_icon
+def add_holds(method_iteration_videos):
+    max_duration = max([v.duration for v in method_iteration_videos.values()]) + 1
+    method_iteration_videos_held = {}
+    for method_name, method_iteration_video in method_iteration_videos.items():
+        method_iteration_video_held = freeze(method_iteration_video, t='end', total_duration=max_duration,
+                                             padding_end=0.01)
+        method_iteration_videos_held[method_name] = method_iteration_video_held
+    return max_duration, method_iteration_videos_held
 
 
-def add_holds(clip, success=None, start_freeze_duration=1.5, end_freeze_duration=0.5):
-    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=start_freeze_duration)
-    for final_frame in clip.iter_frames():
-        pass
-    final_frame_clip = ImageClip(final_frame).set_duration(end_freeze_duration)
-    if success is None:
-        clip = concatenate_videoclips([clip, final_frame_clip])
-    else:
-        final_frame_clip_with_success = make_success_clip(final_frame_clip, success, duration=end_freeze_duration)
-        clip = concatenate_videoclips([clip, final_frame_clip_with_success])
-    return clip
-
-
-def remove_similar_frames(clip: VideoClip):
+def remove_boring_frames(method_iteration_clip: VideoClip):
     # for each frame, compute the naive pixel-space distance to the previous frame
-    prev_frame = None
-
+    prev_frame_filtered = None
     clips = []
-    # always include first frame
-    clips.append(ImageClip(clip.get_frame(0)).set_duration(1 / 6))
+    ds = []
+    for curr_frame in method_iteration_clip.iter_frames():
+        hsv = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2HSV)
+        lower = np.array([110, 50, 50])
+        upper = np.array([150, 255, 255])
+        mask = cv2.inRange(hsv, lower, upper)
+        curr_frame_filtered = cv2.bitwise_and(curr_frame, curr_frame, mask=mask)
 
-    for curr_frame in clip.iter_frames():
-        curr_frame_gray = cv2.cvtColor(curr_frame, cv2.COLOR_RGB2GRAY)
+        clips.append(ImageClip(curr_frame_filtered).set_duration(1 / 6))
 
-        if prev_frame is not None:
-            diff = curr_frame_gray.copy()
-            cv2.absdiff(curr_frame_gray, prev_frame, diff)
-            d = np.linalg.norm(diff)
-            if d > 5000:
-                clips.append(ImageClip(curr_frame).set_duration(1 / 6))
-        prev_frame = curr_frame_gray
+        if prev_frame_filtered is not None:
+            delta = (curr_frame_filtered - prev_frame_filtered).sum(-1)
+            plt.imshow(delta)
+            plt.show()
+            d = np.linalg.norm(delta)
+            ds.append(d)
+            pass
+        prev_frame_filtered = curr_frame_filtered
 
     concat_clip = concatenate_videoclips(clips)
+    plt.plot(ds)
+    plt.show()
 
     return concat_clip
 
 
-def crop_video(clip):
-    cropped = clip.crop(x1=120, x2=clip.w - 110)
-    return cropped
-
-
-def video_for_post_learning(iter_dir: pathlib.Path, final_speedup: int):
-    internal_speedup = 10
-
-    metadata = load_hjson(iter_dir / 'metadata.hjson')
+def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
+    metadata = load_hjson(root / 'metadata.hjson')
     method_name = metadata['planner_params']['method_name']
-    stylized_method_name = method_name_map.get(method_name, method_name)
 
-    videos = []
-    for episode in trange(32):
-        metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
-        if not metrics_filename.exists():
-            continue
-        results = load_gzipped_pickle(metrics_filename)
-        episode_video = edited_episode_video(episode, iter_dir, internal_speedup, results)
-        text = f'Post-Learning: {stylized_method_name} ({final_speedup * internal_speedup}x, pauses removed)'
-        episode_video_w_text = add_text(episode_video, text)
-        episode_video_w_text_cropped = crop_video(episode_video_w_text)
-        episode_video_w_text_cropped = add_holds_with_success(episode_video_w_text_cropped, metrics_filename, results)
-        videos.append(episode_video_w_text_cropped)
+    video_filenames = sorted(root.glob("*.mp4"))
 
-    return videos
+    latest_video_filenames = {}
+    # iterate over possible video files and keep the latest one for each attempt idx
+    for v in video_filenames:
+        m = re.search(f'{episode:04d}-(\d\d\d\d)-\d+', v.as_posix())
+        if m:
+            attempt_idx = int(m.group(1))
+            latest_video_filenames[attempt_idx] = v
 
+    if len(latest_video_filenames) == 0:
+        raise NoVideoError(f"No videos for {root} episode {episode}")
+    latest_video_filenames = dict(sorted(latest_video_filenames.items()))
 
-def add_holds_with_success(episode_video, metrics_filename, results):
-    trial_metadata = load_hjson(metrics_filename.parent / 'metadata.hjson')
-    scenario = get_scenario_cached("floating_rope", {'rope_name': ''})
-    success = results_metrics.success(metrics_filename, scenario, trial_metadata, results)
-    episode_video = add_holds(episode_video, success)
-    return episode_video
+    method_iteration_clips = []
+    for iteration_video_filename in latest_video_filenames.values():
+        method_iteration_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
+        method_iteration_clip = method_iteration_clip.resize(width=w).speedx(speed)
+        # method_iteration_clip = remove_boring_frames(method_iteration_clip)
+        method_iteration_clips.append(method_iteration_clip)
+    method_iteration_video = concatenate_videoclips(method_iteration_clips)
 
+    method_name_txt = TextClip(method_name,
+                               font='Ubuntu-Bold',
+                               fontsize=64,
+                               color='white')
 
-def quick_video_for_iter(iter_dir: pathlib.Path, speed: float):
-    m = re.search(r"iteration_(\d+)", iter_dir.name)
-    iter_idx = int(m.group(1))
+    h = method_iteration_video.h
+    method_name_txt = method_name_txt.set_pos((w / 2 - method_name_txt.w / 2, h - 10))
+    size = (method_iteration_video.w, method_iteration_video.h + method_name_txt.h)
+    method_iteration_video_w_txt = method_iteration_video
+    # method_iteration_video_w_txt = CompositeVideoClip([method_iteration_video, method_name_txt], size=size)
+    # method_iteration_video_w_txt = method_iteration_video_w_txt.set_duration(method_iteration_video.duration)
 
-    metadata = load_hjson(iter_dir / 'metadata.hjson')
-    method_name = metadata['planner_params']['method_name']
-    stylized_method_name = method_name_map[method_name]
-
-    videos = []
-    for metrics_filename in iter_dir.glob("*metrics.pkl.gz"):
-        m = re.search('(\d+)_metrics.pkl.gz', metrics_filename.name)
-        episode = int(m.group(1))
-        print(f'{iter_idx=} {episode=}')
-        results = load_gzipped_pickle(metrics_filename)
-        episode_video = edited_episode_video(episode, iter_dir, speed, results)
-        episode_video = add_holds_with_success(episode_video, iter_dir, results)
-        text = f'{stylized_method_name} {iter_idx=} {episode=}'
-        episode_video_w_text = add_text(episode_video, text)
-        videos.append(episode_video_w_text)
-
-    return videos
-
-
-def edited_episode_video(episode, iter_dir, speed, results):
-    attempt_video_filenames = get_attempt_video_filenames(episode, iter_dir, results)
-
-    attempt_clips = []
-    for iteration_video_filename in attempt_video_filenames:
-        attempt_clip = load_edited_clip(iteration_video_filename)
-        attempt_clips.append(attempt_clip)
-    episode_video = concatenate_videoclips(attempt_clips)
-    episode_video = episode_video.speedx(speed)
-    return episode_video
-
-
-def get_attempt_video_filenames(episode, iter_dir, results):
-    attempt_video_filenames = []
-    for attempt_idx in range(len(results['steps'])):
-        potential_video_filenames = sorted(iter_dir.glob(f"{episode:04d}-{attempt_idx + 1:04d}-*.mp4"))
-        if len(potential_video_filenames) == 0:
-            print(f"Failed to find video of episode {episode} attempt {attempt_idx}")
-            break
-        latest_attempt_video_filename = potential_video_filenames[0]
-        for f in potential_video_filenames:
-            if 'edited' not in f.name:
-                latest_attempt_video_filename = f
-        attempt_video_filenames.append(latest_attempt_video_filename)
-    return attempt_video_filenames
-
-
-def load_edited_clip(iteration_video_filename: pathlib.Path):
-    edited_clip_filename = iteration_video_filename.parent / f"{iteration_video_filename.stem}.edited.mp4"
-
-    if not edited_clip_filename.exists():
-        attempt_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
-        edited_attempt_clip = remove_similar_frames(attempt_clip)
-        edited_attempt_clip.write_videofile(edited_clip_filename.as_posix(), fps=6)
-
-    return VideoFileClip(edited_clip_filename.as_posix())
-
-
-def add_text(episode_video, text):
-    # FIXME: no idea why this works, but without it, the video is black
-    episode_video = episode_video.resize(width=episode_video.h)
-    text_clip = TextClip(text, font='Ubuntu-Bold', fontsize=32, color='white', bg_color='black').set_position(
-        ('center', 'bottom'))
-    episode_video_w_text = CompositeVideoClip([episode_video, text_clip])
-    episode_video_w_text.duration = episode_video.duration
-    return episode_video_w_text
+    return method_iteration_video_w_txt

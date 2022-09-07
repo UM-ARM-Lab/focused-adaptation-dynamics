@@ -1,4 +1,5 @@
 {
   model_class: gripper_distance
   max_distance_between_grippers: 0.60
+  min_distance_between_grippers: 0.16
 }
