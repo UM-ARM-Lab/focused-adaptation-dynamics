@@ -413,7 +413,9 @@ class OmplRRTWrapper(MyPlanner):
             ompl_path = self.ss.getSolutionPath()
             actions, planned_path = self.convert_path(ompl_path)
             if self.params['smooth']:
+                print(f"{len(actions)} actions before smoothing")
                 actions, planned_path = self.smooth(planning_query, actions, planned_path)
+                print(f"{len(actions)} actions after smoothing")
         elif planner_status == MyPlannerStatus.Timeout:
             # Use the approximate solution, since it's usually pretty darn close, and sometimes
             # our goals are impossible to reach so this is important to have
@@ -509,6 +511,9 @@ class OmplRRTWrapper(MyPlanner):
                 continue
             shortcut_action_seq = self.scenario.interpolate(start_state, end_state)
             # these actions need to be re-propagated
+            if len(shortcut_action_seq) > end_t - start_t:
+                continue # not much point shortcutting if it takes more 
+
             proposed_action_seq_to_end = shortcut_action_seq + action_sequence[end_t:]
             proposed_action_seq = action_sequence[:start_t] + proposed_action_seq_to_end
 
@@ -524,13 +529,14 @@ class OmplRRTWrapper(MyPlanner):
 
                 if not accept_t:
                     classifier_accept = False
+                    print("Rejected due to pred error", pred_error)
                     break
 
             proposed_state_seq = state_sequence[:start_t] + proposed_state_seq_to_end
 
             # NOTE: we don't check this because smoothing is run even when we Timeout and the goal wasn't reached
             distance_to_goal = self.scenario.distance_to_goal(proposed_state_seq[-1], goal)
-            much_further_from_goal = distance_to_goal - initial_distance_to_goal > 0.03  # FIXME: hardcoded parameter
+            much_further_from_goal = distance_to_goal - initial_distance_to_goal > self.params.get("smoothing_max_goal_dist_diff", 0.08)
 
             # if the shortcut was successful, save that as the new path
             accept = classifier_accept and not much_further_from_goal

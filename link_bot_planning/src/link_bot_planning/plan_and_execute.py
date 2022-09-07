@@ -267,6 +267,7 @@ class PlanAndExecute:
             d = self.scenario.distance_to_goal(end_state, planning_query.goal)
             rospy.loginfo(f"distance to goal after execution is {d:.3f}")
             reached_goal = (d <= self.planner_params['goal_params']['threshold'] + 1e-6)
+            #self.scenario._on_execution_complete("monsterainit_all_data_no_mde-0",reached_goal=reached_goal,idx=trial_idx)
 
             end_conditions = [
                 reached_goal,
@@ -487,7 +488,7 @@ class PlanAndExecute:
     def get_environment(self):
         # get the environment, which here means anything which is assumed constant during planning
         get_env_params = self.planner_params.copy()
-        res = self.planner.classifier_models[0].model.hparams['dataset_hparams']["data_collection_params"]["res"]
+        res = 0.02 #self.planner.classifier_models[0].model.hparams['dataset_hparams']["data_collection_params"]["res"]
         if not isinstance(res, np.ndarray):
             res = np.array(res, dtype=np.float32)
         get_env_params['res'] = res
