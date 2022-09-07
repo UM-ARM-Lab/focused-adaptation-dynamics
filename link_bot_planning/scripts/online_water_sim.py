@@ -6,7 +6,7 @@ import pathlib
 import warnings
 from time import perf_counter, sleep
 import numpy as np
-
+import pathlib
 import rospkg
 from more_itertools import chunked
 
@@ -93,19 +93,19 @@ def main():
     job_chunker.store_result('seed', seed)
     job_chunker.store_result('unadapted_run_id', unadapted_run_id)
 
-    collect_data_params_filename = job_chunker.load_prompt_filename('collect_data_params_filename',
-                                                                    'collect_dynamics_params/water.hjson')
+    collect_data_params_filename = "collect_dynamics_params/water.hjson" #job_chunker.load_prompt_filename('collect_data_params_filename',
+                                   #                                 'collect_dynamics_params/water.hjson')
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
-    planner_params_filename = job_chunker.load_prompt_filename('planner_params_filename',
-                                                               'planner_configs/watering/water_in_box.hjson')
-    iterations = int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = int(job_chunker.load_prompt('udnn_init_epochs', 2))
-    udnn_scale_epochs = int(job_chunker.load_prompt('udnn_scale_epochs', 1))
-    mde_init_epochs = int(job_chunker.load_prompt('mde_init_epochs', 10))
-    mde_scale_epochs = int(job_chunker.load_prompt('mde_scale_epochs', 1))
+    planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
+                                                              # 'planner_configs/watering/water_in_box.hjson')
+    iterations = 15 #int(job_chunker.load_prompt('iterations', 10))
+    n_trials_per_iteration = 20# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 4 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    mde_init_epochs = 6 #int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
-    start_with_random_actions = job_chunker.load_prompt('start_with_random_actions', "false")
+    start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
     if start_with_random_actions in ['false', 'False']:
         start_with_random_actions = False
     elif start_with_random_actions in ['true', 'True']:
@@ -306,7 +306,7 @@ def main():
                                                            params_filename=mde_params_filename,
                                                            batch_size=32,
                                                            steps=-1,
-                                                           epochs=mde_init_epochs + i * mde_scale_epochs,
+                                                           epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                            train_mode='train',
                                                            val_mode='val',
                                                            no_val=False,
