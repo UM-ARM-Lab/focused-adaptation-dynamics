@@ -135,12 +135,13 @@ class UDNN(pl.LightningModule):
             'loss': batch_loss,
         }
 
-    def low_error_mask(self, inputs, outputs):
+    def low_error_mask(self, inputs, outputs, global_step=None):
         with torch.no_grad():
             error = self.scenario.classifier_distance_torch(inputs, outputs)
 
             if self.hparams.get("soft_masking", False):
-                low_error_mask = self.soft_mask(error[:, :-1]) * self.soft_mask(error[:, 1:])
+                low_error_mask = self.soft_mask(error[:, :-1], global_step=global_step) * self.soft_mask(error[:, 1:],
+                                                                                                         global_step=global_step)
             else:
                 low_error_mask = error < self.hparams['mask_threshold']
                 low_error_mask = torch.logical_and(low_error_mask[:, :-1], low_error_mask[:, 1:])
@@ -175,8 +176,10 @@ class UDNN(pl.LightningModule):
 
         return mask_padded
 
-    def soft_mask(self, error):
-        low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error)
+    def soft_mask(self, error, global_step=None):
+        if global_step is None:
+            global_step = self.global_step
+        low_error_mask = soft_mask(global_step, self.hparams['mask_threshold'], error)
         return low_error_mask
 
     def compute_loss(self, inputs, outputs, use_mask: bool):

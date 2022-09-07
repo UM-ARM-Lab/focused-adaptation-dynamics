@@ -17,8 +17,8 @@
     max_planning_attempts: 5
     attempted_extensions_threshold: 128
   }
-  stop_on_error_above: 0.35
-  dmax: 0.06
+  stop_on_error_above: 0.5
+  dmax: 0.1
   extent: [
     -0.55
     0.4

@@ -60,16 +60,6 @@ class FloatingRopeScenario(ScenarioWithVisualization, MoveitPlanningSceneScenari
     IMAGE_W = 160
     n_links = 25
     KINECT_NAME = "kinect2"
-    KINECT_CHANNEL = "qhd"
-    COLOR_IMAGE_TOPIC = ns_join(KINECT_NAME, ns_join(KINECT_CHANNEL, "image_color_rect"))
-    DEPTH_IMAGE_TOPIC = ns_join(KINECT_NAME, ns_join(KINECT_CHANNEL, "image_depth_rect"))
-    CAMERA_INFO_TOPIC = ns_join(KINECT_NAME, ns_join(KINECT_CHANNEL, "camera_info"))
-    crop_region = {
-        'min_y': 0,
-        'min_x': 0,
-        'max_y': 540,
-        'max_x': 960,
-    }
     # FIXME: this is defined in multiple places
     state_keys = ['left_gripper', 'right_gripper', 'rope']
     action_keys = ['left_gripper_position', 'right_gripper_position']
@@ -77,9 +67,6 @@ class FloatingRopeScenario(ScenarioWithVisualization, MoveitPlanningSceneScenari
     def __init__(self, params: Optional[dict] = None):
         ScenarioWithVisualization.__init__(self, params)
         MoveitPlanningSceneScenarioMixin.__init__(self, robot_namespace='')
-        self.color_image_listener = Lazy(Listener, self.COLOR_IMAGE_TOPIC, Image)
-        self.depth_image_listener = Lazy(Listener, self.DEPTH_IMAGE_TOPIC, Image)
-        self.camera_info_listener = Lazy(Listener, self.CAMERA_INFO_TOPIC, CameraInfo)
         self.state_color_viz_pub = rospy.Publisher("state_color_viz", Image, queue_size=10, latch=True)
         self.state_depth_viz_pub = rospy.Publisher("state_depth_viz", Image, queue_size=10, latch=True)
         self.last_action = None

@@ -17,7 +17,7 @@
     max_planning_attempts: 4
     attempted_extensions_threshold: 128
   }
-  dmax: 0.06
+  dmax: 0.1
   extent: [
     -0.55
     0.4

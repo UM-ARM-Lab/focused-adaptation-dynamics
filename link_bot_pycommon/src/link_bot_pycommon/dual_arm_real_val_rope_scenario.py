@@ -28,19 +28,8 @@ from moveit_msgs.msg import DisplayTrajectory, PlanningScene, RobotTrajectory
 from moveit_msgs.srv import GetMotionPlan
 from tf.transformations import quaternion_from_euler
 
-planning_link_scale = 1.5
-execution_link_scale = 1.0
-links_to_pad = [
-    'drive45',
-    'drive5',
-    'torso',
-    'end_effector_left',
-    'end_effector_right',
-    'leftgripper_link',
-    'leftgripper2_link',
-    'rightgripper_link',
-    'rightgripper2_link',
-]
+planning_scene_scale = 1.0
+execution_scene_scale = 1.0
 
 
 def wiggle_positions(current, n, s=0.02):
@@ -52,9 +41,6 @@ def wiggle_positions(current, n, s=0.02):
 
 class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     real = True
-
-    COLOR_IMAGE_TOPIC = "/kinect2_tripodA/qhd/image_color_rect"
-    DEPTH_IMAGE_TOPIC = "/kinect2_tripodA/qhd/image_depth_rect"
 
     def __init__(self, params: Optional[dict] = None):
         super().__init__('hdt_michigan', params)
@@ -73,11 +59,6 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
     def execute_action(self, environment, state, action: Dict):
         action_fk = self.action_relative_to_fk(action, state)
-        # remove scale here since we only want planning to be conservative
-        for link_name in links_to_pad:
-            for link_scale in environment['scene_msg'].link_scale:
-                if link_scale.link_name == link_name:
-                    link_scale.scale = execution_link_scale
         dual_arm_rope_execute_action(self, self.robot, environment, state, action_fk, vel_scaling=1.0,
                                      check_overstretching=False)
 
@@ -186,7 +167,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
             # wait for rope to stop swinging
             print("Waiting for rope to settle")
-            sleep(15)
+            sleep(30)
 
             # change CDCPD constraints
             self.set_cdcpd_right_only()
@@ -326,11 +307,6 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
-        for link_name in links_to_pad:
-            for link_scale in env['scene_msg'].link_scale:
-                if link_scale.link_name == link_name:
-                    link_scale.scale = planning_link_scale
-
         return env
 
     def follow_jacobian_from_example(self, example: Dict, j: Optional[JacobianFollower] = None):
@@ -345,6 +321,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         joint_names_batched = []
         for b in range(batch_size):
             scene_msg_b: PlanningScene = scene_msg[b]
+            padded_scene_msg = self.pad_planning_scene(scene_msg_b)
+
             input_sequence_length = example['left_gripper_position'].shape[1]
             target_reached = [True]
             pred_joint_positions = [example['joint_positions'][b, 0]]
@@ -358,21 +336,19 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 grippers = [[left_gripper_point], [right_gripper_point]]
 
                 joint_state_b_t = make_joint_state(pred_joint_positions_t, to_list_of_strings(joint_names_t))
-                scene_msg_b, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
+                padded_scene_msg, robot_state = merge_joint_state_and_scene_msg(padded_scene_msg, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
                 self.robot.display_robot_state(robot_state, label='debugging', color='red')
-                from time import perf_counter
-                t0 = perf_counter()
+
                 plan, reached_t = j.plan(group_name='both_arms',
                                          tool_names=tool_names,
                                          preferred_tool_orientations=preferred_tool_orientations,
                                          start_state=robot_state,
-                                         scene=scene_msg_b,
+                                         scene=padded_scene_msg,
                                          grippers=grippers,
                                          max_velocity_scaling_factor=0.1,
                                          max_acceleration_scaling_factor=0.1)
-                print(perf_counter() - t0)
 
                 pred_joint_positions_t = get_joint_positions_given_state_and_plan(plan, robot_state)
 
@@ -387,6 +363,14 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         target_reached_batched = np.array(target_reached_batched)
         joint_names_batched = np.array(joint_names_batched)
         return target_reached_batched, pred_joint_positions_batched, joint_names_batched
+
+    def pad_planning_scene(self, scene_msg_b, padding=0.03):
+        padded_scene_msg = deepcopy(scene_msg_b)
+        for co in padded_scene_msg.world.collision_objects:
+            for primitive in co.primitives:
+                d = np.array(primitive.dimensions)
+                primitive.dimensions = tuple((d + padding).tolist())
+        return padded_scene_msg
 
 
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):

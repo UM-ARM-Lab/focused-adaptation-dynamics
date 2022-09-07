@@ -51,11 +51,10 @@ def main():
                 else:
                     break
 
-        last_updated = None
-        for hjson_path in chain(run_dir.rglob("*.hjson"), run_dir.rglob("*.stdout")):
-            time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
-            if last_updated is None or time > last_updated:
-                last_updated = time
+        if completed_iters < 20:
+            last_updated = get_last_updated(run_dir)
+        else:
+            last_updated = None
 
         if name not in iterations_completed_map:
             iterations_completed_map[name] = {}
@@ -81,9 +80,16 @@ def main():
     print_online_learning_status(iterations_completed_map)
     print('-' * 64)
 
-    expected_total_n_evals = 10 * 10 * 30
-    print(f"{total_n_evals}/{expected_total_n_evals} ({total_n_evals / expected_total_n_evals:.0%})")
     print_post_learning_evaluation_status(post_learning_evaluations_map)
+
+
+def get_last_updated(run_dir):
+    last_updated = None
+    for hjson_path in chain(run_dir.rglob("*.hjson"), run_dir.rglob("*.stdout")):
+        time = datetime.fromtimestamp(hjson_path.stat().st_mtime)
+        if last_updated is None or time > last_updated:
+            last_updated = time
+    return last_updated
 
 
 def print_online_learning_status(iterations_completed_map):

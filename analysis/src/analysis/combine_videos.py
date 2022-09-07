@@ -1,54 +1,25 @@
 import pathlib
 import re
 
-from moviepy.editor import *
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+from moviepy.video.VideoClip import TextClip, VideoClip, ImageClip
+from moviepy.video.compositing.concatenate import concatenate_videoclips
 from moviepy.video.fx.freeze import freeze
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from moonshine.filepath_tools import load_hjson
+
+
+class NoVideoError(Exception):
+    pass
 
 
 def hold_end(clip, duration):
     clip.get_frame(-1)
     end = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
     return end
-
-
-def make_learning_progress_video(args):
-    w = 1080
-    hspacing = 1.05
-    speed = 10
-    iteration_videos = []
-    for iteration in args.iterations:
-        method_iteration_videos = make_method_iteration_videos(args.roots, iteration, speed, w)
-        max_duration, method_iteration_videos_held = add_holds(method_iteration_videos)
-
-        iter_txt = TextClip(f'Iteration {iteration + 1}',
-                            font='Ubuntu-Bold',
-                            fontsize=90,
-                            color='white')
-        iter_txt = iter_txt.set_pos((int(w - iter_txt.w / 2 + 40), 0))
-        speedup_txt = TextClip(f'{speed}x',
-                               font='Ubuntu-Bold',
-                               fontsize=60,
-                               color='white')
-
-        first_vid = next(iter(method_iteration_videos_held.values()))
-        method_iteration_videos_positioned = []
-        for i, method_iteration_video_held in enumerate(method_iteration_videos_held.values()):
-            method_iteration_videos_positioned.append(
-                method_iteration_video_held.set_pos((int(hspacing * w * i), iter_txt.h)))
-
-        full_size = (int(hspacing * 2 * w), int(first_vid.h + iter_txt.h))
-        iteration_video = CompositeVideoClip(method_iteration_videos_positioned + [speedup_txt, iter_txt],
-                                             size=full_size)
-        iteration_video.duration = max_duration
-        iteration_video = iteration_video.set_duration(method_iteration_videos_positioned[0].duration)
-        iteration_videos.append(iteration_video)
-
-    final = concatenate_videoclips(iteration_videos)
-
-    outfilename = args.roots[0] / 'final.mp4'
-    final.write_videofile(outfilename.as_posix(), fps=60)
 
 
 def add_holds(method_iteration_videos):
@@ -61,16 +32,34 @@ def add_holds(method_iteration_videos):
     return max_duration, method_iteration_videos_held
 
 
-def make_method_iteration_videos(roots, iteration, speed, w):
-    method_iteration_videos = {}
-    for root in roots:
-        with (root / 'method_name').open("r") as f:
-            method_name = f.readline().strip("\n")
-        method_iteration_video = make_method_iteration_video(iteration, root, method_name, speed, w)
-        if method_name in method_iteration_videos:
-            raise RuntimeError("duplicate method detected!")
-        method_iteration_videos[method_name] = method_iteration_video
-    return method_iteration_videos
+def remove_boring_frames(method_iteration_clip: VideoClip):
+    # for each frame, compute the naive pixel-space distance to the previous frame
+    prev_frame_filtered = None
+    clips = []
+    ds = []
+    for curr_frame in method_iteration_clip.iter_frames():
+        hsv = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2HSV)
+        lower = np.array([110, 50, 50])
+        upper = np.array([150, 255, 255])
+        mask = cv2.inRange(hsv, lower, upper)
+        curr_frame_filtered = cv2.bitwise_and(curr_frame, curr_frame, mask=mask)
+
+        clips.append(ImageClip(curr_frame_filtered).set_duration(1 / 6))
+
+        if prev_frame_filtered is not None:
+            delta = (curr_frame_filtered - prev_frame_filtered).sum(-1)
+            plt.imshow(delta)
+            plt.show()
+            d = np.linalg.norm(delta)
+            ds.append(d)
+            pass
+        prev_frame_filtered = curr_frame_filtered
+
+    concat_clip = concatenate_videoclips(clips)
+    plt.plot(ds)
+    plt.show()
+
+    return concat_clip
 
 
 def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
@@ -88,13 +77,14 @@ def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
             latest_video_filenames[attempt_idx] = v
 
     if len(latest_video_filenames) == 0:
-        raise ValueError(f"No videos for {root} episode {episode}")
+        raise NoVideoError(f"No videos for {root} episode {episode}")
     latest_video_filenames = dict(sorted(latest_video_filenames.items()))
 
     method_iteration_clips = []
     for iteration_video_filename in latest_video_filenames.values():
         method_iteration_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
         method_iteration_clip = method_iteration_clip.resize(width=w).speedx(speed)
+        # method_iteration_clip = remove_boring_frames(method_iteration_clip)
         method_iteration_clips.append(method_iteration_clip)
     method_iteration_video = concatenate_videoclips(method_iteration_clips)
 
