@@ -6,6 +6,7 @@ from typing import Dict, Optional
 import numpy as np
 import open3d
 import rospkg
+from colorama import Fore
 from pyjacobian_follower import JacobianFollower
 from pyrope_reset_planner import RopeResetPlanner, PlanningResult
 
@@ -134,9 +135,9 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.84
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.835
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
-                                                            quaternion_from_euler(0, np.pi / 2 + 0.3, 0))
+                                                            quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
         # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
 
         initial_left_pose = self.robot.get_link_pose("left_tool")
@@ -310,6 +311,10 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         env.update(MoveitPlanningSceneScenarioMixin.get_environment(self))
 
+        print(Fore.RED + "Storing current planning scene and using it for all future planning!" + Fore.RESET)
+        self.padded_scene_ = self.pad_robot_links(env['scene_msg'])
+        self.robot.jacobian_follower.store_scene(self.padded_scene_)
+
         return env
 
     def follow_jacobian_from_example(self, example: Dict, j: Optional[JacobianFollower] = None):
@@ -317,6 +322,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
             j = self.robot.jacobian_follower
         batch_size = example["batch_size"]
         scene_msg = example['scene_msg']
+
         tool_names = [self.robot.left_tool_name, self.robot.right_tool_name]
         preferred_tool_orientations = self.get_preferred_tool_orientations(tool_names)
         target_reached_batched = []
@@ -324,7 +330,6 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         joint_names_batched = []
         for b in range(batch_size):
             scene_msg_b: PlanningScene = scene_msg[b]
-            padded_scene_msg = self.pad_planning_scene(scene_msg_b)
 
             input_sequence_length = example['left_gripper_position'].shape[1]
             target_reached = [True]
@@ -339,19 +344,16 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 grippers = [[left_gripper_point], [right_gripper_point]]
 
                 joint_state_b_t = make_joint_state(pred_joint_positions_t, to_list_of_strings(joint_names_t))
-                padded_scene_msg, robot_state = merge_joint_state_and_scene_msg(padded_scene_msg, joint_state_b_t)
+                _, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
-                self.robot.display_robot_state(robot_state, label='debugging', color='red')
-
-                plan, reached_t = j.plan(group_name='both_arms',
-                                         tool_names=tool_names,
-                                         preferred_tool_orientations=preferred_tool_orientations,
-                                         start_state=robot_state,
-                                         scene=padded_scene_msg,
-                                         grippers=grippers,
-                                         max_velocity_scaling_factor=0.1,
-                                         max_acceleration_scaling_factor=0.1)
+                plan, reached_t = j.plan_with_stored_scene(group_name='both_arms',
+                                                           tool_names=tool_names,
+                                                           preferred_tool_orientations=preferred_tool_orientations,
+                                                           start_state=robot_state,
+                                                           grippers=grippers,
+                                                           max_velocity_scaling_factor=0.1,
+                                                           max_acceleration_scaling_factor=0.1)
 
                 pred_joint_positions_t = get_joint_positions_given_state_and_plan(plan, robot_state)
 
@@ -367,12 +369,29 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         joint_names_batched = np.array(joint_names_batched)
         return target_reached_batched, pred_joint_positions_batched, joint_names_batched
 
-    def pad_planning_scene(self, scene_msg_b, padding=0.03):
+    def pad_collision_objects(self, scene_msg_b, padding=0.03):
         padded_scene_msg = deepcopy(scene_msg_b)
         for co in padded_scene_msg.world.collision_objects:
             for primitive in co.primitives:
                 d = np.array(primitive.dimensions)
                 primitive.dimensions = tuple((d + padding).tolist())
+        return padded_scene_msg
+
+    def pad_robot_links(self, scene_msg: PlanningScene):
+        padded_scene_msg = deepcopy(scene_msg)
+        links_to_pad = {
+            'end_effector_right': 0.01,
+            'end_effector_left':  0.01,
+            'leftwrist':          0.02,
+            'rightwrist':         0.02,
+            'torso':              0.02,
+            'leftforearm':        0.02,
+            'rightforearm':       0.02,
+        }
+        for link_padding in padded_scene_msg.link_padding:
+            for link_name, padding in links_to_pad.items():
+                if link_name == link_padding.link_name:
+                    link_padding.padding = padding
         return padded_scene_msg
 
 
@@ -384,7 +403,7 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
         result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.715,
                                                    orientation_path_tolerance=orientation_path_tol,
                                                    orientation_goal_tolerance=0.2,
-                                                   timeout=250, debug_collisions=False)
+                                                   timeout=120, debug_collisions=False)
         print(result.status)
 
         if result.status == "Exact solution":
@@ -410,7 +429,7 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     orientation_path_tol = 0.6
 
     while True:
-        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, timeout=250,
+        result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, timeout=120,
                                    debug_collisions=False)
         print(result.status)
         if result.status == 'Exact solution':

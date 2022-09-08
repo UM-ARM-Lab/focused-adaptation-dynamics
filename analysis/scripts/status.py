@@ -71,14 +71,17 @@ def main():
             if m:
                 eval_at_iter = int(m.group(1))
                 n_evals = len(list(planning_eval_dir.glob("*_metrics.pkl.gz")))
-                total_n_evals += n_evals
+                total_n_evals += min(n_evals, 10)
                 if full_run_name not in post_learning_evaluations_map:
                     post_learning_evaluations_map[full_run_name] = {}
                 post_learning_evaluations_map[full_run_name][eval_at_iter] = n_evals
     post_learning_evaluations_map = dict(sorted(post_learning_evaluations_map.items()))
 
-    print_online_learning_status(iterations_completed_map)
-    print('-' * 64)
+    # print_online_learning_status(iterations_completed_map)
+    # print('-' * 64)
+
+    expected_total_evals = 20 * 3 * 100
+    print(f"{total_n_evals}/{expected_total_evals} {total_n_evals/expected_total_evals:.1%}")
 
     print_post_learning_evaluation_status(post_learning_evaluations_map)
 
