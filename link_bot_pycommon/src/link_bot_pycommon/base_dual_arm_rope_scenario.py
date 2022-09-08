@@ -354,7 +354,6 @@ class BaseDualArmRopeScenario(FloatingRopeScenario, MoveitPlanningSceneScenarioM
                 scene_msg_b, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
-                self.robot.display_robot_state(robot_state, label='debugging', color='red')
                 plan, reached_t = j.plan(group_name='both_arms',
                                          tool_names=tool_names,
                                          preferred_tool_orientations=preferred_tool_orientations,
