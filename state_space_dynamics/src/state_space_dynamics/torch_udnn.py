@@ -201,8 +201,16 @@ class UDNN(pl.LightningModule):
         mae = self.mae(target_poses, pred_poses)
         self.log('pos_only_train_mae', mae)
         self.log('target_volume_train_mae', self.mae(train_batch["target_volume"][:,1].flatten(), outputs["target_volume"][:,1].flatten()))
+        log_nonempty = True
+        if log_nonempty:
+            nonempty_errors = []
+            for i, traj in enumerate(train_batch["target_volume"]):
+                if traj[-1][0] - traj[0][0] > 0.1:
+                    nonempty_errors.append(traj[-1][0] - outputs["target_volume"][i][-1][0])
+        nonempty_errors = torch.Tensor(nonempty_errors).mean()
+        self.log('nonempty_only_target_volume_train_mae', nonempty_errors)
         self.log('control_volume_train_mae', self.mae(train_batch["control_volume"][:,1].flatten(), outputs["control_volume"][:,1].flatten()))
-        return losses['loss']
+        return losses['loss'] + nonempty_errors
 
     def validation_step(self, val_batch, batch_idx):
         val_udnn_outputs = self.forward(val_batch)
@@ -222,7 +230,6 @@ class UDNN(pl.LightningModule):
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
-        import ipdb; ipdb.set_trace()
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)

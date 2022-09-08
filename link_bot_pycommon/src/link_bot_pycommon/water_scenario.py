@@ -61,7 +61,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['num_variations'] = 1
         env_kwargs['render'] = True
         env_kwargs["action_repeat"] = 2
-        env_kwargs['headless'] = not self.params.get('gui', False)
+        env_kwargs['headless'] = 1 #not self.params.get('gui', False)
         #default_config = {"save_frames": True, 'img_size': 300}
         default_config = {"save_frames": False, 'img_size': 10}
         self._save_cfg = self.params.get("save_cfg", default_config)
@@ -171,6 +171,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def _on_execution_complete(self, _, __, ___, is_fail=False, idx=0):
         if self._save_frames:
+            assert(False)
             save_name = f"test_{is_fail}_{idx}.gif"
             save_numpy_as_gif(np.array(self.frames), save_name)
             print("Saved to", save_name)
@@ -372,8 +373,10 @@ class WaterSimScenario(ScenarioWithVisualization):
         return integrated_dynamics
 
     def is_moveit_robot_in_collision(self, environment: Dict, state: Dict, action: Dict):
-        #somewhat of a lie because no moveit
-        return False  # TODO check if softgym robot in collision
+        target_pos = action["controlled_container_target_pos"]
+        target_angle = action["controlled_container_target_angle"]
+        target_pose = np.hstack([target_pos, target_angle]).flatten()
+        return self._scene._wrapped_env.predict_collide_with_plant(target_pose)
 
     def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
         #somewhat of a lie because no moveit
@@ -497,12 +500,12 @@ class WaterSimScenario(ScenarioWithVisualization):
             too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
             too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
             desired_volume_dist =  min(too_low_amount, too_high_amount)
-        spill_penalty = 100
+        spill_penalty = 5
         amount_spilled = np.abs(1-total_volume)
-        if amount_spilled < 0.07:
+        if amount_spilled < 0.07 or total_volume > 1:
             #negligible
             amount_spilled = 0
-        desired_spill_dist = spill_penalty * amount_spilled
+        desired_spill_dist = min(0.25, spill_penalty * amount_spilled)
         return desired_spill_dist + desired_volume_dist
 
     def distance_to_goal_pos(self, state: Dict, goal: Dict, use_torch=False):

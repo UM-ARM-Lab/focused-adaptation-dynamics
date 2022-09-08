@@ -1,8 +1,8 @@
 {
   method_name: mde
   smooth: true
-  max_shortcut_length: 15
-  n_shortcut_attempts: 20
+  max_shortcut_length: 10
+  n_shortcut_attempts: 100
   service_provider: softgym
   scenario_params: {
     k_pos: 1.5

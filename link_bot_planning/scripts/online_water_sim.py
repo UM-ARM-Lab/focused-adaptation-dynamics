@@ -100,7 +100,7 @@ def main():
                                                               # 'planner_configs/watering/water_in_box.hjson')
     iterations = 15 #int(job_chunker.load_prompt('iterations', 10))
     n_trials_per_iteration = 20# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 4 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_init_epochs = 15 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
     mde_init_epochs = 6 #int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
