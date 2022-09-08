@@ -4,10 +4,9 @@ import re
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from moviepy.editor import VideoFileClip
 from moviepy.video.VideoClip import TextClip, VideoClip, ImageClip
 from moviepy.video.compositing.concatenate import concatenate_videoclips
-from moviepy.video.fx.freeze import freeze
-from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from moonshine.filepath_tools import load_hjson
 
@@ -16,20 +15,20 @@ class NoVideoError(Exception):
     pass
 
 
+def hold_start(clip, duration):
+    clip.get_frame(0)
+    start = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
+    return start
+
+
 def hold_end(clip, duration):
     clip.get_frame(-1)
     end = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
     return end
 
 
-def add_holds(method_iteration_videos):
-    max_duration = max([v.duration for v in method_iteration_videos.values()]) + 1
-    method_iteration_videos_held = {}
-    for method_name, method_iteration_video in method_iteration_videos.items():
-        method_iteration_video_held = freeze(method_iteration_video, t='end', total_duration=max_duration,
-                                             padding_end=0.01)
-        method_iteration_videos_held[method_name] = method_iteration_video_held
-    return max_duration, method_iteration_videos_held
+def add_holds(clip):
+    return hold_end(hold_start(clip, 1), 1)
 
 
 def remove_boring_frames(method_iteration_clip: VideoClip):
@@ -83,8 +82,8 @@ def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
     method_iteration_clips = []
     for iteration_video_filename in latest_video_filenames.values():
         method_iteration_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
-        method_iteration_clip = method_iteration_clip.resize(width=w).speedx(speed)
-        # method_iteration_clip = remove_boring_frames(method_iteration_clip)
+        method_iteration_clip = method_iteration_clip.speedx(speed)
+        method_iteration_clip = add_holds(method_iteration_clip)
         method_iteration_clips.append(method_iteration_clip)
     method_iteration_video = concatenate_videoclips(method_iteration_clips)
 

@@ -134,9 +134,9 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.845
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.84
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
-                                                            quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
+                                                            quaternion_from_euler(0, np.pi / 2 + 0.3, 0))
         # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
 
         initial_left_pose = self.robot.get_link_pose("left_tool")
@@ -183,7 +183,10 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
             sleep(5)
 
             left_up = left_at_rope + np.array([0, 0, .23])
+            _bak = self.robot.called.jacobian_target_not_reached_is_failure
+            self.robot.called.jacobian_target_not_reached_is_failure = False
             self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
+            self.robot.called.jacobian_target_not_reached_is_failure = _bak
 
             # change CDCPD constraints
             self.set_cdcpd_both()
@@ -378,7 +381,7 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
 
     orientation_path_tol = 0.6
     while True:
-        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.72,
+        result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.715,
                                                    orientation_path_tolerance=orientation_path_tol,
                                                    orientation_goal_tolerance=0.2,
                                                    timeout=250, debug_collisions=False)
