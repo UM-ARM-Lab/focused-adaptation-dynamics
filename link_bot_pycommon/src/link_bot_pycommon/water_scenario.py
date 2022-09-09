@@ -183,7 +183,10 @@ class WaterSimScenario(ScenarioWithVisualization):
             save_numpy_as_gif(np.array(self.frames), save_name)
             print("Saved to", save_name)
 
+
     def execute_action(self, environment, state, action: Dict, **kwargs):
+        pos_tol = 0.002
+        angle_tol = 0.05
         goal_pos = action["controlled_container_target_pos"].flatten()
         goal_angle = action["controlled_container_target_angle"].flatten()
         curr_state = state
@@ -203,6 +206,8 @@ class WaterSimScenario(ScenarioWithVisualization):
             pos_control = self.params["k_pos"] * (pos_error)
             angle_error = target_angle - curr_angle
             angle_control = self.params["k_angle"] * (angle_error)
+            if np.linalg.norm(curr_pos - goal_pos) < pos_tol and np.abs(goal_angle - curr_angle) < angle_tol:
+                break
 
             vector_action = np.hstack([pos_control, angle_control])
             self._saved_data = self._scene.step(vector_action, record_continuous_video=self._save_frames,

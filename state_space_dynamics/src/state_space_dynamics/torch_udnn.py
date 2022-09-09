@@ -52,7 +52,7 @@ class UDNN(pl.LightningModule):
         layers = []
         for fc_layer_size in self.hparams.fc_layer_sizes:
             layers.append(Linear(in_size, fc_layer_size))
-            layers.append(torch.nn.LeakyReLU())
+            layers.append(torch.nn.ReLU())
             in_size = fc_layer_size
         layers.append(Linear(fc_layer_size, self.total_state_dim))
 
@@ -207,7 +207,7 @@ class UDNN(pl.LightningModule):
             for i, traj in enumerate(train_batch["target_volume"]):
                 if traj[-1][0] - traj[0][0] > 0.1:
                     nonempty_errors.append(traj[-1][0] - outputs["target_volume"][i][-1][0])
-        nonempty_errors = torch.Tensor(nonempty_errors).mean()
+        nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
         self.log('nonempty_only_target_volume_train_mae', nonempty_errors)
         self.log('control_volume_train_mae', self.mae(train_batch["control_volume"][:,1].flatten(), outputs["control_volume"][:,1].flatten()))
         return losses['loss'] + nonempty_errors
@@ -275,7 +275,9 @@ def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
         loss_scaling = loss_scaling_by_key[k] if k in loss_scaling_by_key else 1
 
         # mean over time and state dim but not batch, not yet.
-        loss = loss_scaling * (y_true - y_pred).square().mean(-1)
+        diff = (y_true - y_pred)
+        #diff = torch.clip(diff, -10000,10000)
+        loss = loss_scaling * (diff).square().mean(-1)
         loss_by_key.append(loss)
     batch_time_loss = torch.stack(loss_by_key).mean(0)
     return batch_time_loss

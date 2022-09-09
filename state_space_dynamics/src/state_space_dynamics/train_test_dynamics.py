@@ -78,8 +78,8 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     else:
         ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
-
-    trainer = pl.Trainer(gpus=0,
+    
+    trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,
                          enable_model_summary=False,
                          max_epochs=epochs,
