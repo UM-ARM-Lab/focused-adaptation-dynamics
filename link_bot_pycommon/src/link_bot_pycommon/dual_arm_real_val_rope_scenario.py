@@ -4,7 +4,6 @@ from time import sleep
 from typing import Dict, Optional
 
 import numpy as np
-import open3d
 import rospkg
 from colorama import Fore
 from pyjacobian_follower import JacobianFollower
@@ -46,6 +45,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def __init__(self, params: Optional[dict] = None):
         super().__init__('hdt_michigan', params)
         self.fast = False
+        self.padded_scene_ = None
         self.left_preferred_tool_orientation = quaternion_from_euler(-1.801, -1.141, -0.335)
         self.right_preferred_tool_orientation = quaternion_from_euler(-2.309, -1.040, 1.251)
 
@@ -126,16 +126,16 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         right_tool_grasp_pose = Pose()
-        right_tool_grasp_pose.position.x = 0.065
+        right_tool_grasp_pose.position.x = 0.07
         right_tool_grasp_pose.position.y = 0.335
-        right_tool_grasp_pose.position.z = 0.95
+        right_tool_grasp_pose.position.z = 0.955
         right_tool_grasp_orientation = quaternion_from_euler(-1.5707, -1.5707, 0.6)
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_tool_grasp_orientation)
         self.tf.send_transform_from_pose_msg(right_tool_grasp_pose, 'robot_root', 'right_grasp')
         right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.835
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.85
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
         # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
@@ -280,6 +280,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         r = rospkg.RosPack()
         perception_pkg_dir = r.get_path('link_bot_perception')
+        import open3d
         pcd = open3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
         points = np.asarray(pcd.points) + np.array([0.02, 0, 0.005])
 
@@ -347,13 +348,23 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 _, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
-                plan, reached_t = j.plan_with_stored_scene(group_name='both_arms',
-                                                           tool_names=tool_names,
-                                                           preferred_tool_orientations=preferred_tool_orientations,
-                                                           start_state=robot_state,
-                                                           grippers=grippers,
-                                                           max_velocity_scaling_factor=0.1,
-                                                           max_acceleration_scaling_factor=0.1)
+                if self.padded_scene_ is None:
+                    plan, reached_t = j.plan(group_name='both_arms',
+                                             tool_names=tool_names,
+                                             preferred_tool_orientations=preferred_tool_orientations,
+                                             scene=scene_msg_b,
+                                             start_state=robot_state,
+                                             grippers=grippers,
+                                             max_velocity_scaling_factor=0.1,
+                                             max_acceleration_scaling_factor=0.1)
+                else:
+                    plan, reached_t = j.plan_with_stored_scene(group_name='both_arms',
+                                                               tool_names=tool_names,
+                                                               preferred_tool_orientations=preferred_tool_orientations,
+                                                               start_state=robot_state,
+                                                               grippers=grippers,
+                                                               max_velocity_scaling_factor=0.1,
+                                                               max_acceleration_scaling_factor=0.1)
 
                 pred_joint_positions_t = get_joint_positions_given_state_and_plan(plan, robot_state)
 
