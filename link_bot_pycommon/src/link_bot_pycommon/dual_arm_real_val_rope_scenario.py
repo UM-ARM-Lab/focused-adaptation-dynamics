@@ -119,16 +119,16 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         left_start_pose = Pose()
         left_start_pose.orientation = ros_numpy.msgify(Quaternion, self.left_preferred_tool_orientation)
         left_start_pose.position.x = -0.2
-        left_start_pose.position.y = 0.48
-        left_start_pose.position.z = 0.6
+        left_start_pose.position.y = 0.55
+        left_start_pose.position.z = 0.65
         right_start_pose = deepcopy(left_start_pose)
         right_start_pose.position.x = 0.2
         right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         right_tool_grasp_pose = Pose()
-        right_tool_grasp_pose.position.x = 0.07
+        right_tool_grasp_pose.position.x = 0.075
         right_tool_grasp_pose.position.y = 0.335
-        right_tool_grasp_pose.position.z = 0.955
+        right_tool_grasp_pose.position.z = 0.965
         right_tool_grasp_orientation = quaternion_from_euler(-1.5707, -1.5707, 0.6)
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_tool_grasp_orientation)
         self.tf.send_transform_from_pose_msg(right_tool_grasp_pose, 'robot_root', 'right_grasp')
@@ -345,10 +345,10 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 grippers = [[left_gripper_point], [right_gripper_point]]
 
                 joint_state_b_t = make_joint_state(pred_joint_positions_t, to_list_of_strings(joint_names_t))
-                _, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                 plan: RobotTrajectory
                 reached_t: bool
                 if self.padded_scene_ is None:
+                    _, robot_state = merge_joint_state_and_scene_msg(scene_msg_b, joint_state_b_t)
                     plan, reached_t = j.plan(group_name='both_arms',
                                              tool_names=tool_names,
                                              preferred_tool_orientations=preferred_tool_orientations,
@@ -358,6 +358,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                                              max_velocity_scaling_factor=0.1,
                                              max_acceleration_scaling_factor=0.1)
                 else:
+                    _, robot_state = merge_joint_state_and_scene_msg(self.padded_scene_, joint_state_b_t)
                     plan, reached_t = j.plan_with_stored_scene(group_name='both_arms',
                                                                tool_names=tool_names,
                                                                preferred_tool_orientations=preferred_tool_orientations,
@@ -399,6 +400,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
             'leftforearm':        0.02,
             'rightforearm':       0.02,
         }
+        for aco in padded_scene_msg.robot_state.attached_collision_objects:
+            aco.object.primitives[0].dimensions = (0.07,)
         for link_padding in padded_scene_msg.link_padding:
             for link_name, padding in links_to_pad.items():
                 if link_name == link_padding.link_name:
