@@ -153,11 +153,16 @@ class ResultsToDynamicsDataset:
 
             if len(actions_step) == 0 or actions_step[0] is None:
                 continue
+            if len(actions_step) >= len(states_step):
+                #indicates stop on error occurred
+                num_states = len(states_step)
+                actions_step = actions_step[:num_states-1]
 
             actions_step = numpify(actions_step)
             # NOTE: here we append the final action to make action & state the same length
             actions_step.append(actions_step[-1])
             states_step = numpify(states_step)
+            print(states_step[-1]["target_volume"])
 
             actions.extend(actions_step)
             states.extend(states_step)
