@@ -2,7 +2,6 @@ import pathlib
 import re
 
 import cv2
-import matplotlib.pyplot as plt
 import moviepy
 import numpy as np
 from moviepy.editor import VideoFileClip
@@ -23,32 +22,22 @@ def add_holds(clip):
     return clip
 
 
-def cut_with_times(method_iteration_clip: VideoClip):
+def remove_boring_frames(method_iteration_clip: VideoClip):
     # for each frame, compute the naive pixel-space distance to the previous frame
-    prev_frame_filtered = None
+    prev_frame = None
     clips = []
-    ds = []
     for curr_frame in method_iteration_clip.iter_frames():
-        hsv = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2HSV)
-        lower = np.array([110, 50, 50])
-        upper = np.array([150, 255, 255])
-        mask = cv2.inRange(hsv, lower, upper)
-        curr_frame_filtered = cv2.bitwise_and(curr_frame, curr_frame, mask=mask)
+        curr_frame_gray = cv2.cvtColor(curr_frame, cv2.COLOR_RGB2GRAY)
 
-        clips.append(ImageClip(curr_frame_filtered).set_duration(1 / 6))
-
-        if prev_frame_filtered is not None:
-            delta = (curr_frame_filtered - prev_frame_filtered).sum(-1)
-            plt.imshow(delta)
-            plt.show()
-            d = np.linalg.norm(delta)
-            ds.append(d)
-            pass
-        prev_frame_filtered = curr_frame_filtered
+        if prev_frame is not None:
+            diff = curr_frame_gray.copy()
+            cv2.absdiff(curr_frame_gray, prev_frame, diff)
+            d = np.linalg.norm(diff)
+            if d > 5000:
+                clips.append(ImageClip(curr_frame).set_duration(1 / 6))
+        prev_frame = curr_frame_gray
 
     concat_clip = concatenate_videoclips(clips)
-    plt.plot(ds)
-    plt.show()
 
     return concat_clip
 
