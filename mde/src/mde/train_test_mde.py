@@ -87,7 +87,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     callbacks.extend([ckpt_cb, hearbeat_callback])
     max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
     print(f"{max_steps=}")
-    trainer = pl.Trainer(gpus=1,
+    trainer = pl.Trainer(gpus=0,
                          logger=wb_logger,
                          enable_model_summary=False,
                          max_epochs=epochs,

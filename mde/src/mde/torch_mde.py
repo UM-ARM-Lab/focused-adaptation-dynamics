@@ -25,7 +25,7 @@ from moonshine.torchify import torchify
 
 
 def debug_vgs():
-    return rospy.get_param("DEBUG_VG", False)
+    return False #rospy.get_param("DEBUG_VG", False)
 
 
 class MDE(pl.LightningModule):
@@ -39,7 +39,7 @@ class MDE(pl.LightningModule):
             data_collection_params = datset_params
         else:
             data_collection_params = datset_params['data_collection_params']
-
+        data_collection_params['scenario_params']['run_flex'] = False
         self.scenario = get_scenario(self.hparams.scenario, params=data_collection_params['scenario_params'])
 
         self.local_env_h_rows = self.hparams['local_env_h_rows']

@@ -1,5 +1,4 @@
 from typing import Dict, Optional, List
-
 import numpy as np
 import torch
 import os
@@ -55,16 +54,16 @@ class WaterSimScenario(ScenarioWithVisualization):
         softgym_env_name = "PourWaterPlant"
         env_kwargs = env_arg_dict[softgym_env_name]
 
+        default_config = {"save_frames": False, 'img_size': 10}
+        self._save_cfg = self.params.get("save_cfg", default_config)
         # Generate and save the initial states for running this environment for the first time
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = True
+        env_kwargs['render'] = self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = 1 #not self.params.get('gui', False)
         #default_config = {"save_frames": True, 'img_size': 300}
-        default_config = {"save_frames": False, 'img_size': 10}
-        self._save_cfg = self.params.get("save_cfg", default_config)
 
         if not env_kwargs['use_cached_states']:
             print('Waiting to generate environment variations. May take 1 minute for each variation...')
