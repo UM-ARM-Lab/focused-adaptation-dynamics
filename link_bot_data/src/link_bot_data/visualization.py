@@ -57,7 +57,7 @@ class DebuggingViz:
             if k in input_dict:
                 state_0[k] = input_dict[k][b, 0]
         state_0 = numpify(state_0)
-        state_0['joint_names'] = input_dict['joint_names'][b, 0]
+        #state_0['joint_names'] = input_dict['joint_names'][b, 0]
         action_0 = numpify({k: input_dict[k][b, 0] for k in self.action_keys})
         self.scenario.plot_action_rviz(state_0, action_0, idx=1, label=label, color=color)
 
@@ -234,7 +234,7 @@ def plot_state_b_t(scenario, state_keys, input_dict, b, t, label: str, color='re
         if k in input_dict:
             state_t[k] = input_dict[k][b, t]
     state_t = numpify(state_t)
-    state_t['joint_names'] = input_dict['joint_names'][b, t]
+    #state_t['joint_names'] = input_dict['joint_names'][b, t]
     scenario.plot_state_rviz(state_t, label=label, color=color)
 
     if 'is_close' in input_dict:
@@ -251,7 +251,7 @@ def plot_state_b_t(scenario, state_keys, input_dict, b, t, label: str, color='re
 
 def plot_state_t(scenario, state_keys, input_dict, t, label: str, color='red'):
     state_t = numpify({k: input_dict[add_predicted(k)][t] for k in state_keys})
-    state_t['joint_names'] = input_dict['joint_names'][t]
+    #state_t['joint_names'] = input_dict['joint_names'][t]
     scenario.plot_state_rviz(state_t, label=label, color=color)
 
     if 'is_close' in input_dict:

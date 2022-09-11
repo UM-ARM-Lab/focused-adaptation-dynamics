@@ -168,10 +168,9 @@ class WaterSimScenario(ScenarioWithVisualization):
             return [null_action]
         return interpolated_actions
 
-    def _on_execution_complete(self, _, __, ___, is_fail=False, idx=0):
+    def _on_execution_complete(self, fn, reached_goal=False, idx=0):
         if self._save_frames:
-            assert(False)
-            save_name = f"test_{is_fail}_{idx}.gif"
+            save_name = f"{fn}_{reached_goal}_{idx}.gif"
             save_numpy_as_gif(np.array(self.frames), save_name)
             print("Saved to", save_name)
             self.frames = []
@@ -294,8 +293,8 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     @staticmethod
     def local_environment_center_differentiable_torch(state):
-        pos_xz = state["controlled_container_pos"].unsqueeze(-1)
-        local_center = torch.cat((pos_xz[:, 0], torch.zeros_like(pos_xz[:, 0]), pos_xz[:, 1]), dim=1)
+        pos_xy = state["controlled_container_pos"].unsqueeze(-1)
+        local_center = torch.cat((pos_xy[:, 0], pos_xy[:, 1],  torch.zeros_like(pos_xy[:, 0])),  dim=1)
         if len(local_center.shape) == 0:
             return local_center.reshape(1, -1)
         return local_center

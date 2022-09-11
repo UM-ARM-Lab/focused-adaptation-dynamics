@@ -21,12 +21,12 @@
     threshold: 0.02
   }
   termination_criteria: {
-    total_timeout: 600 
-    timeout: 600
-    max_extensions: 1000
+    total_timeout: 700 
+    timeout: 700
+    max_extensions: 3000
     max_attempts: 1
     max_planning_attempts: 1
     attempted_extensions_threshold: 100
   }
-  dmax: 0.2
+  dmax: 0.1
 }

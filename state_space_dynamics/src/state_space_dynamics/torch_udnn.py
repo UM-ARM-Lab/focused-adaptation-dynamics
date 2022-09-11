@@ -160,6 +160,7 @@ class UDNN(pl.LightningModule):
     def low_error_mask(self, inputs, outputs, global_step=None):
         with torch.no_grad():
             error = self.scenario.classifier_distance_torch(inputs, outputs)
+      
 
             if self.hparams.get("soft_masking", False):
                 # FIXME: I think this should just be: low_error_mask = self.soft_mask(error, global_step=global_step)
@@ -203,12 +204,18 @@ class UDNN(pl.LightningModule):
         self.log('target_volume_train_mae', self.mae(train_batch["target_volume"][:,1].flatten(), outputs["target_volume"][:,1].flatten()))
         log_nonempty = True
         if log_nonempty:
+            error = self.scenario.classifier_distance_torch(train_batch, outputs)
+            low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error, k_global =self.hparams['k_global'])
             nonempty_errors = []
+            nonempty_mask_vals = []
             for i, traj in enumerate(train_batch["target_volume"]):
                 if traj[-1][0] - traj[0][0] > 0.1:
                     nonempty_errors.append(traj[-1][0] - outputs["target_volume"][i][-1][0])
+                    nonempty_mask_vals.append(low_error_mask[i][-1])
         nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
+        nonempty_mask_vals = torch.abs(torch.Tensor(nonempty_mask_vals)).mean()
         self.log('nonempty_only_target_volume_train_mae', nonempty_errors)
+        self.log('nonempty_only_train_mask_vals', nonempty_mask_vals)
         self.log('control_volume_train_mae', self.mae(train_batch["control_volume"][:,1].flatten(), outputs["control_volume"][:,1].flatten()))
         return losses['loss'] + nonempty_errors
 
@@ -219,6 +226,15 @@ class UDNN(pl.LightningModule):
         else:
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
+        log_nonempty = True
+        if log_nonempty:
+            nonempty_errors = []
+            for i, traj in enumerate(val_batch["target_volume"]):
+                if traj[-1][0] - traj[0][0] > 0.1:
+                    nonempty_errors.append(traj[-1][0] - val_udnn_outputs["target_volume"][i][-1][0])
+        if len(nonempty_errors):
+            nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
+            self.log('nonempty_only_target_volume_val_mae', nonempty_errors)
         self.log('val_loss', val_losses['loss'])
         target_poses = val_batch["controlled_container_pos"][:,1,:].reshape(-1,2)
         pred_poses = val_udnn_outputs["controlled_container_pos"][:,1,:].reshape(-1,2)
@@ -231,6 +247,12 @@ class UDNN(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         test_udnn_outputs = self.forward(test_batch)
+        error = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
+        global_step = 100
+        k_global = 0.1
+        mask_threshold = 0.3
+        low_error_mask = soft_mask(global_step, mask_threshold, error, k_global = 0.1)
+
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
         self.log('test_error', test_losses['error'])

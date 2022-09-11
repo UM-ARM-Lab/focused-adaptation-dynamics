@@ -221,7 +221,6 @@ class MDE(pl.LightningModule):
             # for every timestep's output, map down to a single scalar, the logit for accept probability
             predicted_errors = self.output_layer(out_h)  # [b, 1]
             predicted_error = predicted_errors[:, 1:].squeeze(1).squeeze(1)  # [b]
-
         return predicted_error
 
     def get_local_env(self, inputs):
@@ -257,7 +256,18 @@ class MDE(pl.LightningModule):
 
     def training_step(self, train_batch: Dict[str, torch.Tensor], batch_idx):
         outputs = self.forward(train_batch)
+        #check nonempty
+        check_nonempty = True
+        nonempty_errors = []
+        if check_nonempty:
+            for i, traj in enumerate(train_batch["target_volume"]):
+                if traj[-1].item() - traj[0].item() > 0.5:
+                    nonempty_errors.append(train_batch["error"][i][1] - outputs[i])
+            if len(nonempty_errors):
+                self.log('nonempty_mae', torch.abs(torch.hstack(nonempty_errors)).mean())
+
         loss, mse, mae, bce = self.compute_loss(train_batch, outputs)
+
         self.log('train_loss', loss)
         self.log('train_mae', mae)
         self.log('train_mse', mse)
@@ -287,6 +297,14 @@ class MDE(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         pred_error = self.forward(test_batch)
+        check_nonempty = True
+        nonempty_errors = []
+        if check_nonempty:
+            for i, traj in enumerate(test_batch["target_volume"]):
+                if traj[-1].item() - traj[0].item() > 0.5:
+                    nonempty_errors.append(test_batch["error"][i][1] - pred_error[i])
+            if len(nonempty_errors):
+                self.log('nonempty_mae', torch.abs(torch.hstack(nonempty_errors)).mean())
         loss, mse, mae, bce = self.compute_loss(test_batch, pred_error)
         true_error_after = test_batch['error'][:, 1]
         signed_loss = pred_error - true_error_after
