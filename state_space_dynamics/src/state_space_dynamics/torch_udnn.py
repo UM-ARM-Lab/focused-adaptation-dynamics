@@ -5,8 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-import torchmetrics
-from torch.nn import Linear, Sequential
+from torch.nn import Linear, Sequential, MSELoss
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_pycommon.get_scenario import get_scenario
@@ -42,6 +41,7 @@ class UDNN(pl.LightningModule):
         self.with_joint_positions = with_joint_positions
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
         self.mae = torch.nn.L1Loss()
+        self.mse = MSELoss()
         self.loss_scaling_by_key = self.hparams.get("loss_scaling_by_key", {})
 
         in_size = self.total_state_dim + self.total_action_dim
@@ -137,7 +137,7 @@ class UDNN(pl.LightningModule):
         return s_t_plus_1
 
     def compute_batch_loss(self, inputs, outputs, use_mask: bool):
-        batch_time_loss = compute_batch_time_loss(inputs, outputs, loss_scaling_by_key=self.loss_scaling_by_key)
+        batch_time_loss = compute_batch_time_loss(inputs, outputs, loss_scaling_by_key=self.loss_scaling_by_key, mse_loss = self.mse)
         if use_mask:
             if self.hparams.get('iterative_lowest_error', False):
                 mask_padded = self.low_error_mask(inputs, outputs)
@@ -202,20 +202,23 @@ class UDNN(pl.LightningModule):
         mae = self.mae(target_poses, pred_poses)
         self.log('pos_only_train_mae', mae)
         self.log('target_volume_train_mae', self.mae(train_batch["target_volume"][:,1].flatten(), outputs["target_volume"][:,1].flatten()))
-        log_nonempty = True
+        log_nonempty = True #"k_global" in self.hparams
         if log_nonempty:
             error = self.scenario.classifier_distance_torch(train_batch, outputs)
-            low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error, k_global =self.hparams['k_global'])
+            if "k_global" in self.hparams:
+                low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error, k_global =self.hparams['k_global'])
             nonempty_errors = []
             nonempty_mask_vals = []
             for i, traj in enumerate(train_batch["target_volume"]):
                 if traj[-1][0] - traj[0][0] > 0.1:
                     nonempty_errors.append(traj[-1][0] - outputs["target_volume"][i][-1][0])
-                    nonempty_mask_vals.append(low_error_mask[i][-1])
-        nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
-        nonempty_mask_vals = torch.abs(torch.Tensor(nonempty_mask_vals)).mean()
-        self.log('nonempty_only_target_volume_train_mae', nonempty_errors)
-        self.log('nonempty_only_train_mask_vals', nonempty_mask_vals)
+                    if "k_global" in self.hparams:
+                        nonempty_mask_vals.append(low_error_mask[i][-1])
+            nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
+            if len(nonempty_mask_vals):
+                nonempty_mask_vals = torch.abs(torch.Tensor(nonempty_mask_vals)).mean()
+                self.log('nonempty_only_train_mask_vals', nonempty_mask_vals)
+            self.log('nonempty_only_target_volume_train_mae', nonempty_errors)
         self.log('control_volume_train_mae', self.mae(train_batch["control_volume"][:,1].flatten(), outputs["control_volume"][:,1].flatten()))
         return losses['loss'] + nonempty_errors
 
@@ -290,7 +293,7 @@ class UDNN(pl.LightningModule):
         super().load_state_dict(state_dict, strict=False)
 
 
-def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
+def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}, mse_loss = None):
     loss_by_key = []
     for k, y_pred in outputs.items():
         y_true = inputs[k]
@@ -299,7 +302,8 @@ def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
         # mean over time and state dim but not batch, not yet.
         diff = (y_true - y_pred)
         #diff = torch.clip(diff, -10000,10000)
-        loss = loss_scaling * (diff).square().mean(-1)
+        loss = loss_scaling*mse_loss(y_true, y_pred)
+        
         loss_by_key.append(loss)
     batch_time_loss = torch.stack(loss_by_key).mean(0)
     return batch_time_loss

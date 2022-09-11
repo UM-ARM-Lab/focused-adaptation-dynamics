@@ -17,7 +17,7 @@ class WateringOmpl(ScenarioOmpl):
     def __init__(self, scenario: WaterSimScenario, *args, **kwargs):
         super().__init__(scenario, *args, **kwargs)
         print("Warning: target container pos hard coded")
-        self._target_container_pos = np.array([0, 0.5])
+        self._target_container_pos = np.array([0.5, 0])
 
     @staticmethod
     def numpy_to_ompl_state(state_np: Dict, state_out: ob.CompoundState):

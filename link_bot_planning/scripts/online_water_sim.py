@@ -34,12 +34,13 @@ from link_bot_pycommon.job_chunking import JobChunker
 from mde import train_test_mde
 from mde.make_mde_dataset import make_mde_dataset
 from state_space_dynamics import train_test_dynamics
+import os
 
 
 limit_gpu_mem(None)  # just in case TF is used somewhere
 
 
-@ros_init.with_ros("online_water_sim")
+@ros_init.with_ros(f"online_water_sim{os.environ['STY'].replace('.', '')}")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")
@@ -99,10 +100,10 @@ def main():
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
     iterations = 20 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 22# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 10 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    n_trials_per_iteration = 12# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 20 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
-    mde_init_epochs = 20 #int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_init_epochs = 10 #int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")

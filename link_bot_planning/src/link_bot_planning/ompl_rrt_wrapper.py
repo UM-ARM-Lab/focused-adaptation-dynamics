@@ -123,7 +123,7 @@ class OmplRRTWrapper(MyPlanner):
         self.rrt.setIntermediateStates(True)  # this is necessary, because we use this to generate datasets
 
         self.ss.setPlanner(self.rrt)
-        self.si.setMinMaxControlDuration(1, self.params.get('max_steps', 50))
+        self.si.setMinMaxControlDuration(1, self.params.get('max_steps', 8))
 
         self.visualize_propogation_color = [0, 0, 0]
 
@@ -212,7 +212,6 @@ class OmplRRTWrapper(MyPlanner):
         all_states = [last_previous_state, final_predicted_state]
         all_actions = [new_action]
 
-        # compute new num_diverged by checking the constraint
         accept, accept_probabilities, pred_error = self.check_constraint(all_states, all_actions)
         final_predicted_state['error'] = np.array([pred_error])
 
@@ -430,6 +429,7 @@ class OmplRRTWrapper(MyPlanner):
             try:
                 ompl_path = self.ss.getSolutionPath()
                 actions, planned_path = self.convert_path(ompl_path)
+                print("Predicted target volume", planned_path[-1]["target_volume"])
                 if self.params['smooth']:
                     print(f"{len(actions)} actions before smoothing")
                     actions, planned_path = self.smooth(planning_query, actions, planned_path)

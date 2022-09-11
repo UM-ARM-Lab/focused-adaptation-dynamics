@@ -1,8 +1,8 @@
 {
   method_name: mde
   smooth: true
-  max_shortcut_length: 10
-  n_shortcut_attempts: 100
+  max_shortcut_length: 20
+  n_shortcut_attempts: 30
   service_provider: softgym
   scenario_params: {
     k_pos: 1.5
@@ -11,7 +11,7 @@
     run_flex: true
     gui: 0
     max_dist_for_pour : 0.10
-    max_move_dist : 0.2
+    max_move_dist : 0.3
   }
   goal_params: {
     type: fixed
@@ -23,7 +23,7 @@
   termination_criteria: {
     total_timeout: 700 
     timeout: 700
-    max_extensions: 3000
+    max_extensions: 1000
     max_attempts: 1
     max_planning_attempts: 1
     attempted_extensions_threshold: 100

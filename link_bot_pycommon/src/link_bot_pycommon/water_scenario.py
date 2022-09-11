@@ -60,7 +60,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = self._save_cfg["save_frames"]
+        env_kwargs['render'] = 1 #self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = 1 #not self.params.get('gui', False)
         #default_config = {"save_frames": True, 'img_size': 300}
@@ -270,13 +270,13 @@ class WaterSimScenario(ScenarioWithVisualization):
         return True
 
     def is_pour_valid_for_state(self, state: Dict):
-        min_height_for_pour = self._scene.glass_params["poured_height"] + 0.05
-        half_x_dist = self._scene.glass_params["poured_glass_dis_x"] / 2
+        min_height_for_pour = self._scene.glass_params["poured_height"] + 0.02
+        target_x = state["target_container_pos"][0]
         curr_pos = state["controlled_container_pos"]
         curr_height = curr_pos[1]
         if curr_height < min_height_for_pour:
             return False
-        x_dist_between_center_and_edge = np.abs(curr_pos[0] - half_x_dist)
+        x_dist_between_center_and_edge = np.abs(curr_pos[0] - target_x)
         if x_dist_between_center_and_edge > self.params["max_dist_for_pour"]:
             return False
         return True
@@ -430,20 +430,48 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.color.a = 1
         return marker
 
-    def make_angle_marker(self, pose, angle):
-        # Not actually showing up now
+    def make_volume_marker(self, pose, volume, label="volume"):
         marker = Marker()
         marker.action = Marker.ADD
         marker.type = Marker.TEXT_VIEW_FACING
-        marker.pose.position.x = pose[0]  # y is 0
+        marker.pose.position.x = pose[0]+0.03  # y is 0
         marker.pose.position.y = pose[1]
+        marker.pose.position.z = 0.1
         marker.pose.orientation.w = 1
+        marker.pose.orientation.x = 0
+        marker.pose.orientation.y = 0
+        marker.pose.orientation.z = 0
         marker.header.frame_id = "map"
         marker.header.stamp = rospy.Time.now()
-        marker.text = str(angle)
+        marker.ns = label
+        marker.text = f"volume: {volume.round(2)}"
         marker.color.a = 1
-        marker.color.r = 1
-        marker.scale.z = 0.015
+        marker.color.b = 0.9
+        marker.color.r = 0.9
+        marker.color.g = 0.2
+        marker.scale.z = 0.2
+        return marker
+
+    def make_angle_marker(self, pose, angle):
+        marker = Marker()
+        marker.action = Marker.ADD
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.pose.position.x = pose[0]+0.03  # y is 0
+        marker.pose.position.y = pose[1]
+        marker.pose.position.z = 0.1
+        marker.pose.orientation.w = 1
+        marker.pose.orientation.x = 0
+        marker.pose.orientation.y = 0
+        marker.pose.orientation.z = 0
+        marker.header.frame_id = "map"
+        marker.header.stamp = rospy.Time.now()
+        marker.ns = "angle"
+        marker.text = f"angle: {angle.round(2)}"
+        marker.color.a = 1
+        marker.color.b = 0.2
+        marker.color.r = 0.9
+        marker.color.g = 0.9
+        marker.scale.z = 0.1
         return marker
 
     def make_state_msg(self, state, target_pos=None, target_angle=None):
@@ -462,21 +490,33 @@ class WaterSimScenario(ScenarioWithVisualization):
         #               self._scene.glass_params["glass_dis_z"]]
         #poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
         #               self._scene.glass_params["poured_glass_dis_z"]]
-        pourer_dims = [.1, .1, .1]
-        poured_dims = [.1, .1, .1]
+        if "control_volume" in state:
+            control_volume = state["control_volume"]
+            target_volume = state["target_volume"]
+        else:
+            control_volume = state[add_predicted("control_volume")]
+            target_volume = state[add_predicted("target_volume")]
+        pourer_dims = [.07, .1, .1]
+        poured_dims = [.4, .1, .1]
         pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, rgb=np.array([1, 0, 0]))
         pourer_marker.id = 0
         msg.markers.append(pourer_marker)
         pourer_angle_marker = self.make_angle_marker(pourer_pos, pourer_angle)
+        pourer_volume_marker = self.make_angle_marker(pourer_pos, control_volume)
         pourer_angle_marker.id = 1
+        pourer_volume_marker.id = 2
         msg.markers.append(pourer_angle_marker)
+        msg.markers.append(pourer_volume_marker)
         if add_predicted("target_container_pos") in state:
             poured_pos = state[add_predicted("target_container_pos")]
         else:
             poured_pos = state["target_container_pos"]
         poured_marker = self.make_box_marker(poured_pos, poured_dims, rgb=np.array([0, 1, 0]))
-        poured_marker.id = 2
+        poured_volume_marker = self.make_volume_marker(poured_pos, target_volume, "target_volume")
+        poured_marker.id = 3
+        poured_volume_marker.id = 4
         msg.markers.append(poured_marker)
+        msg.markers.append(poured_volume_marker)
         return msg
 
     def plot_state_rviz(self, state: Dict, **kwargs):
@@ -505,7 +545,7 @@ class WaterSimScenario(ScenarioWithVisualization):
             desired_volume_dist =  min(too_low_amount, too_high_amount)
         spill_penalty = 5
         amount_spilled = np.abs(1-total_volume)
-        if amount_spilled < 0.07 or total_volume > 1:
+        if amount_spilled < 0.05 or total_volume > 1:
             #negligible
             amount_spilled = 0
         desired_spill_dist = min(0.25, spill_penalty * amount_spilled)

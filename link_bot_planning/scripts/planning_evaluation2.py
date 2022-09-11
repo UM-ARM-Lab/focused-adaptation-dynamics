@@ -14,6 +14,7 @@ from link_bot_classifiers.classifier_utils import strip_torch_model_prefix
 from link_bot_planning.planning_evaluation import load_planner_params, evaluate_planning
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.args import int_set_arg
+import os
 from link_bot_pycommon.load_wandb_model import load_model_artifact
 from mde.torch_mde import MDE
 from moonshine.gpu_config import limit_gpu_mem
@@ -24,7 +25,7 @@ limit_gpu_mem(None)
 def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
     mde_run_id = strip_torch_model_prefix(mde_run_id)
     dynamics_run_id = strip_torch_model_prefix(dynamics_run_id)
-    mde = load_model_artifact(mde_run_id, MDE, project='mde', version='best', user='armlab')
+    mde = load_model_artifact(mde_run_id, MDE, project='mde', version='latest', user='armlab')
     dynamics_used_for_mde = mde.hparams['dataset_hparams']['checkpoint']
     if dynamics_used_for_mde != dynamics_run_id:
         q = input(f"{dynamics_used_for_mde} != {dynamics_run_id} Do you want to override? [y/N]")
@@ -33,7 +34,7 @@ def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
         print("Ok, continuing...")
 
 
-@ros_init.with_ros("planning_evaluation")
+@ros_init.with_ros(f"planning_evaluation{os.environ['STY'].replace('.', '')}")
 def main():
     colorama.init(autoreset=True)
     np.set_printoptions(suppress=True, precision=5, linewidth=250)

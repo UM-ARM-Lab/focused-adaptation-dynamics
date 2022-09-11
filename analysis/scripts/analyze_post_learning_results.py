@@ -16,7 +16,10 @@ limit_gpu_mem(None)
 def metrics_main(args):
     root = pathlib.Path("/media/shared/planning_results/")
     results_dirs = list(root.glob(args.name + "*"))
+    args.regenerate=True
     outdir, df = planning_results(results_dirs, args.regenerate)
+    import ipdb; ipdb.set_trace()
+    print("Outdir", outdir)
 
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {
