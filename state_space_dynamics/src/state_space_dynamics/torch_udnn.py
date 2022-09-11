@@ -73,6 +73,8 @@ class UDNN(pl.LightningModule):
                     ref_before = ref_after
             self.register_buffer("ref_actions", torch.tensor(ref_actions_list))
 
+        self.fix_global_frame_bug = False
+
     def forward(self, inputs):
         actions = {k: inputs[k] for k in self.hparams.action_keys}
         input_sequence_length = actions[self.hparams.action_keys[0]].shape[1]
@@ -100,11 +102,24 @@ class UDNN(pl.LightningModule):
         return pred_states_dict
 
     def one_step_forward(self, action_t, s_t):
+        REAL2SIM_OFFSET = torch.tensor([1, -0.5, .5]).to(self.device)
+
         local_action_t = self.scenario.put_action_local_frame(s_t, action_t)
         s_t_local = self.scenario.put_state_local_frame_torch(s_t)
         states_and_actions = list(s_t_local.values()) + list(local_action_t.values())
         if self.hparams.get("use_global_frame", False):
-            states_and_actions += list(s_t.values())
+            if self.fix_global_frame_bug:
+                rope_real_world_global_frame = s_t['rope'].reshape([-1, 25, 3])
+                rope_sim_global_frame = (rope_real_world_global_frame + REAL2SIM_OFFSET).reshape([-1, 75])
+                states_and_actions.append(rope_sim_global_frame)
+                left_gripper_real_world_global_frame = s_t['left_gripper']
+                left_gripper_sim_global_frame = left_gripper_real_world_global_frame + REAL2SIM_OFFSET
+                states_and_actions.append(left_gripper_sim_global_frame)
+                right_gripper_real_world_global_frame = s_t['right_gripper']
+                right_gripper_sim_global_frame = right_gripper_real_world_global_frame + REAL2SIM_OFFSET
+                states_and_actions.append(right_gripper_sim_global_frame)
+            else:
+                states_and_actions += list(s_t.values())
         z_t = torch.cat(states_and_actions, -1)
 
         z_t = self.mlp(z_t)

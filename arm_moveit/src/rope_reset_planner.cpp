@@ -81,7 +81,7 @@ void addLinkPadding(planning_scene::PlanningScenePtr const &planning_scene) {
   auto &collision_env = planning_scene->getCollisionEnvNonConst();
   collision_env->setLinkPadding("drive56", 0.02);
   collision_env->setLinkPadding("drive57", 0.02);
-  collision_env->setLinkPadding("torso", 0.02);
+  collision_env->setLinkPadding("torso", 0.03);
   collision_env->setLinkPadding("rightgripper_link", 0.02);
   collision_env->setLinkPadding("rightgripper2_link", 0.02);
   collision_env->setLinkPadding("leftgripper_link", 0.02);
