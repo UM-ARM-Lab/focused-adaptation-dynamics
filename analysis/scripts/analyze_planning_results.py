@@ -31,15 +31,11 @@ def analyze_planning_results(args):
 
     hue = 'method_name'
 
-    _, ax = boxplot(df, outdir, hue, 'mean_progagation_time', "speed", figsize=(12, 8))
-
     _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8))
     ax.axhline(y=0.045, linestyle='--')
     plt.savefig(outdir / f'task_error.png')
 
     boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))
-
-    boxplot(df, outdir, hue, 'combined_error', "Avg Model, Planning, and Task Error", figsize=(12, 8))
 
     barplot_with_values(df, 'any_solved', hue, outdir, figsize=(12, 8), title="Any Plans Found?")
 
@@ -51,17 +47,7 @@ def analyze_planning_results(args):
 
     barplot_with_values(df, 'success_given_solved', hue, outdir, figsize=(12, 8))
 
-    boxplot(df, outdir, hue, 'total_time', "Total Time", figsize=(12, 8))
-
-    boxplot(df, outdir, hue, 'max_planning_time', "Max Planning Time", figsize=(12, 8))
-
-    boxplot(df, outdir, hue, 'max_extensions', "Max Extensions", figsize=(12, 8))
-
-    boxplot(df, outdir, hue, 'num_planning_attempts', "Num Planning Attempts", figsize=(12, 8))
-
     boxplot(df, outdir, hue, 'num_failed_actions', "Num Failed Actions", figsize=(12, 8))
-
-    boxplot(df, outdir, hue, 'total_extensions', "Total Extensions", figsize=(12, 8))
 
     if not args.no_plot:
         plt.show(block=True)

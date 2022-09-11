@@ -230,12 +230,15 @@ def viz_main(dataset_dir: pathlib.Path,
         inputs = dataset[dataset_anim.t()]
         print(inputs['example_idx'])
 
-        n_time_steps = int(inputs['time_mask'].sum())
+        if 'time_mask' in inputs:
+            n_time_steps = int(inputs['time_mask'].sum())
+        else:
+            n_time_steps = inputs['time_idx'].shape[0]
         time_anim = RvizAnimationController(n_time_steps=n_time_steps)
 
         inputs_batch = torchify(add_batch(inputs))
         outputs_batch = model(inputs_batch)
-        low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=100)))
+        # low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=100)))
         outputs = remove_batch(outputs_batch)
 
         time_anim.reset()
@@ -244,7 +247,7 @@ def viz_main(dataset_dir: pathlib.Path,
 
             init_viz_env(s, inputs, t)
             viz_pred_actual_t(original_dataset, model, inputs, outputs, s, t, threshold=0.2)
-            s.plot_weight_rviz(low_error_mask[t])
+            # s.plot_weight_rviz(low_error_mask[t])
             time_anim.step()
 
         n_examples_visualized += 1

@@ -102,6 +102,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         return []
 
     def reset_to_start(self, planner_params: Dict, start: Dict):
+        self.fix_oob_joints()
+
         self.robot.store_tool_orientations({
             'left_tool':  self.left_preferred_tool_orientation,
             'right_tool': self.right_preferred_tool_orientation,
@@ -126,16 +128,16 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         right_start_pose.orientation = ros_numpy.msgify(Quaternion, self.right_preferred_tool_orientation)
 
         right_tool_grasp_pose = Pose()
-        right_tool_grasp_pose.position.x = 0.075
-        right_tool_grasp_pose.position.y = 0.335
-        right_tool_grasp_pose.position.z = 0.965
-        right_tool_grasp_orientation = quaternion_from_euler(-1.5707, -1.5707, 0.6)
+        right_tool_grasp_pose.position.x = 0.18
+        right_tool_grasp_pose.position.y = 0.33
+        right_tool_grasp_pose.position.z = 1.04
+        right_tool_grasp_orientation = quaternion_from_euler(-2.2, -2.2, 1.0)
         right_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion, right_tool_grasp_orientation)
         self.tf.send_transform_from_pose_msg(right_tool_grasp_pose, 'robot_root', 'right_grasp')
         right_grasp_position_np = ros_numpy.numpify(right_tool_grasp_pose.position)
 
         left_tool_grasp_pose = deepcopy(right_tool_grasp_pose)
-        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.85
+        left_tool_grasp_pose.position.z = right_tool_grasp_pose.position.z - 0.88
         left_tool_grasp_pose.orientation = ros_numpy.msgify(Quaternion,
                                                             quaternion_from_euler(0, np.pi / 2 + 0.2, 0))
         # self.tf.send_transform_from_pose_msg(left_tool_grasp_pose, 'robot_root', 'left_tool_grasp_pose')
@@ -158,48 +160,78 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
         self.set_cdcpd_both()
 
-        print("Planning to grasp")
-        try:
-            # first move up a bit in case the torso is in collision?
-            self.move_torso_back()
+        succeeded = False
+        for i in range(10):
+            try:
+                # first move up a bit in case the torso is in collision?
+                self.move_torso_back()
 
-            plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
-            self.robot.store_current_tool_orientations(both_tools)
+                print("Planning to grasp")
+                plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, self.robot)
+                self.robot.store_current_tool_orientations(both_tools)
 
-            # wait for rope to stop swinging
-            print("Waiting for rope to settle")
-            sleep(30)
+                # wait for rope to stop swinging
+                print("Waiting for rope to settle")
+                sleep(30)
 
-            # change CDCPD constraints
-            self.set_cdcpd_right_only()
+                # change CDCPD constraints
+                self.set_cdcpd_right_only()
 
-            sleep(5)
+                sleep(5)
 
-            # servo to the rope?
-            cdcpd_state = self.get_cdcpd_state.get_state()
-            left_at_rope = cdcpd_state['rope'].reshape([25, 3])[0]
-            left_at_rope[2] = left_tool_grasp_pose.position.z
-            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_at_rope], [right_grasp_position_np]])
+                # servo to the rope?
+                cdcpd_state = self.get_cdcpd_state.get_state()
+                left_at_rope = cdcpd_state['rope'].reshape([25, 3])[0]
+                left_at_rope[2] = left_tool_grasp_pose.position.z
+                self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_at_rope], [right_grasp_position_np]])
 
-            sleep(5)
+                sleep(5)
 
-            left_up = left_at_rope + np.array([0, 0, .23])
-            _bak = self.robot.called.jacobian_target_not_reached_is_failure
-            self.robot.called.jacobian_target_not_reached_is_failure = False
-            self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_grasp_position_np]])
-            self.robot.called.jacobian_target_not_reached_is_failure = _bak
+                left_up = left_at_rope + np.array([0, 0, .2])
+                right_down = right_grasp_position_np + np.array([0, 0, -0.08])
+                _bak = self.robot.called.jacobian_target_not_reached_is_failure
+                self.robot.called.jacobian_target_not_reached_is_failure = False
+                self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up], [right_down]])
 
-            # change CDCPD constraints
-            self.set_cdcpd_both()
+                self.set_cdcpd_both()
 
-            self.flip_left_wrist()
+                self.flip_left_wrist()
 
-            print("Planning to start")
-            plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
-        except RobotPlanningError:
-            # at this point give up and ask peter to fix the rope
-            self.robot.plan_to_poses('both_arms', both_tools, [left_start_pose, right_start_pose])
-            input("Please fix the rope!")
+                self.robot.store_current_tool_orientations(both_tools)
+
+                left_up_out = left_at_rope + np.array([-0.08, 0, .2])
+                right_down_out = right_grasp_position_np + np.array([0.03, 0, -0.08])
+                self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up_out], [right_down_out]])
+                self.robot.called.jacobian_target_not_reached_is_failure = _bak
+
+                try:
+                    print("Planning to start")
+                    plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
+                except RobotPlanningError:
+                    print("Planning to start using jacobian follower")
+                    self.plan_to_start_with_jacobian_follower(both_tools, left_start_pose, right_start_pose)
+
+                # Now remove the constraint and see if it stays where it is. That's a sign the reset worked
+                self.set_cdcpd_right_only()
+                sleep(10)
+
+                cdcpd_state = self.get_cdcpd_state.get_state()
+                left_at_rope = cdcpd_state['rope'].reshape([25, 3])[0]
+                rope_in_hand = np.linalg.norm(left_at_rope - ros_numpy.numpify(left_start_pose.position)) < 0.1
+                if rope_in_hand:
+                    # change CDCPD constraints
+                    self.set_cdcpd_both()
+                    succeeded = True
+                    break
+            except RobotPlanningError:
+                print("Trying again!")
+                pass
+                # # at this point give up and ask peter to fix the rope
+                # self.robot.plan_to_poses('both_arms', both_tools, [left_start_pose, right_start_pose])
+                # input("Please fix the rope!")
+
+        if not succeeded:
+            raise RuntimeError("Failed to plan to start after 10 attempts!")
 
         # restore
         self.robot.store_tool_orientations({
@@ -207,6 +239,18 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
             'right_tool': self.right_preferred_tool_orientation,
         })
         print("done.")
+
+    def plan_to_start_with_jacobian_follower(self, both_tools, left_start_pose, right_start_pose):
+        self.robot.store_tool_orientations({
+            'left_tool':  self.left_preferred_tool_orientation,
+            'right_tool': self.right_preferred_tool_orientation,
+        })
+        self.robot.follow_jacobian_to_position('both_arms', both_tools,
+                                               [[ros_numpy.numpify(left_start_pose.position)],
+                                                [ros_numpy.numpify(right_start_pose.position)]])
+
+    def fix_oob_joints(self):
+        pass
 
     def flip_left_wrist(self):
         left_arm_joint_names = self.robot.get_joint_names('left_arm')
@@ -392,11 +436,11 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
     def pad_robot_links(self, scene_msg: PlanningScene):
         padded_scene_msg = deepcopy(scene_msg)
         links_to_pad = {
-            'end_effector_right': 0.01,
-            'end_effector_left':  0.01,
+            'end_effector_right': 0.015,
+            'end_effector_left':  0.015,
             'leftwrist':          0.02,
             'rightwrist':         0.02,
-            'torso':              0.02,
+            'torso':              0.03,
             'leftforearm':        0.02,
             'rightforearm':       0.02,
         }

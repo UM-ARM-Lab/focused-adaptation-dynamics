@@ -210,9 +210,11 @@ class UDNN(pl.LightningModule):
     def test_step(self, test_batch, batch_idx):
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
+        test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
+        self.log('test_error', test_losses['error'])
         self.log('test_loss', test_losses['loss'])
 
-        return test_losses['loss']
+        return test_losses
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)

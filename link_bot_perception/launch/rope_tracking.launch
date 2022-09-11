@@ -8,7 +8,7 @@
         not a term in the objective. So the rope can be as long as rope_length * lambda,
         but it can be shorter if that's what best explains the point cloud
     -->
-    <param name="max_rope_length" value="0.82"/>
+    <param name="max_rope_length" value="0.81"/>
 
     <rosparam command="load" param="fake_robot_description" file="$(find cdcpd)/fake_robot.urdf"/>
     <rosparam command="load" param="fake_robot_description_semantic" file="$(find cdcpd)/fake_robot.srdf"/>

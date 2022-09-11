@@ -3,9 +3,11 @@ import re
 
 import cv2
 import matplotlib.pyplot as plt
+import moviepy
 import numpy as np
 from moviepy.editor import VideoFileClip
 from moviepy.video.VideoClip import TextClip, VideoClip, ImageClip
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 
 from moonshine.filepath_tools import load_hjson
@@ -15,23 +17,13 @@ class NoVideoError(Exception):
     pass
 
 
-def hold_start(clip, duration):
-    clip.get_frame(0)
-    start = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
-    return start
-
-
-def hold_end(clip, duration):
-    clip.get_frame(-1)
-    end = clip.subclip(clip.duration - 0.001, clip.duration).speedx(final_duration=duration)
-    return end
-
-
 def add_holds(clip):
-    return hold_end(hold_start(clip, 1), 1)
+    clip = moviepy.video.fx.all.freeze(clip, t='end', freeze_duration=1)
+    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=1)
+    return clip
 
 
-def remove_boring_frames(method_iteration_clip: VideoClip):
+def cut_with_times(method_iteration_clip: VideoClip):
     # for each frame, compute the naive pixel-space distance to the previous frame
     prev_frame_filtered = None
     clips = []
@@ -82,10 +74,10 @@ def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
     method_iteration_clips = []
     for iteration_video_filename in latest_video_filenames.values():
         method_iteration_clip = VideoFileClip(iteration_video_filename.as_posix(), audio=False)
-        method_iteration_clip = method_iteration_clip.speedx(speed)
-        method_iteration_clip = add_holds(method_iteration_clip)
         method_iteration_clips.append(method_iteration_clip)
     method_iteration_video = concatenate_videoclips(method_iteration_clips)
+    method_iteration_video = method_iteration_video.speedx(speed)
+    method_iteration_video = add_holds(method_iteration_video)
 
     method_name_txt = TextClip(method_name,
                                font='Ubuntu-Bold',
@@ -95,8 +87,7 @@ def combine_videos_for_iter(root: pathlib.Path, episode: int, w=1080, speed=10):
     h = method_iteration_video.h
     method_name_txt = method_name_txt.set_pos((w / 2 - method_name_txt.w / 2, h - 10))
     size = (method_iteration_video.w, method_iteration_video.h + method_name_txt.h)
-    method_iteration_video_w_txt = method_iteration_video
-    # method_iteration_video_w_txt = CompositeVideoClip([method_iteration_video, method_name_txt], size=size)
-    # method_iteration_video_w_txt = method_iteration_video_w_txt.set_duration(method_iteration_video.duration)
+    method_iteration_video_w_txt = CompositeVideoClip([method_iteration_video, method_name_txt], size=size)
+    method_iteration_video_w_txt = method_iteration_video_w_txt.set_duration(method_iteration_video.duration)
 
     return method_iteration_video_w_txt

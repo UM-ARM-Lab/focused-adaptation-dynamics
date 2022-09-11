@@ -190,7 +190,11 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
     auto const right_translation_error = (right_goal_pose_.translation() - right_tool_pose.translation()).norm();
     auto const translation_error = left_translation_error + right_translation_error;
-    return translation_error + orientation_error;
+
+    auto const joint56_err = abs(*robot_state.getJointPositions("joint56"));
+    auto const joint57_err = std::max(*robot_state.getJointPositions("joint57") - (-0.05), 0.0);
+
+    return translation_error + orientation_error + joint56_err + joint57_err;
   }
 
   bool isSatisfied(const ob::State *s, double *dist) const override {
@@ -206,7 +210,7 @@ class PosesGoal : public ob::GoalSampleableRegion {
     auto const right_orientation_error = rotMatDist(right_goal_pose_.rotation(), right_tool_pose.rotation());
     auto const left_translation_error = (left_goal_pose_.translation() - left_tool_pose.translation()).norm();
 
-    auto const torso_ok = *robot_state.getJointPositions("joint57") < 0.05;
+    auto const torso_ok = *robot_state.getJointPositions("joint57") < -0.05;
     auto const torso_ok2 = abs(*robot_state.getJointPositions("joint56")) < 0.25;
 
     return (left_translation_error < translation_tolerance_) && (right_translation_error < translation_tolerance_) &&
@@ -311,7 +315,7 @@ class StrictRightGripperOrientationStateSampler : public ob::StateSampler {
       throw std::runtime_error(err_ss.str());
     }
 
-    // visual_tools_->publishRobotState(*robot_state_ik);
+     visual_tools_->publishRobotState(*robot_state_ik);
     copy_robot_state_to_ompl_state(group_, *robot_state_ik, s);
   }
 };
@@ -468,7 +472,7 @@ PlanningResult RopeResetPlanner::planToReset(geometry_msgs::Pose const &left_pos
     }();
     // visual_tools_->publishRobotState(robot_state);
 
-    auto const joint56_ok = abs(*robot_state.getJointPositions("joint56")) < 1;
+    auto const joint56_ok = abs(*robot_state.getJointPositions("joint56")) < 1.2;
 
     ROS_DEBUG_STREAM_NAMED(LOGGER_NAME + ".isStateValid", ""
                                                               << "satisfies bounds? " << si_->satisfiesBounds(s) << "\n"
@@ -511,7 +515,7 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
 
         const auto &left_tool_pose = robot_state.getGlobalLinkTransform("left_tool");
         auto const left_orientation_error = rotMatDist(left_target_pose.rotation(), left_tool_pose.rotation());
-        auto const left_orientation_satisfied = left_orientation_error < initial_left_orientation_error + 0.4;
+        auto const left_orientation_satisfied = left_orientation_error < initial_left_orientation_error + 0.5;
 
         const auto &right_tool_pose = robot_state.getGlobalLinkTransform("right_tool");
         Eigen::Isometry3d right_target_pose;
@@ -531,6 +535,7 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
         auto const grippers_close = grippers_dist < max_gripper_dist;
 
         auto const joint56_ok = abs(*robot_state.getJointPositions("joint56")) < 1;
+        auto const joint57_ok = *robot_state.getJointPositions("joint57") < 0.15;
 
         ROS_DEBUG_STREAM_THROTTLE_NAMED(1, LOGGER_NAME + ".isStateValid",
                                         ""
@@ -539,9 +544,10 @@ PlanningResult RopeResetPlanner::planToStart(geometry_msgs::Pose const &left_pos
                                             << "right orientation? " << right_orientation_satisfied << "\n"
                                             << "collision free? " << collision_free << "\n"
                                             << "joint56 ok? " << joint56_ok << "\n"
+                                            << "joint57 ok? " << joint57_ok << "\n"
                                             << "grippers close? " << grippers_close);
         return si_->satisfiesBounds(s) && left_orientation_satisfied && right_orientation_satisfied && collision_free &&
-               grippers_close && joint56_ok;
+               grippers_close && joint56_ok && joint57_ok;
       };
 
   auto state_sampler_allocator = [&](const ob::StateSpace *space) {

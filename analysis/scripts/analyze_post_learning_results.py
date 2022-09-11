@@ -42,23 +42,27 @@ def metrics_main(args):
                        title='Success (given plan to goal found) ⬆',
                        ci=90)
     ax.set_ylim(-0.02, 1.02)
+    ax.set_xticks(range(20))
     ax.set_xlabel("Online Learning Iteration")
     ax.set_ylabel("Success Rate")
     plt.savefig(outdir / "success_given_plan_found.png")
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', ci=90)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylabel("Model Error")
     plt.savefig(outdir / "model_error.png")
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆', ci=90)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylim(-0.02, 1.02)
     ax.set_ylabel("% plan to goal found")
     plt.savefig(outdir / "plan_found.png")
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', ci=90)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylabel("Success Rate")
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")

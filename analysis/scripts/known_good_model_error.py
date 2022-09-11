@@ -11,20 +11,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     run_ids = [
-        'eval-7zqi7',
-        'eval-citcs',
-        'eval-24m2d',
+        'eval-gp7nu',
+        'eval-dqrhe',
     ]
     plt.style.use(args.style)
     plt.rcParams['figure.figsize'] = (18, 5)
     names = [
         'AllData',
-        'AllDataNoMDE',
         'Adaptation (ours)',
     ]
     colors = [
         '#e3a20b',
-        '#599673',
         '#3565a1',
     ]
 
@@ -32,10 +29,11 @@ if __name__ == '__main__':
     model_errors = []
     for run_id in run_ids:
         r = api.run(f'armlab/udnn/{run_id}')
-        model_errors.append(r.summary['test_loss'])
+        model_errors.append(r.summary['test_error'])
 
+    # TODO: try a boxplot
     plt.bar(names, model_errors, color=colors)
     plt.ylabel("Model Error")
-    plt.title("Model Error on known-free-space trajectories")
+    plt.title(r"Model Error on an approximate $\mathcal{D}_{ST}$ for Rope")
     plt.savefig('results/known_good_model_error.png', dpi=300)
     plt.show()

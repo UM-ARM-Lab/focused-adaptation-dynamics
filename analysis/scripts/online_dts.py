@@ -6,6 +6,7 @@ import re
 import numpy as np
 from colorama import Fore
 
+from link_bot_pycommon.serialization import load_gzipped_pickle
 from moonshine.filepath_tools import load_hjson
 
 
@@ -25,16 +26,26 @@ def main():
     total_dt = 0
     dt_by_key = {}
     dts_by_iter = {}
+    dt_by_key['planning_and_execution'] = 0
     for k, v in log.items():
         if re.fullmatch(r'iter\d+', k):
             iter_total_dt = 0
             for dt_k, dt_str in nested_iter(v):
-                if 'dt' in dt_k:
+                if 'dt' in dt_k and 'planning' not in dt_k:
                     dt = float(dt_str)
                     if dt_k not in dt_by_key:
                         dt_by_key[dt_k] = 0
                     dt_by_key[dt_k] += dt
                     iter_total_dt += dt
+
+            if 'planning_outdir' in v:
+                planning_dir = pathlib.Path(v['planning_outdir'])
+                for f in planning_dir.glob("*metrics.pkl.gz"):
+                    d = load_gzipped_pickle(f)
+                    planning_dt = d['total_time']
+                    iter_total_dt += planning_dt
+                    dt_by_key['planning_and_execution'] += planning_dt
+
             if iter_total_dt > 0:
                 dts_by_iter[k] = iter_total_dt
                 total_dt += iter_total_dt
