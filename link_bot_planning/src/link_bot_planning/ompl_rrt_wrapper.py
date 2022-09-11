@@ -1,3 +1,6 @@
+from ompl import control as oc
+from ompl import base as ob
+
 import time
 import warnings
 from typing import Dict, List, Tuple
@@ -7,10 +10,13 @@ from link_bot_planning.trajectory_optimizer_torch import TrajectoryOptimizerTorc
 from link_bot_pycommon.spinners import StatSpinner
 from state_space_dynamics.torch_udnn_dynamics_wrapper import TorchUDNNDynamicsWrapper
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", category=RuntimeWarning)
-    import ompl.base as ob
-    import ompl.control as oc
+#with warnings.catch_warnings():
+#    warnings.simplefilter("ignore", category=RuntimeWarning)
+#import ompl.base as ob
+#import ompl.geometric as og
+#import ompl.base as ob
+#import ompl.control as oc
+
 
 import numpy as np
 from matplotlib import cm
@@ -50,6 +56,8 @@ class OmplRRTWrapper(MyPlanner):
                  log_full_tree: bool = True,
                  ):
         super().__init__(scenario=scenario, fwd_model=fwd_model, filter_model=filter_model)
+        
+
         self.log_full_tree = log_full_tree
         self.verbose = verbose
         self.fwd_model = fwd_model
@@ -383,9 +391,9 @@ class OmplRRTWrapper(MyPlanner):
 
         # visualization
         self.scenario.reset_viz()
-        self.scenario.plot_environment_rviz(planning_query.environment)
-        self.scenario.plot_start_state(start_state)
-        self.scenario.plot_goal_rviz(planning_query.goal, self.params['goal_params']['threshold'])
+        #self.scenario.plot_environment_rviz(planning_query.environment)
+        #self.scenario.plot_start_state(start_state)
+        #self.scenario.plot_goal_rviz(planning_query.goal, self.params['goal_params']['threshold'])
 
         self.ss.clear()
         self.ss.setStartState(ompl_start_scoped)
@@ -423,7 +431,9 @@ class OmplRRTWrapper(MyPlanner):
                 ompl_path = self.ss.getSolutionPath()
                 actions, planned_path = self.convert_path(ompl_path)
                 if self.params['smooth']:
+                    print(f"{len(actions)} actions before smoothing")
                     actions, planned_path = self.smooth(planning_query, actions, planned_path)
+                    print(f"{len(actions)} actions after smoothing")
             except RuntimeError:
                 rospy.logerr("Timeout before any edges were added. Considering this as Not Progressing.")
                 planner_status = MyPlannerStatus.NotProgressing
@@ -529,7 +539,6 @@ class OmplRRTWrapper(MyPlanner):
 
                 if not accept_t:
                     classifier_accept = False
-                    print("Rejected due to pred error", pred_error)
                     break
 
             proposed_state_seq = state_sequence[:start_t] + proposed_state_seq_to_end
