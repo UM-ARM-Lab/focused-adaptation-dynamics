@@ -17,31 +17,36 @@ limit_gpu_mem(None)
 def metrics_main(args):
     outdir, df = planning_results(args.results_dirs, args.regenerate)
 
+    if 'noreal' in outdir.as_posix():
+        n_iters = 20
+    else:
+        n_iters = 15
+
     # manually add the results for what iter0 would do, which are currently based on:
     iter_key = 'ift_iteration'
 
     fig, ax = lineplot(df, iter_key, 'normalized_model_error', 'Model Error', hue='method_name')
-    ax.set_xticks(range(20))
+    ax.set_xticks(range(n_iters))
     ax.legend()
     plt.savefig(outdir / f'normalized_model_error.png')
 
     fig, ax = lineplot(df, iter_key, 'success', 'Success', hue='method_name')
-    ax.set_xticks(range(20))
+    ax.set_xticks(range(n_iters))
     ax.legend()
     plt.savefig(outdir / f'success.png')
 
     fig, ax = lineplot(df, iter_key, 'success_given_solved', 'Success (given Plan To Goal Found)', hue='method_name')
-    ax.set_xticks(range(20))
+    ax.set_xticks(range(n_iters))
     ax.legend()
     plt.savefig(outdir / f'success_given_solved.png')
 
     fig, ax = lineplot(df, iter_key, 'any_solved', 'Plan to goal found?', hue='method_name')
-    ax.set_xticks(range(20))
+    ax.set_xticks(range(n_iters))
     ax.legend()
     plt.savefig(outdir / f'any_solved.png')
 
     fig, ax = lineplot(df, iter_key, 'task_error', 'Task Error', hue='method_name')
-    ax.set_xticks(range(20))
+    ax.set_xticks(range(n_iters))
     ax.legend()
     plt.savefig(outdir / f'task_error.png')
 

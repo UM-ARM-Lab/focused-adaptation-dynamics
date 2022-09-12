@@ -462,7 +462,6 @@ def plan_to_start(left_start_pose, right_start_pose, rrp, val):
                                                    orientation_path_tolerance=orientation_path_tol,
                                                    orientation_goal_tolerance=0.2,
                                                    timeout=120, debug_collisions=False)
-        print(result.status)
 
         if result.status == "Exact solution":
             break
@@ -489,7 +488,6 @@ def plan_to_grasp(left_tool_grasp_pose, right_tool_grasp_pose, rrp, val):
     while True:
         result = rrp.plan_to_reset(left_tool_grasp_pose, right_tool_grasp_pose, orientation_path_tol, 0.3, timeout=120,
                                    debug_collisions=False)
-        print(result.status)
         if result.status == 'Exact solution':
             break
 

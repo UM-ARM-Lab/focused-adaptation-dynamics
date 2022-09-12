@@ -206,6 +206,10 @@ def eval_main(dataset_dir: pathlib.Path,
         for k, v in metrics_i.items():
             print(f"{k:20s}: {v:0.6f}")
 
+    import torch
+    test_errors = torch.cat(model.test_errors, 0).reshape([-1])
+    print(f"std test error: {torch.std(test_errors).detach().cpu().numpy():.2f}")
+
     return metrics
 
 

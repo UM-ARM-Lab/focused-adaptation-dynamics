@@ -5,6 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
+import torchmetrics
 from torch.nn import Linear, Sequential
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
@@ -74,6 +75,7 @@ class UDNN(pl.LightningModule):
             self.register_buffer("ref_actions", torch.tensor(ref_actions_list))
 
         self.fix_global_frame_bug = False
+        self.test_errors = []
 
     def forward(self, inputs):
         actions = {k: inputs[k] for k in self.hparams.action_keys}
@@ -228,6 +230,7 @@ class UDNN(pl.LightningModule):
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
         self.log('test_error', test_losses['error'])
         self.log('test_loss', test_losses['loss'])
+        self.test_errors.append(test_losses['error'])
 
         return test_losses
 
