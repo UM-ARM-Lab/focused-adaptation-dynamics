@@ -62,7 +62,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['num_variations'] = 1
         env_kwargs['render'] = 1 #self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
-        env_kwargs['headless'] = 1 #not self.params.get('gui', False)
+        env_kwargs['headless'] = not self.params.get('gui', False)
         #default_config = {"save_frames": True, 'img_size': 300}
 
         if not env_kwargs['use_cached_states']:
@@ -271,7 +271,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def is_pour_valid_for_state(self, state: Dict):
         min_height_for_pour = self._scene.glass_params["poured_height"] + 0.02
-        target_x = state["target_container_pos"][0]
+        target_x = state["target_container_pos"][0] - self._scene.glass_params["poured_glass_dis_x"]/2.
         curr_pos = state["controlled_container_pos"]
         curr_height = curr_pos[1]
         if curr_height < min_height_for_pour:

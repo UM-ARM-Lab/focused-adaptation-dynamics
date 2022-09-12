@@ -10,7 +10,7 @@
     controller_max_horizon: 80
     run_flex: true
     gui: 0
-    max_dist_for_pour : 0.10
+    max_dist_for_pour : 0.25
     max_move_dist : 0.3
   }
   goal_params: {

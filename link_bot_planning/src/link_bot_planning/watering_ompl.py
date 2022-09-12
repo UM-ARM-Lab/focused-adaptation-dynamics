@@ -189,9 +189,12 @@ class WateringControlSampler(oc.ControlSampler):
                                                  self.action_params["theta_max"]) - undo_angle
         else:
             control_out[0][2] = -undo_angle
-            min_action_norm = 0.05
+            min_action_norm = 0.08
             for i in range(40):
-                control_out[0][0] = self.rng.uniform(-1*self.max_d_control, self.max_d_control)
+                if state_np["controlled_container_pos"][0] < 0.05:
+                    control_out[0][0] = self.rng.uniform(0, self.max_d_control)
+                else:
+                    control_out[0][0] = self.rng.uniform(-1*self.max_d_control, self.max_d_control)
                 control_out[0][1] = self.rng.uniform(-1.0*self.max_d_control, self.max_d_control)
                 if np.linalg.norm([control_out[0][0], control_out[0][1]]) > min_action_norm:
                     break

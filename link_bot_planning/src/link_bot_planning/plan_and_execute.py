@@ -436,7 +436,7 @@ class PlanAndExecute:
             self.scenario.robot.raise_on_failure = True
 
             # backup if the stop condition was triggered
-            if execution_result.stopped:
+            if False and execution_result.stopped:
                 undo_action = planning_result.actions[max(execution_result.end_t - 1, 0)]
                 try:
                     self.scenario.execute_action(planning_query.environment, execution_result.path[-1], undo_action)
