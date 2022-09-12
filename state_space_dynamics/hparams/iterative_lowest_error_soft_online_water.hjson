@@ -5,7 +5,7 @@
   soft_masking: true
   k_global : 0.2
   low_initial_error: false
-  mask_threshold: 0.3
+  mask_threshold: 0.2
   train_mode: train 
   val_mode: val
   state_metadata_keys: []

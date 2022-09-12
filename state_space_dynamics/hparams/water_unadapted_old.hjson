@@ -1,13 +1,9 @@
 {
-  use_global_frame: false 
   use_mask_train: false
   use_mask_val: false
-  iterative_mask: false
-  low_initial_error: false
-  mask_threshold: null
+  penalize_segment_length_error: false
   train_mode: train
   val_mode: val
-  shuffle_buffer_size: 64
   state_metadata_keys: []
   state_keys: [
     controlled_container_pos
@@ -26,12 +22,9 @@
     1024
     1024
   ]
-  learning_rate: 0.0001
+  learning_rate: 0.001
   loss_scaling_by_key: {
-    target_volume : 0.2
-    control_volume : 0.2
-    controlled_container_angle : 0.001
+    target_volume : 0.1
+    control_volume : 0.1
   }
-
-  beta_sample_weights: 0.001
 }

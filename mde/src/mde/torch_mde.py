@@ -260,11 +260,12 @@ class MDE(pl.LightningModule):
         check_nonempty = True
         nonempty_errors = []
         if check_nonempty:
-            for i, traj in enumerate(train_batch["target_volume"]):
-                if traj[-1].item() - traj[0].item() > 0.5:
-                    nonempty_errors.append(train_batch["error"][i][1] - outputs[i])
-            if len(nonempty_errors):
-                self.log('nonempty_mae', torch.abs(torch.hstack(nonempty_errors)).mean())
+            with torch.no_grad():
+                for i, traj in enumerate(train_batch["target_volume"]):
+                    if traj[-1].item() - traj[0].item() > 0.5:
+                        nonempty_errors.append(train_batch["error"][i][1] - outputs[i])
+                if len(nonempty_errors):
+                    self.log('nonempty_mae', torch.abs(torch.hstack(nonempty_errors)).mean())
 
         loss, mse, mae, bce = self.compute_loss(train_batch, outputs)
 
