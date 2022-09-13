@@ -45,7 +45,7 @@ def get_gazebo_processes():
                 if this_process_gazebo_uri is not None and proc_gz_uri != this_process_gazebo_uri:
                     continue  # Necessary when running multiple gzserver instances
                 processes.append(proc)
-            except psutil.NoSuchProcess:
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
         except ValueError:
             pass

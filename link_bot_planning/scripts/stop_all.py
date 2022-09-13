@@ -13,4 +13,7 @@ if __name__ == '__main__':
         ]
         if any(conds):
             print('killed', c)
-            proc.kill()
+            try:
+                proc.kill()
+            except Exception:
+                pass
