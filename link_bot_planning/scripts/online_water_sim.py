@@ -40,7 +40,7 @@ import os
 limit_gpu_mem(None)  # just in case TF is used somewhere
 
 
-@ros_init.with_ros(f"online_water_sim{os.environ['STY'].replace('.', '')}")
+@ros_init.with_ros(f"online_water_sim{os.environ['STY'].replace('.', '').replace('-', '')}")
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("nickname")

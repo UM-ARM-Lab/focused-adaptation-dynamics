@@ -62,7 +62,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['num_variations'] = 1
         env_kwargs['render'] = 1 #self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
-        env_kwargs['headless'] = not self.params.get('gui', False)
+        env_kwargs['headless'] = 1 #not self.params.get('gui', False)
         #default_config = {"save_frames": True, 'img_size': 300}
 
         if not env_kwargs['use_cached_states']:
@@ -205,8 +205,8 @@ class WaterSimScenario(ScenarioWithVisualization):
             angle_error = target_angle - curr_angle
             angle_control = self.params["k_angle"] * (angle_error)
             if np.linalg.norm(curr_pos - goal_pos) < pos_tol and np.abs(goal_angle - curr_angle) < angle_tol:
-                break
-
+                if curr_state["control_volume"] > 0.9 or curr_state["target_volume"] > 0.97:
+                    break
             vector_action = np.hstack([pos_control, angle_control])
             self._saved_data = self._scene.step(vector_action, record_continuous_video=self._save_frames,
                                                 img_size=self._save_cfg["img_size"])

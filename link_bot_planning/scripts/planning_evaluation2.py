@@ -36,7 +36,7 @@ def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
         print("Ok, continuing...")
 
 
-@ros_init.with_ros(f"planning_evaluation{os.environ['STY'].replace('.', '')}")
+@ros_init.with_ros(f"planning_evaluation{os.environ['STY'].replace('.', '').replace('-', '')}")
 def main():
     colorama.init(autoreset=True)
     np.set_printoptions(suppress=True, precision=5, linewidth=250)
