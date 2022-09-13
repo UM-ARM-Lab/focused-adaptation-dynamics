@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 import argparse
 import pathlib
+import pickle
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -14,38 +16,26 @@ from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
 from state_space_dynamics.train_test_dynamics import load_udnn_model_wrapper
 
 
-def ridge_plot(df, x: str, y: str):
+def ridge_plot(df, x: str, y: str, bins=50, vert_scale=10, lims=None):
     n = int(df['Epoch'].max())
-    vert_scale = 10
     plt.figure()
     ax = plt.gca()
     for i in range(n + 1):
         df_i = df.loc[df[x] == i]
-        weight_values = df_i[y].values
-        weight_values.sort()
-        bins = np.linspace(0, 1, 100)
-        counts = hist_counts(bins, weight_values)
+        values = df_i[y].values
+        values.sort()
+        counts, bin_edges = np.histogram(values, bins=bins, range=lims)
+        bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2
         normalized_counts = counts / sum(counts)
 
         color = cm.winter(i / n)
-        ax.fill_between(bins, normalized_counts * vert_scale + i, y2=i, alpha=0.7, color=color)
-        ax.axhline(y=i, linewidth=2, linestyle="-", c=color)
+        ax.fill_between(bin_centers, normalized_counts * vert_scale + i, y2=i, alpha=0.7, color=color)
+        ax.axhline(y=i, linewidth=1, linestyle="-", c=color)
 
     ax.set_yticks(range(0, n + 1, 1))
     ax.set_yticklabels(range(1, n + 2, 1))
     ax.set_ylabel("Epoch")
-
-
-def hist_counts(bins, weight_values):
-    bin_width = bins[1] - bins[0]
-    bins_lower = bins - bin_width / 2
-    bins_upper = bins + bin_width / 2
-    counts = []
-    for lower, upper in zip(bins_lower, bins_upper):
-        count = np.logical_and(lower < weight_values, weight_values < upper).sum()
-        counts.append(count)
-    counts = np.array(counts)
-    return counts
+    return ax
 
 
 def main():
@@ -53,6 +43,7 @@ def main():
     parser.add_argument('checkpoint', type=str)
     parser.add_argument('dataset_dir', type=pathlib.Path)
     parser.add_argument('mode', type=str)
+    parser.add_argument('--regenerate', action='store_true')
 
     args = parser.parse_args()
 
@@ -67,28 +58,37 @@ def main():
     steps_per_epoch = 15
     n = 20
 
-    for epoch_idx in range(0, n, 1):
-        global_step = steps_per_epoch * epoch_idx
-        model_i = load_udnn_model_wrapper(f'model-{args.checkpoint}:v{epoch_idx}')
-        for inputs in dataset:
-            inputs_batch = torchify(add_batch(inputs))
-            outputs_batch = model_i(inputs_batch)
-            error = model_i.scenario.classifier_distance_torch(inputs_batch, outputs_batch)
-            low_error_mask = numpify(remove_batch(model_i.low_error_mask(inputs_batch, outputs_batch, global_step)))
+    if args.regenerate:
+        for epoch_idx in range(0, n, 1):
+            global_step = steps_per_epoch * epoch_idx
+            model_i = load_udnn_model_wrapper(f'model-{args.checkpoint}:v{epoch_idx}')
+            for inputs in dataset:
+                inputs_batch = torchify(add_batch(inputs))
+                outputs_batch = model_i(inputs_batch)
+                error = model_i.scenario.classifier_distance_torch(inputs_batch, outputs_batch)
+                low_error_mask = numpify(remove_batch(model_i.low_error_mask(inputs_batch, outputs_batch, global_step)))
 
-            if 'time_mask' in inputs:
-                n_transitions = int(sum(inputs['time_mask']) - 1)
-            else:
-                n_transitions = int(inputs['time_idx'].shape[0])
+                if 'time_mask' in inputs:
+                    n_transitions = int(sum(inputs['time_mask']) - 1)
+                else:
+                    n_transitions = int(inputs['time_idx'].shape[0])
 
-            for t in range(1, n_transitions):
-                weight = low_error_mask[t]
-                data.append([epoch_idx, weight, error[0, t]])
+                for t in range(1, n_transitions):
+                    weight = low_error_mask[t]
+                    e_t = float(error[0, t])
+                    data.append([epoch_idx, weight, e_t])
 
-    df = DataFrame(data, columns=columns)
+        df = DataFrame(data, columns=columns)
+
+        with open("results/data_weight_distribution.pkl", 'wb') as f:
+            pickle.dump(df, f)
+    else:
+        with open("results/data_weight_distribution.pkl", 'rb') as f:
+            df = pickle.load(f)
 
     fractions_below_gamma = []
-    gamma = model_i.hparams['mask_threshold']
+    # gamma = model_i.hparams['mask_threshold']
+    gamma = 0.08
     for i in range(n):
         first_df = df.loc[df['Epoch'] == i]
         first_errors = first_df['Error'].values
@@ -96,6 +96,11 @@ def main():
         fraction_below_gamma = first_low_errors / first_errors.size
         print(f'{fraction_below_gamma:.0%} of transitions have low error at epoch 0')
         fractions_below_gamma.append(fraction_below_gamma)
+
+    ax = ridge_plot(df, x='Epoch', y='Error', bins=50, vert_scale=20)
+    ax.axvline(gamma, linestyle='--', c='k', label=r'$\gamma$')
+    ax.legend()
+    plt.savefig(f"results/error_distribution-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)
 
     plt.figure()
     plt.plot(fractions_below_gamma)
@@ -110,7 +115,7 @@ def main():
     last_weights_near_1 = (last_weights > 0.5).sum()
     print(f'{last_weights_near_1 / last_weights.size:.0%} of transitions have weight >0.5')
 
-    ridge_plot(df, x='Epoch', y='Weight')
+    ridge_plot(df, x='Epoch', y='Weight', lims=[0, 1])
     plt.savefig(f"results/weight_distribution-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)
     plt.show()
 
