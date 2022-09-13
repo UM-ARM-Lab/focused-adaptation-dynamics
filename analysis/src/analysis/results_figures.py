@@ -17,7 +17,7 @@ def lineplot(df,
              style: Optional[str] = None,
              figsize=None,
              scatt=False,
-             ci=100):
+             pi=90):
     fig = plt.figure(figsize=figsize)
     ax = sns.lineplot(
         data=df.sort_values(hue),
@@ -26,7 +26,7 @@ def lineplot(df,
         hue=hue,
         style=style,
         palette='colorblind',
-        ci=ci,
+        errorbar=('pi', pi),
         estimator='mean',
     )
     df_for_scatt = df.groupby([hue, x]).agg("mean").reset_index()
@@ -37,7 +37,7 @@ def lineplot(df,
             y=metric,
             hue=hue,
             ax=ax)
-    ax.plot([], [], ' ', label=f"shaded {ci}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {pi}% c.i.")
     ax.set_title(title)
     ax.legend()
     return fig, ax
@@ -77,7 +77,7 @@ def violinplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None
     return generic_plot('violinplot', df, outdir, x, y, title, hue, save, figsize)
 
 
-def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, ci=100, figsize=DEFAULT_FIG_SIZE):
+def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, pi=90, figsize=DEFAULT_FIG_SIZE):
     fig, ax = plt.subplots(figsize=figsize)
     sns.barplot(
         ax=ax,
@@ -86,10 +86,10 @@ def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, c
         y=y,
         palette='colorblind',
         linewidth=5,
-        ci=ci,
+        errorbar=('pi', pi),
         hue=hue,
     )
-    ax.plot([], [], ' ', label=f"shaded {ci}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {pi}% c.i.")
     ax.set_title(title)
     plt.savefig(outdir / f'{x}-vs-{y}.png')
     return fig, ax

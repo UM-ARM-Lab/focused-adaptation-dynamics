@@ -217,7 +217,8 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
                 cdcpd_state = self.get_cdcpd_state.get_state()
                 left_at_rope = cdcpd_state['rope'].reshape([25, 3])[0]
-                rope_in_hand = np.linalg.norm(left_at_rope - ros_numpy.numpify(left_start_pose.position)) < 0.1
+                expected_left_at_rope = self.tf.get_transform(self.root_link, "mocap_left_hand_left_hand")[:3, 3]
+                rope_in_hand = np.linalg.norm(left_at_rope - expected_left_at_rope) < 0.12
                 if rope_in_hand:
                     # change CDCPD constraints
                     self.set_cdcpd_both()

@@ -65,7 +65,7 @@ def metrics_main(args):
             method_name_values.append(method_name_map[k])
     df_r['method_name'] = method_name_values
 
-    fig, ax = lineplot(df_r, iter_key, 'success', f'Success Rate (rolling={w})', hue='method_name', ci=ci)
+    fig, ax = lineplot(df_r, iter_key, 'success', f'Success Rate (rolling={w})', hue='method_name', pi=ci)
     ax.set_xlim(-0.01, x_max)
     ax.set_ylim(-0.01, 1.01)
     ax.legend()

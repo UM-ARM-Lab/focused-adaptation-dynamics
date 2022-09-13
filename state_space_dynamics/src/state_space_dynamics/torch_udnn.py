@@ -163,33 +163,12 @@ class UDNN(pl.LightningModule):
                 low_error_mask = error < self.hparams['mask_threshold']
                 low_error_mask = torch.logical_and(low_error_mask[:, :-1], low_error_mask[:, 1:])
 
-            if self.hparams.get("planning_mask", False):
-                # planning_mask should have a 1 if the distance between the action in inputs is within some threshold
-                # of the action in some reference dataset of actions (known_good)
-                # this would require computing a min over some dataset of actions, so we can't make that too big
-                train_left_actions = torch.cat([inputs['left_gripper'][:, 0:1], inputs['left_gripper_position']], 1)
-                train_right_actions = torch.cat([inputs['right_gripper'][:, 0:1], inputs['right_gripper_position']], 1)
-                train_actions = torch.cat([train_left_actions, train_right_actions], -1)  # [b, 10, 6]
-                train_before_actions = train_actions[:, :-1]
-                train_after_actions = train_actions[:, 1:]
-                train_actions_before_after = torch.cat([train_before_actions, train_after_actions], -1)  # [b,T-1,12]
-
-                batch_size = train_left_actions.shape[0]
-                ref_actions_before_after = self.ref_actions.to(self.device).repeat([batch_size, 1, 1])  # [b,N,12]
-
-                # distance matrix has shape [b, T-1, N]
-                distances_to_ref_matrix = torch.cdist(train_actions_before_after, ref_actions_before_after)
-                min_distances = distances_to_ref_matrix.min(-1)[0]  # [b, T-1]
-                planning_mask = min_distances < self.hparams['planning_mask_threshold']
-
-                mask = torch.logical_or(low_error_mask, planning_mask)
-            else:
-                mask = low_error_mask
-
+            mask = low_error_mask
             mask = mask.float()
             mask_padded = F.pad(mask, [1, 0])
 
-            self.log("iterative mask mean", mask.mean())
+            if self.trainer:
+                self.log("iterative mask mean", mask.mean())
 
         return mask_padded
 
