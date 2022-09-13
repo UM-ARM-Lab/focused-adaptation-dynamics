@@ -62,7 +62,7 @@ def main():
 
     data = []
 
-    columns = ['Epoch', 'Weight']
+    columns = ['Epoch', 'Weight', 'Error']
 
     steps_per_epoch = 15
     n = 20
@@ -73,6 +73,7 @@ def main():
         for inputs in dataset:
             inputs_batch = torchify(add_batch(inputs))
             outputs_batch = model_i(inputs_batch)
+            error = model_i.scenario.classifier_distance_torch(inputs_batch, outputs_batch)
             low_error_mask = numpify(remove_batch(model_i.low_error_mask(inputs_batch, outputs_batch, global_step)))
 
             if 'time_mask' in inputs:
@@ -82,17 +83,36 @@ def main():
 
             for t in range(1, n_transitions):
                 weight = low_error_mask[t]
-                data.append([epoch_idx, weight])
+                data.append([epoch_idx, weight, error[0, t]])
 
     df = DataFrame(data, columns=columns)
 
+    fractions_below_gamma = []
+    gamma = model_i.hparams['mask_threshold']
+    for i in range(n):
+        first_df = df.loc[df['Epoch'] == i]
+        first_errors = first_df['Error'].values
+        first_low_errors = (first_errors < gamma).sum()
+        fraction_below_gamma = first_low_errors / first_errors.size
+        print(f'{fraction_below_gamma:.0%} of transitions have low error at epoch 0')
+        fractions_below_gamma.append(fraction_below_gamma)
+
+    plt.figure()
+    plt.plot(fractions_below_gamma)
+    plt.xlabel("Epoch")
+    plt.ylabel("% Of Training Data")
+    plt.ylim(0, 1)
+    plt.title(r"Data With Prediction Error < $\gamma$")
+    plt.savefig(f"results/low_error-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)
+
     last_df = df.loc[df['Epoch'] == (n - 1)]
     last_weights = last_df['Weight'].values
-    last_weights_near_1 = (last_weights > 0.99).sum()
-    print(f'{last_weights_near_1 / last_weights.size:.0%} of transitions have weight 1')
+    last_weights_near_1 = (last_weights > 0.5).sum()
+    print(f'{last_weights_near_1 / last_weights.size:.0%} of transitions have weight >0.5')
 
     ridge_plot(df, x='Epoch', y='Weight')
     plt.savefig(f"results/weight_distribution-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)
+    plt.show()
 
 
 if __name__ == '__main__':

@@ -250,7 +250,7 @@ def viz_main(dataset_dir: pathlib.Path,
             t = time_anim.t()
 
             init_viz_env(s, inputs, t)
-            viz_pred_actual_t(original_dataset, model, inputs, outputs, s, t, threshold=0.2)
+            viz_pred_actual_t(original_dataset, model, inputs, outputs, s, t, threshold=0.08)
             # s.plot_weight_rviz(low_error_mask[t])
             time_anim.step()
 
