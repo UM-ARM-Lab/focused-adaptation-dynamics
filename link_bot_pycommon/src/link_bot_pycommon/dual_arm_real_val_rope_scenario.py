@@ -213,7 +213,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 
                 # Now remove the constraint and see if it stays where it is. That's a sign the reset worked
                 self.set_cdcpd_right_only()
-                sleep(10)
+                sleep(30)
 
                 cdcpd_state = self.get_cdcpd_state.get_state()
                 left_at_rope = cdcpd_state['rope'].reshape([25, 3])[0]
