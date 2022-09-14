@@ -14,9 +14,9 @@ class Test(TestCase):
                 "save_frames": 0,
                 "img_size":    64
             },
-            "k_pos":                  0.5,
-            "k_angle":                0.5,
-            "controller_max_horizon": 30
+            "k_pos":                  1.5,
+            "k_angle":                2.0,
+            "controller_max_horizon": 80
         }
         scenario = WaterSimScenario(params)
         scenario.on_before_data_collection({})
@@ -41,11 +41,15 @@ class Test(TestCase):
         current_controller_container_angle = state["controlled_container_angle"]
         move_action = {"controlled_container_target_pos":   current_controlled_container_pos + delta_pos,
                        "controlled_container_target_angle": current_controller_container_angle + delta_angle}
-        self.scenario.execute_action(self, state, move_action)
+        self.scenario.execute_action(None, state, move_action)
         return move_action
 
     def _assert_delta_action_close(self, delta_pos, delta_angle):
         move_action = self._move_delta(delta_pos, delta_angle)
+        self._assert_state_close_to_action(move_action)
+
+
+    def _assert_state_close_to_action(self, move_action):
         state = self.scenario.get_state()
         for i in range(2):
             self.assertAlmostEqual(state["controlled_container_pos"][i],
@@ -60,6 +64,46 @@ class Test(TestCase):
         delta_pos = np.array([0.0, -0.08])
         self._assert_delta_action_close(delta_pos, delta_angle)
         self._assert_has_initial_volumes()
+
+    def _assert_traj_close(self, traj, t):
+        state = self.scenario.get_state()
+        state_keys = ["controlled_container_pos", "controlled_container_angle", "target_volume", "control_volume"]
+        test_state = {}
+        for state_key in state_keys: 
+            test_state[state_key] = traj[state_key][t]
+        self._volume_tol = 0.1
+        for i in range(2):
+            self.assertAlmostEqual(state["controlled_container_pos"][i],
+                                   test_state["controlled_container_pos"][i], delta=self._pos_delta)
+        self.assertAlmostEqual(state["controlled_container_angle"], test_state["controlled_container_angle"],
+                               delta=self._angle_delta)
+        self.assertAlmostEqual(state["control_volume"], test_state["control_volume"],
+                               delta=self._volume_tol)
+        self.assertAlmostEqual(state["target_volume"], test_state["target_volume"],
+                               delta=self._volume_tol)
+        
+
+
+    def test_replay_traj(self):
+        traj = np.load("data/low_weight_trajs.npy", allow_pickle=True)[0]
+        #First go to the original position
+        first_position = traj["controlled_container_pos"][0]
+        first_angle = traj["controlled_container_angle"][0]
+        state = self.scenario.get_state()
+        move_action = {"controlled_container_target_pos":   first_position,
+                       "controlled_container_target_angle": first_angle}
+        self.scenario.execute_action(None, state, move_action)
+        self._assert_state_close_to_action(move_action)
+
+        for i in range(len(traj["controlled_container_target_pos"])):
+            state = self.scenario.get_state()
+            move_action = {"controlled_container_target_pos":   traj["controlled_container_target_pos"][i],
+                           "controlled_container_target_angle": traj["controlled_container_target_angle"][i]}
+            self.scenario.execute_action(None, state, move_action)
+            self._assert_traj_close(traj, i+1)
+
+
+
 
     def test_move_x_pos(self):
         delta_pos = np.array([0.05, 0.0])
