@@ -37,30 +37,31 @@ def metrics_main(args):
     df = df.sort_values("method_name")
 
     iter_key = 'ift_iteration'
+    pi = args.pi
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success_given_solved',
                        title='Success (given plan to goal found) ⬆',
-                       pi=90)
+                       pi=pi)
     ax.set_ylim(-0.02, 1.02)
     ax.set_xticks(range(20))
     ax.set_xlabel("Online Learning Iteration")
     ax.set_ylabel("Success Rate")
     plt.savefig(outdir / "success_given_plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', pi=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', pi=pi)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylabel("Model Error")
     plt.savefig(outdir / "model_error.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆', pi=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆', pi=pi)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylim(-0.02, 1.02)
     ax.set_ylabel("% plan to goal found")
     plt.savefig(outdir / "plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', pi=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', pi=pi)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylabel("Success Rate")
@@ -79,6 +80,7 @@ def main():
     parser.add_argument('name', help='results directory', type=str)
     parser.add_argument('--no-plot', action='store_true')
     parser.add_argument('--regenerate', action='store_true')
+    parser.add_argument('--pi', default=90, type=int)
     parser.add_argument('--style', default='paper')
     parser.set_defaults(func=metrics_main)
 

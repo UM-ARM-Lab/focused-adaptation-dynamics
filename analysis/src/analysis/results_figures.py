@@ -37,7 +37,7 @@ def lineplot(df,
             y=metric,
             hue=hue,
             ax=ax)
-    ax.plot([], [], ' ', label=f"shaded {pi}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {pi}th percentile")
     ax.set_title(title)
     ax.legend()
     return fig, ax
@@ -89,7 +89,7 @@ def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, p
         errorbar=('pi', pi),
         hue=hue,
     )
-    ax.plot([], [], ' ', label=f"shaded {pi}% c.i.")
+    ax.plot([], [], ' ', label=f"shaded {pi}th percentile")
     ax.set_title(title)
     plt.savefig(outdir / f'{x}-vs-{y}.png')
     return fig, ax
