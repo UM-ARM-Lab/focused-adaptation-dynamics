@@ -327,7 +327,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         perception_pkg_dir = r.get_path('link_bot_perception')
         import open3d
         pcd = open3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
-        points = np.asarray(pcd.points) + np.array([0.02, 0, 0.005])
+        points = np.asarray(pcd.points) + np.array([0.02, 0, 0.03])
 
         extent = params['extent']
         origin_point = extent_res_to_origin_point(extent, res)

@@ -23,7 +23,12 @@ def metrics_main(args):
         # order here matters
         'all_data_no_mde': 'AllDataNoMDE',
         'all_data':        'AllData',
-        '':                'Adaptation (ours)',
+        '':                'FOCUS (ours)',
+    }
+    palette = {
+        'FOCUS (ours)': '#0072B2',
+        'AllData':      '#D55E00',
+        'AllDataNoMDE': '#009E73',
     }
 
     method_names = []
@@ -38,30 +43,33 @@ def metrics_main(args):
 
     iter_key = 'ift_iteration'
     pi = args.pi
+    errorbar = ('ci', 95)
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success_given_solved',
-                       title='Success (given plan to goal found) ⬆',
-                       pi=pi)
+                       title='Success (given plan to goal found) ⬆', errorbar=errorbar, palette=palette)
     ax.set_ylim(-0.02, 1.02)
     ax.set_xticks(range(20))
     ax.set_xlabel("Online Learning Iteration")
     ax.set_ylabel("Success Rate")
     plt.savefig(outdir / "success_given_plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', pi=pi)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇',
+                       errorbar=errorbar, palette=palette)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylabel("Model Error")
     plt.savefig(outdir / "model_error.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆', pi=pi)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆',
+                       errorbar=errorbar, palette=palette)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylim(-0.02, 1.02)
     ax.set_ylabel("% plan to goal found")
     plt.savefig(outdir / "plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', pi=pi)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', errorbar=errorbar,
+                       palette=palette)
     ax.set_xlabel("Online Learning Iteration")
     ax.set_xticks(range(20))
     ax.set_ylabel("Success Rate")

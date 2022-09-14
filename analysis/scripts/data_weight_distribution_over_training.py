@@ -35,6 +35,9 @@ def ridge_plot(df, x: str, y: str, bins=50, vert_scale=10, lims=None):
     ax.set_yticks(range(0, n + 1, 1))
     ax.set_yticklabels(range(1, n + 2, 1))
     ax.set_ylabel("Epoch")
+    ax.set_xlabel("Weight")
+    if lims is not None:
+        ax.set_xlim(lims)
     return ax
 
 
@@ -52,8 +55,6 @@ def main():
     dataset = TorchDynamicsDataset(fetch_udnn_dataset(args.dataset_dir), mode=args.mode)
 
     data = []
-
-    columns = ['Epoch', 'Weight', 'Error']
 
     steps_per_epoch = 15
     n = 20
@@ -76,9 +77,9 @@ def main():
                 for t in range(1, n_transitions):
                     weight = low_error_mask[t]
                     e_t = float(error[0, t])
-                    data.append([epoch_idx, weight, e_t])
+                    data.append([epoch_idx, weight, e_t, t, inputs['example_idx']])
 
-        df = DataFrame(data, columns=columns)
+        df = DataFrame(data, columns=['Epoch', 'Weight', 'Error', 't', 'example_idx'])
 
         with open("results/data_weight_distribution.pkl", 'wb') as f:
             pickle.dump(df, f)
@@ -97,7 +98,7 @@ def main():
         print(f'{fraction_below_gamma:.0%} of transitions have low error at epoch 0')
         fractions_below_gamma.append(fraction_below_gamma)
 
-    ax = ridge_plot(df, x='Epoch', y='Error', bins=50, vert_scale=20)
+    ax = ridge_plot(df, x='Epoch', y='Error', bins=50, vert_scale=20, lims=[0, 1])
     ax.axvline(gamma, linestyle='--', c='k', label=r'$\gamma$')
     ax.legend()
     plt.savefig(f"results/error_distribution-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)

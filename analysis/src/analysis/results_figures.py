@@ -18,7 +18,7 @@ def lineplot(df,
              figsize=None,
              scatt=False,
              palette='colorblind',
-             pi=90):
+             errorbar=('ci', 90)):
     fig = plt.figure(figsize=figsize)
     ax = sns.lineplot(
         data=df.sort_values(hue),
@@ -27,8 +27,7 @@ def lineplot(df,
         hue=hue,
         style=style,
         palette=palette,
-        errorbar=('pi', pi),
-        estimator='mean',
+        errorbar=errorbar,
     )
     df_for_scatt = df.groupby([hue, x]).agg("mean").reset_index()
     if scatt:
@@ -38,7 +37,7 @@ def lineplot(df,
             y=metric,
             hue=hue,
             ax=ax)
-    ax.plot([], [], ' ', label=f"shaded {pi}th percentile")
+    ax.plot([], [], ' ', label=f"Shaded 95% c.i.")
     ax.set_title(title)
     ax.legend()
     return fig, ax
@@ -76,24 +75,3 @@ def boxplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, s
 def violinplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, save: bool = True,
                figsize=DEFAULT_FIG_SIZE, **kwargs):
     return generic_plot('violinplot', df, outdir, x, y, title, hue, save, figsize, **kwargs)
-
-
-def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, pi=90, figsize=DEFAULT_FIG_SIZE,
-            palette='colorblind',
-            **kwargs):
-    fig, ax = plt.subplots(figsize=figsize)
-    sns.barplot(
-        ax=ax,
-        data=df,
-        x=x,
-        y=y,
-        palette=palette,
-        linewidth=5,
-        errorbar=('pi', pi),
-        hue=hue,
-        **kwargs,
-    )
-    ax.plot([], [], ' ', label=f"shaded {pi}th percentile")
-    ax.set_title(title)
-    plt.savefig(outdir / f'{x}-vs-{y}.png')
-    return fig, ax
