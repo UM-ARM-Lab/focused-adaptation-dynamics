@@ -63,7 +63,8 @@ def video_for_post_learning(iter_dir: pathlib.Path):
 
     videos = []
     for episode in trange(15):
-        episode_video = edited_episode_video(episode, iter_dir, speed)
+        metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
+        episode_video = edited_episode_video(episode, iter_dir, speed, metrics_filename)
         text = f'Post-Learning: {stylized_method_name} {episode=}'
         episode_video_w_text = add_text(episode_video, text)
         videos.append(episode_video_w_text)
@@ -80,9 +81,11 @@ def video_for_iter(iter_dir: pathlib.Path):
     stylized_method_name = method_name_map[method_name]
 
     videos = []
-    for episode in range(15):
+    for metrics_filename in iter_dir.glob("*metrics.pkl.gz"):
+        m = re.search('(\d+)_metrics.pkl.gz', metrics_filename.name)
+        episode = int(m.group(1))
         print(f'{iter_idx=} {episode=}')
-        episode_video = edited_episode_video(episode, iter_dir, speed)
+        episode_video = edited_episode_video(episode, iter_dir, speed, metrics_filename)
         text = f'{stylized_method_name} {iter_idx=} {episode=}'
         episode_video_w_text = add_text(episode_video, text)
         videos.append(episode_video_w_text)
@@ -90,8 +93,8 @@ def video_for_iter(iter_dir: pathlib.Path):
     return videos
 
 
-def edited_episode_video(episode, iter_dir, speed):
-    results = load_gzipped_pickle(iter_dir / f'{episode}_metrics.pkl.gz')
+def edited_episode_video(episode, iter_dir, speed, metrics_filename):
+    results = load_gzipped_pickle(metrics_filename)
 
     attempt_video_filenames = []
     for attempt_idx in range(len(results['steps'])):
