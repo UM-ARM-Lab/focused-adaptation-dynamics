@@ -17,6 +17,7 @@ def lineplot(df,
              style: Optional[str] = None,
              figsize=None,
              scatt=False,
+             palette='colorblind',
              pi=90):
     fig = plt.figure(figsize=figsize)
     ax = sns.lineplot(
@@ -25,7 +26,7 @@ def lineplot(df,
         y=metric,
         hue=hue,
         style=style,
-        palette='colorblind',
+        palette=palette,
         errorbar=('pi', pi),
         estimator='mean',
     )
@@ -47,15 +48,14 @@ DEFAULT_FIG_SIZE = (10, 8)
 
 
 def generic_plot(plot_type, df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, save: bool = True,
-                 figsize=DEFAULT_FIG_SIZE,
-                 **kwargs):
+                 palette='colorblind', figsize=DEFAULT_FIG_SIZE, **kwargs):
     fig, ax = plt.subplots(figsize=figsize)
     getattr(sns, plot_type)(
         ax=ax,
         data=df,
         x=x,
         y=y,
-        palette='colorblind',
+        palette=palette,
         hue=hue,
         linewidth=4,
         **kwargs,
@@ -68,26 +68,30 @@ def generic_plot(plot_type, df, outdir, x: str, y: str, title: str, hue: Optiona
 
 def boxplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, save: bool = True,
             figsize=DEFAULT_FIG_SIZE,
-            outliers=True):
-    return generic_plot('boxplot', df, outdir, x, y, title, hue, save, figsize, showfliers=outliers)
+            palette='colorblind',
+            outliers=True, **kwargs):
+    return generic_plot('boxplot', df, outdir, x, y, title, hue, save, palette, figsize, showfliers=outliers, **kwargs)
 
 
 def violinplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, save: bool = True,
-               figsize=DEFAULT_FIG_SIZE):
-    return generic_plot('violinplot', df, outdir, x, y, title, hue, save, figsize)
+               figsize=DEFAULT_FIG_SIZE, **kwargs):
+    return generic_plot('violinplot', df, outdir, x, y, title, hue, save, figsize, **kwargs)
 
 
-def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, pi=90, figsize=DEFAULT_FIG_SIZE):
+def barplot(df, outdir, x: str, y: str, title: str, hue: Optional[str] = None, pi=90, figsize=DEFAULT_FIG_SIZE,
+            palette='colorblind',
+            **kwargs):
     fig, ax = plt.subplots(figsize=figsize)
     sns.barplot(
         ax=ax,
         data=df,
         x=x,
         y=y,
-        palette='colorblind',
+        palette=palette,
         linewidth=5,
         errorbar=('pi', pi),
         hue=hue,
+        **kwargs,
     )
     ax.plot([], [], ' ', label=f"shaded {pi}th percentile")
     ax.set_title(title)

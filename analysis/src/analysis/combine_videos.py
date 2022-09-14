@@ -7,6 +7,8 @@ import numpy as np
 from moviepy.editor import *  # you actually have to do this or seemingly random functions won't exist
 from tqdm import trange
 
+from analysis import results_metrics
+from link_bot_pycommon.get_scenario import get_scenario_cached
 from link_bot_pycommon.serialization import load_gzipped_pickle
 from moonshine.filepath_tools import load_hjson
 
@@ -17,18 +19,34 @@ class NoVideoError(Exception):
 
 method_name_map = {
     'all_data_no_mde': 'AllDataNoMDE',
-    'adaptation':      'Adaptation (ours)',
+    'adaptation':      'FOCUS (ours)',
 }
 speed = 10
 output_w = 1080
 
 
-def add_holds(clip):
-    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=1)
+def make_success_clip(clip, success: bool, duration):
+    if success:
+        icon_clip = ImageClip("~/Pictures/icons/check_mark.png")
+    else:
+        icon_clip = ImageClip("~/Pictures/icons/cross_mark.png")
+    icon_clip = icon_clip.resize(width=clip.w * 0.1)
+    icon_clip = icon_clip.set_pos((10, clip.h - icon_clip.h - 10))
+    clip_with_icon = CompositeVideoClip([clip, icon_clip])
+    clip_with_icon.duration = duration
+    return clip_with_icon
+
+
+def add_holds(clip, success=None, freeze_duration=1.5):
+    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=freeze_duration)
     for final_frame in clip.iter_frames():
         pass
     final_frame_clip = ImageClip(final_frame).set_duration(1)
-    clip = concatenate_videoclips([clip, final_frame_clip])
+    if success is None:
+        clip = concatenate_videoclips([clip, final_frame_clip])
+    else:
+        final_frame_clip_with_success = make_success_clip(final_frame_clip, success, duration=freeze_duration)
+        clip = concatenate_videoclips([clip, final_frame_clip_with_success])
     return clip
 
 
@@ -59,7 +77,7 @@ def remove_similar_frames(clip: VideoClip):
 def video_for_post_learning(iter_dir: pathlib.Path):
     metadata = load_hjson(iter_dir / 'metadata.hjson')
     method_name = metadata['planner_params']['method_name']
-    stylized_method_name = method_name_map[method_name]
+    stylized_method_name = method_name_map.get(method_name, method_name)
 
     videos = []
     for episode in trange(15):
@@ -95,6 +113,9 @@ def video_for_iter(iter_dir: pathlib.Path):
 
 def edited_episode_video(episode, iter_dir, speed, metrics_filename):
     results = load_gzipped_pickle(metrics_filename)
+    trial_metadata = load_hjson(metrics_filename.parent / 'metadata.hjson')
+    scenario = get_scenario_cached("floating_rope", {'rope_name': ''})
+    success = results_metrics.success(metrics_filename, scenario, trial_metadata, results)
 
     attempt_video_filenames = []
     for attempt_idx in range(len(results['steps'])):
@@ -111,7 +132,7 @@ def edited_episode_video(episode, iter_dir, speed, metrics_filename):
         attempt_clips.append(attempt_clip)
     episode_video = concatenate_videoclips(attempt_clips)
     episode_video = episode_video.speedx(speed)
-    episode_video = add_holds(episode_video)
+    episode_video = add_holds(episode_video, success)
     return episode_video
 
 
@@ -133,5 +154,4 @@ def add_text(episode_video, text):
     text_clip = text_clip.set_pos((w / 2 - text_clip.w / 2, h - 10))
     size = (episode_video.w, episode_video.h + text_clip.h)
     episode_video_w_text = CompositeVideoClip([episode_video, text_clip], size=size)
-    episode_video_w_text = episode_video_w_text.set_duration(episode_video.duration)
     return episode_video_w_text

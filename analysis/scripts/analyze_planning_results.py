@@ -31,31 +31,44 @@ def analyze_planning_results(args):
 
     hue = 'method_name'
 
-    _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8))
+    palette = {
+        'FOCUS (ours)': '#0072B2',
+        'AllDataNoMDE': '#009E73',
+        'AllData':      '#D55E00',
+    }
+
+    summary_statistics = df.groupby("method_name").agg({"success": ["mean", "std"]})
+    print(summary_statistics)
+    from scipy.stats import ttest_ind
+    ttest_ind(df.loc[df['method_name'] == 'AllDataNoMDE']['success'],
+              df.loc[df['method_name'] == 'FOCUS (ours)']['success'])
+
+    _, ax = boxplot(df, outdir, hue, 'task_error', "Task Error", figsize=(12, 8), palette=palette)
     ax.axhline(y=0.045, linestyle='--')
     plt.savefig(outdir / f'task_error.png')
 
-    boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8))
+    boxplot(df, outdir, hue, 'normalized_model_error', "Model Error", figsize=(12, 8), palette=palette)
 
-    barplot_with_values(df, 'any_solved', hue, outdir, figsize=(12, 8), title="Any Plans Found?")
+    barplot_with_values(df, 'any_solved', hue, outdir, figsize=(12, 8), title="Any Plans Found?", palette=palette)
 
-    barplot_with_values(df, 'success', hue, outdir, figsize=(12, 8))
+    barplot_with_values(df, 'success', hue, outdir, figsize=(12, 8), palette=palette)
 
-    _, ax = boxplot(df, outdir, hue, 'task_error_given_solved', "Task Error (given solved)", figsize=(12, 8))
+    _, ax = boxplot(df, outdir, hue, 'task_error_given_solved', "Task Error (given solved)", figsize=(12, 8),
+                    palette=palette)
     ax.axhline(y=0.045, linestyle='--')
     plt.savefig(outdir / f'task_error_given_solved.png')
 
-    barplot_with_values(df, 'success_given_solved', hue, outdir, figsize=(12, 8))
+    barplot_with_values(df, 'success_given_solved', hue, outdir, figsize=(12, 8), palette=palette)
 
-    boxplot(df, outdir, hue, 'num_failed_actions', "Num Failed Actions", figsize=(12, 8))
+    boxplot(df, outdir, hue, 'num_failed_actions', "Num Failed Actions", figsize=(12, 8), palette=palette)
 
     if not args.no_plot:
         plt.show(block=True)
 
 
-def barplot_with_values(df, y, hue, outdir, figsize, title=None):
+def barplot_with_values(df, y, hue, outdir, figsize, palette, title=None, **kwargs):
     fig, ax = plt.subplots(figsize=figsize)
-    sns.barplot(ax=ax, data=df, x=hue, y=y, palette='colorblind', linewidth=5, ci=None)
+    sns.barplot(ax=ax, data=df, x=hue, y=y, palette=palette, linewidth=5, errorbar=None, **kwargs)
     for p in ax.patches:
         _x = p.get_x() + p.get_width() / 2
         _y = p.get_y() + p.get_height() + 0.02

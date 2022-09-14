@@ -200,7 +200,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 self.robot.store_current_tool_orientations(both_tools)
 
                 left_up_out = left_at_rope + np.array([-0.08, 0, .18])
-                right_down_out = right_grasp_position_np + np.array([0.05, 0, -0.1])
+                right_down_out = right_grasp_position_np + np.array([0.08, 0, -0.1])
                 self.robot.follow_jacobian_to_position('both_arms', both_tools, [[left_up_out], [right_down_out]])
                 self.robot.called.jacobian_target_not_reached_is_failure = _bak
 
