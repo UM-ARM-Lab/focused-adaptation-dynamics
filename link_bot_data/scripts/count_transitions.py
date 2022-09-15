@@ -4,7 +4,7 @@ import argparse
 import pathlib
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
-from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
+from moonshine.my_torch_dataset import MyTorchDataset
 
 
 def main():
@@ -14,7 +14,7 @@ def main():
     args = parser.parse_args()
 
     for mode in ['train', 'val', 'test']:
-        dataset = TorchDynamicsDataset(fetch_udnn_dataset(args.dataset_dir), mode=mode)
+        dataset = MyTorchDataset(fetch_udnn_dataset(args.dataset_dir), mode=mode)
         n_transitions = 0
         for e in dataset:
             if 'time_mask' in e:
