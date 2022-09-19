@@ -155,6 +155,7 @@ class UDNN(pl.LightningModule):
             error = self.scenario.classifier_distance_torch(inputs, outputs)
 
             if self.hparams.get("soft_masking", False):
+                # FIXME: I think this should just be: low_error_mask = self.soft_mask(error, global_step=global_step)
                 low_error_mask = self.soft_mask(error[:, :-1], global_step=global_step) * self.soft_mask(error[:, 1:],
                                                                                                          global_step=global_step)
             else:

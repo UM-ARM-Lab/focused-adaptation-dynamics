@@ -50,7 +50,7 @@ def main():
 
     args = parser.parse_args()
 
-    # plt.style.use('slides')
+    plt.style.use('slides')
 
     dataset = TorchDynamicsDataset(fetch_udnn_dataset(args.dataset_dir), mode=args.mode)
 
@@ -116,7 +116,7 @@ def main():
     last_weights_near_1 = (last_weights > 0.5).sum()
     print(f'{last_weights_near_1 / last_weights.size:.0%} of transitions have weight >0.5')
 
-    ridge_plot(df, x='Epoch', y='Weight', lims=[0, 1])
+    ridge_plot(df, x='Epoch', y='Weight', lims=[0, 1], vert_scale=6)
     plt.savefig(f"results/weight_distribution-{args.checkpoint}-{args.dataset_dir.name}.png", dpi=200)
     plt.show()
 

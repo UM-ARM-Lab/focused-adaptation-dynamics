@@ -205,11 +205,11 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
                 self.robot.called.jacobian_target_not_reached_is_failure = _bak
 
                 try:
-                    print("Planning to start")
-                    plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
-                except RobotPlanningError:
                     print("Planning to start using jacobian follower")
                     self.plan_to_start_with_jacobian_follower(both_tools, left_start_pose, right_start_pose)
+                except RobotPlanningError:
+                    print("Planning to start")
+                    plan_to_start(left_start_pose, right_start_pose, rrp, self.robot)
 
                 # Now remove the constraint and see if it stays where it is. That's a sign the reset worked
                 self.set_cdcpd_right_only()
@@ -327,7 +327,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
         perception_pkg_dir = r.get_path('link_bot_perception')
         import open3d
         pcd = open3d.io.read_point_cloud(perception_pkg_dir + "/pcd_files/real_car_env_for_mde.pcd")
-        points = np.asarray(pcd.points) + np.array([0.02, 0, 0.03])
+        points = np.asarray(pcd.points) + np.array([0.02, 0, 0.015])
 
         extent = params['extent']
         origin_point = extent_res_to_origin_point(extent, res)
@@ -457,7 +457,7 @@ class DualArmRealValRopeScenario(BaseDualArmRopeScenario):
 def plan_to_start(left_start_pose, right_start_pose, rrp, val):
     pub = rospy.Publisher("/test_rope_reset_planner/ompl_plan", DisplayTrajectory, queue_size=10)
 
-    orientation_path_tol = 0.6
+    orientation_path_tol = 1.0
     while True:
         result: PlanningResult = rrp.plan_to_start(left_start_pose, right_start_pose, max_gripper_distance=0.715,
                                                    orientation_path_tolerance=orientation_path_tol,

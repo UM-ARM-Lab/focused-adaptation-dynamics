@@ -80,8 +80,10 @@ def video_for_post_learning(iter_dir: pathlib.Path):
     stylized_method_name = method_name_map.get(method_name, method_name)
 
     videos = []
-    for episode in trange(15):
+    for episode in trange(20):
         metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
+        if not metrics_filename.exists():
+            continue
         episode_video = edited_episode_video(episode, iter_dir, speed, metrics_filename)
         text = f'Post-Learning: {stylized_method_name} {episode=}'
         episode_video_w_text = add_text(episode_video, text)
@@ -154,4 +156,5 @@ def add_text(episode_video, text):
     text_clip = text_clip.set_pos((w / 2 - text_clip.w / 2, h - 10))
     size = (episode_video.w, episode_video.h + text_clip.h)
     episode_video_w_text = CompositeVideoClip([episode_video, text_clip], size=size)
+    episode_video_w_text.duration = episode_video.duration
     return episode_video_w_text
