@@ -21,8 +21,6 @@ method_name_map = {
     'all_data_no_mde': 'AllDataNoMDE',
     'adaptation':      'FOCUS (ours)',
 }
-speed = 10
-output_w = 1080
 
 
 def make_success_clip(clip, success: bool, duration):
@@ -32,20 +30,21 @@ def make_success_clip(clip, success: bool, duration):
         icon_clip = ImageClip("~/Pictures/icons/cross_mark.png")
     icon_clip = icon_clip.resize(width=clip.w * 0.1)
     icon_clip = icon_clip.set_pos((10, clip.h - icon_clip.h - 10))
+    icon_clip.duration = duration
     clip_with_icon = CompositeVideoClip([clip, icon_clip])
     clip_with_icon.duration = duration
     return clip_with_icon
 
 
-def add_holds(clip, success=None, freeze_duration=1.5):
-    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=freeze_duration)
+def add_holds(clip, success=None, start_freeze_duration=1.5, end_freeze_duration=0.5):
+    clip = moviepy.video.fx.all.freeze(clip, t=0, freeze_duration=start_freeze_duration)
     for final_frame in clip.iter_frames():
         pass
-    final_frame_clip = ImageClip(final_frame).set_duration(1)
+    final_frame_clip = ImageClip(final_frame).set_duration(end_freeze_duration)
     if success is None:
         clip = concatenate_videoclips([clip, final_frame_clip])
     else:
-        final_frame_clip_with_success = make_success_clip(final_frame_clip, success, duration=freeze_duration)
+        final_frame_clip_with_success = make_success_clip(final_frame_clip, success, duration=end_freeze_duration)
         clip = concatenate_videoclips([clip, final_frame_clip_with_success])
     return clip
 
@@ -74,7 +73,9 @@ def remove_similar_frames(clip: VideoClip):
     return concat_clip
 
 
-def video_for_post_learning(iter_dir: pathlib.Path):
+def video_for_post_learning(iter_dir: pathlib.Path, final_speedup: int):
+    internal_speedup = 10
+
     metadata = load_hjson(iter_dir / 'metadata.hjson')
     method_name = metadata['planner_params']['method_name']
     stylized_method_name = method_name_map.get(method_name, method_name)
@@ -84,15 +85,15 @@ def video_for_post_learning(iter_dir: pathlib.Path):
         metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
         if not metrics_filename.exists():
             continue
-        episode_video = edited_episode_video(episode, iter_dir, speed, metrics_filename)
-        text = f'Post-Learning: {stylized_method_name} {episode=}'
+        episode_video = edited_episode_video(episode, iter_dir, internal_speedup, metrics_filename)
+        text = f'Post-Learning: {stylized_method_name} {episode=} ({final_speedup * internal_speedup}x, pauses removed)'
         episode_video_w_text = add_text(episode_video, text)
         videos.append(episode_video_w_text)
 
     return videos
 
 
-def video_for_iter(iter_dir: pathlib.Path):
+def quick_video_for_iter(iter_dir: pathlib.Path, speed: float):
     m = re.search(r"iteration_(\d+)", iter_dir.name)
     iter_idx = int(m.group(1))
 
@@ -150,11 +151,10 @@ def load_edited_clip(iteration_video_filename: pathlib.Path):
 
 
 def add_text(episode_video, text):
-    text_clip = TextClip(text, font='Ubuntu-Bold', fontsize=64, color='white')
-    h = episode_video.h
-    w = episode_video.w
-    text_clip = text_clip.set_pos((w / 2 - text_clip.w / 2, h - 10))
-    size = (episode_video.w, episode_video.h + text_clip.h)
-    episode_video_w_text = CompositeVideoClip([episode_video, text_clip], size=size)
+    # FIXME: no idea why this works, but without it, the video is black
+    episode_video = episode_video.resize(width=episode_video.h)
+    text_clip = TextClip(text, font='Ubuntu-Bold', fontsize=32, color='white', bg_color='black').set_position(
+        ('center', 'bottom'))
+    episode_video_w_text = CompositeVideoClip([episode_video, text_clip])
     episode_video_w_text.duration = episode_video.duration
     return episode_video_w_text

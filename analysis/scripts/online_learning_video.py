@@ -5,7 +5,7 @@ import pathlib
 import numpy as np
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 
-from analysis.combine_videos import video_for_iter
+from analysis.combine_videos import quick_video_for_iter
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
 
     iter_dirs = list((args.root / 'planning_results').iterdir())
     for iter_dir in iter_dirs:
-        videos = video_for_iter(iter_dir)
+        videos = quick_video_for_iter(iter_dir)
         all_videos.extend(videos)
 
     outfilename = args.root / f'online_learning.mp4'
