@@ -81,7 +81,7 @@ def video_for_post_learning(iter_dir: pathlib.Path, final_speedup: int):
     stylized_method_name = method_name_map.get(method_name, method_name)
 
     videos = []
-    for episode in trange(20):
+    for episode in trange(32):
         metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
         if not metrics_filename.exists():
             continue
