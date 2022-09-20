@@ -330,7 +330,7 @@ class PlanAndExecute:
             d = self.scenario.distance_to_goal(end_state, planning_query.goal)
             rospy.loginfo(f"distance to goal after execution is {d:.3f}")
             reached_goal = (d <= self.planner_params['goal_params']['threshold'] + 1e-6)
-            #self.scenario._on_execution_complete("monsterainit_all_data_no_mde-0",reached_goal=reached_goal,idx=trial_idx)
+            self.scenario._on_execution_complete(f"mp4s/{self.planner_params['method_name']}",reached_goal=reached_goal,idx=trial_idx)
 
             end_conditions = [
                 reached_goal,

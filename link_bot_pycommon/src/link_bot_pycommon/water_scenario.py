@@ -11,7 +11,7 @@ from link_bot_data.dataset_utils import add_predicted
 
 from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
-from softgym.utils.visualization import save_numpy_as_gif
+from softgym.utils.visualization import save_numpy_as_gif, save_numpy_as_mp4
 
 from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 
@@ -37,6 +37,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
+        self.data_collect_id = 0
         #self.params['run_flex'] = False
         #Hack for when you really don't want to run flex for environment reasons
         if "NO_FLEX" in os.environ:
@@ -55,6 +56,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs = env_arg_dict[softgym_env_name]
 
         default_config = {"save_frames": False, 'img_size': 10}
+        default_config = {"save_frames": True, 'img_size': 800}
         self._save_cfg = self.params.get("save_cfg", default_config)
         # Generate and save the initial states for running this environment for the first time
         env_kwargs['use_cached_states'] = False
@@ -62,15 +64,16 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['num_variations'] = 1
         env_kwargs['render'] = 1 #self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
-        env_kwargs['headless'] = 1 #not self.params.get('gui', False)
-        #default_config = {"save_frames": True, 'img_size': 300}
+        env_kwargs['headless'] = not self.params.get('gui', False)
 
         if not env_kwargs['use_cached_states']:
             print('Waiting to generate environment variations. May take 1 minute for each variation...')
         self._scene = normalize(SOFTGYM_ENVS[softgym_env_name](**env_kwargs))
         self._save_frames = self._save_cfg["save_frames"]
         if self._save_frames:
-            self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
+            #self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
+            self.frames= []
+            #self.frames = [self._scene.get_image()]
 
 
     def needs_reset(self, state: Dict, params: Dict):
@@ -170,16 +173,18 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def _on_execution_complete(self, fn, reached_goal=False, idx=0):
         if self._save_frames:
-            save_name = f"{fn}_{reached_goal}_{idx}.gif"
-            save_numpy_as_gif(np.array(self.frames), save_name)
+            save_name = f"{fn}_{reached_goal}_{idx}.mp4"
+            save_numpy_as_mp4(np.array(self.frames), save_name)
             print("Saved to", save_name)
             self.frames = []
 
     def on_after_data_collection(self, params: Dict):
+        self.data_collect_id += 1
         if self._save_frames:
-            save_name = "test.gif"
-            save_numpy_as_gif(np.array(self.frames), save_name)
+            save_name = f"mp4s/data_collect_{self.data_collect_id}.mp4"
+            save_numpy_as_mp4(np.array(self.frames), save_name)
             print("Saved to", save_name)
+            self.frames = []
 
 
     def execute_action(self, environment, state, action: Dict, **kwargs):

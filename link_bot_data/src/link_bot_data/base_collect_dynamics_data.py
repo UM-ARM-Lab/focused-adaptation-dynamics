@@ -202,7 +202,7 @@ class BaseDataCollector:
             randomize = self.params["randomize_n"] and traj_idx % self.params["randomize_n"] == 0
             state = self.scenario.get_state()
             needs_reset = self.scenario.needs_reset(state, self.params)
-            if randomize or needs_reset:
+            if True or randomize or needs_reset:
                 if needs_reset:
                     rospy.logwarn("Reset required!")
                 self.scenario.randomize_environment(env_rng, self.params)
@@ -224,6 +224,7 @@ class BaseDataCollector:
 
             # Save the data
             self.write_example(full_output_directory, example, traj_idx)
+            self.scenario.on_after_data_collection(self.params)
 
             # tell the caller that we've made progress
             yield None, traj_idx + 1
