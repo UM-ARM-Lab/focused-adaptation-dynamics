@@ -29,7 +29,7 @@ def make_success_clip(clip, success: bool, duration):
     else:
         icon_clip = ImageClip("~/Pictures/icons/cross_mark.png")
     icon_clip = icon_clip.resize(width=clip.w * 0.1)
-    icon_clip = icon_clip.set_pos((10, clip.h - icon_clip.h - 10))
+    icon_clip = icon_clip.set_pos((15, 15))
     icon_clip.duration = duration
     clip_with_icon = CompositeVideoClip([clip, icon_clip])
     clip_with_icon.duration = duration
@@ -73,6 +73,11 @@ def remove_similar_frames(clip: VideoClip):
     return concat_clip
 
 
+def crop_video(clip):
+    cropped = clip.crop(x1=120, x2=clip.w - 110)
+    return cropped
+
+
 def video_for_post_learning(iter_dir: pathlib.Path, final_speedup: int):
     internal_speedup = 10
 
@@ -85,12 +90,23 @@ def video_for_post_learning(iter_dir: pathlib.Path, final_speedup: int):
         metrics_filename = (iter_dir / f'{episode}_metrics.pkl.gz')
         if not metrics_filename.exists():
             continue
-        episode_video = edited_episode_video(episode, iter_dir, internal_speedup, metrics_filename)
-        text = f'Post-Learning: {stylized_method_name} {episode=} ({final_speedup * internal_speedup}x, pauses removed)'
+        results = load_gzipped_pickle(metrics_filename)
+        episode_video = edited_episode_video(episode, iter_dir, internal_speedup, results)
+        text = f'Post-Learning: {stylized_method_name} ({final_speedup * internal_speedup}x, pauses removed)'
         episode_video_w_text = add_text(episode_video, text)
-        videos.append(episode_video_w_text)
+        episode_video_w_text_cropped = crop_video(episode_video_w_text)
+        episode_video_w_text_cropped = add_holds_with_success(episode_video_w_text_cropped, metrics_filename, results)
+        videos.append(episode_video_w_text_cropped)
 
     return videos
+
+
+def add_holds_with_success(episode_video, metrics_filename, results):
+    trial_metadata = load_hjson(metrics_filename.parent / 'metadata.hjson')
+    scenario = get_scenario_cached("floating_rope", {'rope_name': ''})
+    success = results_metrics.success(metrics_filename, scenario, trial_metadata, results)
+    episode_video = add_holds(episode_video, success)
+    return episode_video
 
 
 def quick_video_for_iter(iter_dir: pathlib.Path, speed: float):
@@ -106,7 +122,9 @@ def quick_video_for_iter(iter_dir: pathlib.Path, speed: float):
         m = re.search('(\d+)_metrics.pkl.gz', metrics_filename.name)
         episode = int(m.group(1))
         print(f'{iter_idx=} {episode=}')
-        episode_video = edited_episode_video(episode, iter_dir, speed, metrics_filename)
+        results = load_gzipped_pickle(metrics_filename)
+        episode_video = edited_episode_video(episode, iter_dir, speed, results)
+        episode_video = add_holds_with_success(episode_video, iter_dir, results)
         text = f'{stylized_method_name} {iter_idx=} {episode=}'
         episode_video_w_text = add_text(episode_video, text)
         videos.append(episode_video_w_text)
@@ -114,20 +132,8 @@ def quick_video_for_iter(iter_dir: pathlib.Path, speed: float):
     return videos
 
 
-def edited_episode_video(episode, iter_dir, speed, metrics_filename):
-    results = load_gzipped_pickle(metrics_filename)
-    trial_metadata = load_hjson(metrics_filename.parent / 'metadata.hjson')
-    scenario = get_scenario_cached("floating_rope", {'rope_name': ''})
-    success = results_metrics.success(metrics_filename, scenario, trial_metadata, results)
-
-    attempt_video_filenames = []
-    for attempt_idx in range(len(results['steps'])):
-        potential_video_filenames = sorted(iter_dir.glob(f"{episode:04d}-{attempt_idx + 1:04d}-*.mp4"))
-        latest_attempt_video_filename = potential_video_filenames[0]
-        for f in potential_video_filenames:
-            if 'edited' not in f.name:
-                latest_attempt_video_filename = f
-        attempt_video_filenames.append(latest_attempt_video_filename)
+def edited_episode_video(episode, iter_dir, speed, results):
+    attempt_video_filenames = get_attempt_video_filenames(episode, iter_dir, results)
 
     attempt_clips = []
     for iteration_video_filename in attempt_video_filenames:
@@ -135,8 +141,22 @@ def edited_episode_video(episode, iter_dir, speed, metrics_filename):
         attempt_clips.append(attempt_clip)
     episode_video = concatenate_videoclips(attempt_clips)
     episode_video = episode_video.speedx(speed)
-    episode_video = add_holds(episode_video, success)
     return episode_video
+
+
+def get_attempt_video_filenames(episode, iter_dir, results):
+    attempt_video_filenames = []
+    for attempt_idx in range(len(results['steps'])):
+        potential_video_filenames = sorted(iter_dir.glob(f"{episode:04d}-{attempt_idx + 1:04d}-*.mp4"))
+        if len(potential_video_filenames) == 0:
+            print(f"Failed to find video of episode {episode} attempt {attempt_idx}")
+            break
+        latest_attempt_video_filename = potential_video_filenames[0]
+        for f in potential_video_filenames:
+            if 'edited' not in f.name:
+                latest_attempt_video_filename = f
+        attempt_video_filenames.append(latest_attempt_video_filename)
+    return attempt_video_filenames
 
 
 def load_edited_clip(iteration_video_filename: pathlib.Path):

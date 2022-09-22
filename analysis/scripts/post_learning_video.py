@@ -18,6 +18,10 @@ def main():
     args = parser.parse_args()
 
     videos = video_for_post_learning(args.root, args.final_speedup)
+    for i, video_i in enumerate(videos):
+        outfilename_i = args.root / f'episode_{i}.mp4'
+        video_i.write_videofile(outfilename_i.as_posix(), fps=6 * args.final_speedup)
+
     video = concatenate_videoclips(videos)
 
     outfilename = args.root / f'post_learning.mp4'
