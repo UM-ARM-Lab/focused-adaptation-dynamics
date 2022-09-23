@@ -2,9 +2,8 @@ import warnings
 from typing import Dict
 
 import numpy as np
-
-from link_bot_pycommon.water_scenario import WaterSimScenario
 from link_bot_pycommon.scenario_ompl import ScenarioOmpl
+from link_bot_pycommon.water_scenario import WaterSimScenario
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -34,13 +33,13 @@ class WateringOmpl(ScenarioOmpl):
     @staticmethod
     def ompl_state_to_numpy(ompl_state: ob.CompoundState):
         ompl_state = {
-            'controlled_container_pos':   np.array([ompl_state[0][0], ompl_state[0][1]]),
-            'target_container_pos':       np.array([ompl_state[1][0], ompl_state[1][1]]),
+            'controlled_container_pos': np.array([ompl_state[0][0], ompl_state[0][1]]),
+            'target_container_pos': np.array([ompl_state[1][0], ompl_state[1][1]]),
             'controlled_container_angle': np.array([ompl_state[0][2]]),
-            'control_volume':             np.array([ompl_state[2][0]]),
-            'target_volume':              np.array([ompl_state[3][0]]),
-            'num_diverged':               np.array([ompl_state[4][0]]),
-            'error':                      np.zeros(1, dtype=np.float64),
+            'control_volume': np.array([ompl_state[2][0]]),
+            'target_volume': np.array([ompl_state[3][0]]),
+            'num_diverged': np.array([ompl_state[4][0]]),
+            'error': np.zeros(1, dtype=np.float64),
         }
         return ompl_state
 
@@ -55,7 +54,7 @@ class WateringOmpl(ScenarioOmpl):
         assert len(target_pos.shape) == len(target_angle.shape)
 
         return {
-            'controlled_container_target_pos':   target_pos,
+            'controlled_container_target_pos': target_pos,
             'controlled_container_target_angle': target_angle,
         }
 
@@ -81,7 +80,7 @@ class WateringOmpl(ScenarioOmpl):
 
         self.add_container_subspace(state_space, 'controlled_container')
         self.add_container_subspace(state_space, 'target_container')
-        #self.add_1d_subspace(state_space, "controlled_container_angle")
+        # self.add_1d_subspace(state_space, "controlled_container_angle")
         self.add_volume_subspace(state_space, 'control_volume')
         self.add_volume_subspace(state_space, 'target_volume')
 
@@ -124,7 +123,7 @@ class WateringOmpl(ScenarioOmpl):
     def add_volume_subspace(self, state_space, name="container"):
         volume_subspace = ob.RealVectorStateSpace(1)
         volume_bounds = ob.RealVectorBounds(1)
-        volume_bounds.setLow(-2) #more conservative to allow for some dynamics errors
+        volume_bounds.setLow(-2)  # more conservative to allow for some dynamics errors
         volume_bounds.setHigh(2)
         volume_subspace.setBounds(volume_bounds)
         volume_subspace.setName(name)
@@ -194,11 +193,11 @@ class WateringControlSampler(oc.ControlSampler):
                 if state_np["controlled_container_pos"][0] < 0.05:
                     control_out[0][0] = self.rng.uniform(0, self.max_d_control)
                 else:
-                    control_out[0][0] = self.rng.uniform(-1*self.max_d_control, self.max_d_control)
-                control_out[0][1] = self.rng.uniform(-1.0*self.max_d_control, self.max_d_control)
+                    control_out[0][0] = self.rng.uniform(-1 * self.max_d_control, self.max_d_control)
+                control_out[0][1] = self.rng.uniform(-1.0 * self.max_d_control, self.max_d_control)
                 if np.linalg.norm([control_out[0][0], control_out[0][1]]) > min_action_norm:
                     break
-            #print(state_np["controlled_container_pos"])
+            # print(state_np["controlled_container_pos"])
 
     def sampleStepCount(self, min_steps, max_steps):
         step_count = self.rng.randint(min_steps, max_steps)
@@ -228,14 +227,14 @@ class WateringStateSampler(ob.RealVectorStateSampler):
         random_angle = self.rng.uniform(min_theta, max_theta)
         random_control_volume = self.rng.uniform(0, 1)
         state_np = {
-            'controlled_container_pos':   np.array([random_point_x, random_point_y]),
+            'controlled_container_pos': np.array([random_point_x, random_point_y]),
             'controlled_container_angle': np.array([random_angle]),
-            'target_container_pos':       self._target_container_pos,
-            'target_volume':              np.array([1 - random_control_volume]),
+            'target_container_pos': self._target_container_pos,
+            'target_volume': np.array([1 - random_control_volume]),
             # not much point sampling invalid states
-            'control_volume':             np.array([random_control_volume]),
-            'num_diverged':               np.zeros(1, dtype=np.float64),
-            'error':                      np.zeros(1, dtype=np.float64),
+            'control_volume': np.array([random_control_volume]),
+            'num_diverged': np.zeros(1, dtype=np.float64),
+            'error': np.zeros(1, dtype=np.float64),
         }
 
         self.scenario_ompl.numpy_to_ompl_state(state_np, state_out)
@@ -283,13 +282,13 @@ class WateringGoalRegion(ob.GoalSampleableRegion):
         random_height = self.rng.uniform(low=0.08, high=0.5)
 
         goal_state_np = {
-            'controlled_container_pos':   self._target_container_pos + np.array([random_x_left, random_height]),
+            'controlled_container_pos': self._target_container_pos + np.array([random_x_left, random_height]),
             'controlled_container_angle': np.array([0]),
-            'target_container_pos':       self._target_container_pos,
-            'target_volume':              np.array([1.0]),  # in practice quite binary
-            'control_volume':             np.array([0]),
-            'error':                      np.zeros(1, dtype=np.float64),
-            'num_diverged':               np.zeros(1, dtype=np.float64),
+            'target_container_pos': self._target_container_pos,
+            'target_volume': np.array([1.0]),  # in practice quite binary
+            'control_volume': np.array([0]),
+            'error': np.zeros(1, dtype=np.float64),
+            'num_diverged': np.zeros(1, dtype=np.float64),
         }
         self.scenario_ompl.numpy_to_ompl_state(goal_state_np, state_out)
 

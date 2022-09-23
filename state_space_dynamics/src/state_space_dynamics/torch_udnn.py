@@ -106,9 +106,6 @@ class UDNN(pl.LightningModule):
             pred_states_dict['joint_positions'] = torchify(joint_positions).float()
             pred_states_dict['joint_names'] = joint_names
          
-        #if inputs['controlled_container_target_angle'].item() > 0.4:
-        #    #print(inputs['controlled_container_target_pos'])
-        #    print("target volume ", pred_states_dict["target_volume"][-1][:])
         return pred_states_dict
 
     def one_step_forward(self, action_t, s_t):
@@ -197,7 +194,7 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
-        return losses['loss'] 
+        return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
         val_udnn_outputs = self.forward(val_batch)
@@ -206,34 +203,10 @@ class UDNN(pl.LightningModule):
         else:
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
-        with torch.no_grad():
-            log_nonempty = True
-            if log_nonempty:
-                nonempty_errors = []
-                for i, traj in enumerate(val_batch["target_volume"]):
-                    if traj[-1][0] - traj[0][0] > 0.1:
-                        nonempty_errors.append(traj[-1][0] - val_udnn_outputs["target_volume"][i][-1][0])
-                if len(nonempty_errors):
-                    nonempty_errors = torch.abs(torch.Tensor(nonempty_errors)).mean()
-                    self.log('nonempty_only_target_volume_val_mae', nonempty_errors)
-            self.log('val_loss', val_losses['loss'])
-            target_poses = val_batch["controlled_container_pos"][:,1,:].reshape(-1,2)
-            pred_poses = val_udnn_outputs["controlled_container_pos"][:,1,:].reshape(-1,2)
-            mae = self.mae(target_poses, pred_poses)
-            self.log('pos_only_val_mae', mae)
-            self.log('target_volume_val_mae', self.mae(val_batch["target_volume"][:,1].flatten(), val_udnn_outputs["target_volume"][:,1].flatten()))
-            self.log('control_volume_val_mae', self.mae(val_batch["control_volume"][:,1].flatten(), val_udnn_outputs["control_volume"][:,1].flatten()))
- 
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
         test_udnn_outputs = self.forward(test_batch)
-        error = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
-        global_step = 100
-        k_global = 0.1
-        mask_threshold = 0.3
-        low_error_mask = soft_mask(global_step, mask_threshold, error, k_global = 0.1)
-
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
         self.log('test_error', test_losses['error'])
@@ -279,7 +252,6 @@ def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}, mse_loss = 
 
         # mean over time and state dim but not batch, not yet.
         diff = (y_true - y_pred)[:,1:]
-        diff = torch.clip(diff, -10000,10000)
         loss = loss_scaling*(y_true - y_pred).square().mean(-1)
         
         loss_by_key.append(loss)

@@ -1,6 +1,3 @@
-from ompl import control as oc
-from ompl import base as ob
-
 import time
 import warnings
 from typing import Dict, List, Tuple
@@ -10,13 +7,10 @@ from link_bot_planning.trajectory_optimizer_torch import TrajectoryOptimizerTorc
 from link_bot_pycommon.spinners import StatSpinner
 from state_space_dynamics.torch_udnn_dynamics_wrapper import TorchUDNNDynamicsWrapper
 
-#with warnings.catch_warnings():
-#    warnings.simplefilter("ignore", category=RuntimeWarning)
-#import ompl.base as ob
-#import ompl.geometric as og
-#import ompl.base as ob
-#import ompl.control as oc
-
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", category=RuntimeWarning)
+    import ompl.base as ob
+    import ompl.control as oc
 
 import numpy as np
 from matplotlib import cm
@@ -390,9 +384,9 @@ class OmplRRTWrapper(MyPlanner):
 
         # visualization
         self.scenario.reset_viz()
-        #self.scenario.plot_environment_rviz(planning_query.environment)
-        #self.scenario.plot_start_state(start_state)
-        #self.scenario.plot_goal_rviz(planning_query.goal, self.params['goal_params']['threshold'])
+        self.scenario.plot_environment_rviz(planning_query.environment)
+        self.scenario.plot_start_state(start_state)
+        self.scenario.plot_goal_rviz(planning_query.goal, self.params['goal_params']['threshold'])
 
         self.ss.clear()
         self.ss.setStartState(ompl_start_scoped)
