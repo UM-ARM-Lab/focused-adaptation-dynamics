@@ -12,7 +12,7 @@ class Test(TestCase):
             "run_flex":               True,
             "save_cfg":               {
                 "save_frames": 1,
-                "img_size":    720
+                "img_size":    800
             },
             "k_pos":                  1.5,
             "k_angle":                2.0,
@@ -84,31 +84,38 @@ class Test(TestCase):
         
 
     def test_replay_trajs(self):
-        trajs = np.load("data/low_weight_trajs.npy", allow_pickle=True)
-        #trajs = np.load("data/high_weight_trajs.npy", allow_pickle=True)
+        #trajs = np.load("data/low_weight_trajs.npy", allow_pickle=True)
+        trajs = np.load("data/high_weight_trajs.npy", allow_pickle=True)
         low_skip_idxs = [0,1,2, 3, 4, 5, 6, 7, 12]
         skip_idxs = [0,1]
-        good_idx = [9,10]
+        good_idxs = [6,7,9]
         for i, data in enumerate(trajs):
-            #traj, pred_traj = data
-            traj = data
-            print(i)
+            traj, pred_traj = data
+            #traj = data
+            #if i not in good_idxs:
+            #    continue
             if i in skip_idxs:
                 continue
+            print(i)
             self._replay_traj(traj)
-            self.scenario._on_execution_complete(f"gifs/low_weight_traj_{i}.gif", reached_goal=False, idx=i)
+            #self.scenario._on_execution_complete(f"mp4s/low_weight_traj_{i}", reached_goal=False, idx=i)
+            self.scenario._on_execution_complete(f"mp4s/high_weight_traj_{i}", reached_goal=False, idx=i)
 
     def _replay_traj(self, traj):
         #First go to the original position
+        print("begin replay traj")
         first_position = traj["controlled_container_pos"][0]
         first_angle = traj["controlled_container_angle"][0]
         state = self.scenario.get_state()
+        print("got state")
         move_action = {"controlled_container_target_pos":   first_position,
                        "controlled_container_target_angle": first_angle}
         self.scenario.execute_action(None, state, move_action)
+        print("executing move action")
         self._assert_state_close_to_action(move_action)
 
         for i in range(len(traj["controlled_container_target_pos"])):
+            print("On step", i)
             state = self.scenario.get_state()
             move_action = {"controlled_container_target_pos":   traj["controlled_container_target_pos"][i],
                            "controlled_container_target_angle": traj["controlled_container_target_angle"][i]}
