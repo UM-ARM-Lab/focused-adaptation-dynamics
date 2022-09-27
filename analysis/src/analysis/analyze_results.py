@@ -16,7 +16,6 @@ from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualizat
 from link_bot_pycommon.serialization import load_gzipped_pickle
 from moonshine.filepath_tools import load_hjson
 
-
 column_names = [
                    'data_filename',
                    'results_folder_name',
@@ -48,9 +47,9 @@ def make_dataframe_worker(args):
     if not df_filename.exists() or regenerate:
         scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
 
-        scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
+        # scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
         # NOTE: hard-coded here because using the "real val" scenario wasn't working for some reason
-        #scenario = get_scenario_cached('watering', params=scenario_params)
+        scenario = get_scenario_cached('dual_arm_rope_sim_val_with_robot_feasibility_checking', params=scenario_params)
         data = []
         for data_filename in data_filenames:
             datum = load_gzipped_pickle(data_filename)

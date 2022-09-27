@@ -16,17 +16,19 @@ limit_gpu_mem(None)
 def metrics_main(args):
     root = pathlib.Path("/media/shared/planning_results/")
     results_dirs = list(root.glob(args.name + "*"))
-    args.regenerate=True
     outdir, df = planning_results(results_dirs, args.regenerate)
-    import ipdb; ipdb.set_trace()
-    print("Outdir", outdir)
 
     # if the results_folder_name contains the key, the set method_name to be the value
     method_name_map = {
         # order here matters
         'all_data_no_mde': 'AllDataNoMDE',
         'all_data':        'AllData',
-        '':                'Adaptation (ours)',
+        '':                'FOCUS (ours)',
+    }
+    palette = {
+        'FOCUS (ours)': '#0072B2',
+        'AllData':      '#D55E00',
+        'AllDataNoMDE': '#009E73',
     }
 
     method_names = []
@@ -40,28 +42,36 @@ def metrics_main(args):
     df = df.sort_values("method_name")
 
     iter_key = 'ift_iteration'
+    pi = args.pi
+    errorbar = ('ci', 95)
 
     fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success_given_solved',
-                       title='Success (given plan found) ⬆',
-                       ci=90)
+                       title='Success (given plan to goal found) ⬆', errorbar=errorbar, palette=palette)
     ax.set_ylim(-0.02, 1.02)
+    ax.set_xticks(range(20))
     ax.set_xlabel("Online Learning Iteration")
     ax.set_ylabel("Success Rate")
     plt.savefig(outdir / "success_given_plan_found.png")
 
-    lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇', ci=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='normalized_model_error', title='Model Error ⬇',
+                       errorbar=errorbar, palette=palette)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylabel("Model Error")
     plt.savefig(outdir / "model_error.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan Found ⬆', ci=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='any_solved', title='Plan to Goal Found ⬆',
+                       errorbar=errorbar, palette=palette)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylim(-0.02, 1.02)
-    ax.set_ylabel("% where plan was found")
+    ax.set_ylabel("% plan to goal found")
     plt.savefig(outdir / "plan_found.png")
 
-    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', ci=90)
+    fig, ax = lineplot(df, x=iter_key, hue='method_name', metric='success', title='Success ⬆', errorbar=errorbar,
+                       palette=palette)
     ax.set_xlabel("Online Learning Iteration")
+    ax.set_xticks(range(20))
     ax.set_ylabel("Success Rate")
     ax.set_ylim(-0.02, 1.02)
     plt.savefig(outdir / "success.png")
@@ -78,6 +88,7 @@ def main():
     parser.add_argument('name', help='results directory', type=str)
     parser.add_argument('--no-plot', action='store_true')
     parser.add_argument('--regenerate', action='store_true')
+    parser.add_argument('--pi', default=90, type=int)
     parser.add_argument('--style', default='paper')
     parser.set_defaults(func=metrics_main)
 
