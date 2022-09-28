@@ -71,8 +71,10 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     data_module.setup()
 
     callbacks = []
+    #somewhat hacky but you really don't want to run flex while training NNs
+    params['dataset_hparams']['data_collection_params']['scenario_params']['run_flex'] = False
     if is_nn_mde:
-        model = load_model_artifact(checkpoint, MDE, project, version='latest', user=user, **params)
+        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user, **params)
     else:
         from mde.gp_mde import GPRMDE
         model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint, **params)
@@ -87,7 +89,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     callbacks.extend([ckpt_cb, hearbeat_callback])
     max_steps = max(1, int(steps / batch_size)) if steps != -1 else steps
     print(f"{max_steps=}")
-    trainer = pl.Trainer(gpus=0,
+    trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,
                          enable_model_summary=False,
                          max_epochs=epochs,
@@ -168,7 +170,6 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
             'resume': True,
         }
     callbacks = []
-    params['dataset_hparams']['scenario_params']['run_flex'] = False
     if is_nn_mde:
         model = MDE(**params)
     else:
@@ -228,7 +229,7 @@ def eval_main(dataset_dir: pathlib.Path,
         os.environ['WANDB_MODE'] = "offline"
 
     if is_nn_mde:
-        model = load_model_artifact(checkpoint, MDE, project, version='latest', user=user)
+        model = load_model_artifact(checkpoint, MDE, project, version='best', user=user)
     else:
         from mde.gp_mde import GPRMDE
         model = load_model_artifact(checkpoint, GPRMDE, project, version='best', user=user, gp_checkpoint=checkpoint)

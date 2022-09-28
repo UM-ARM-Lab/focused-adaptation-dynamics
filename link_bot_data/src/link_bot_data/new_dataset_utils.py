@@ -107,11 +107,7 @@ class DynamicsDatasetParams:
     def __init__(self, dataset_dirs: Union[pathlib.Path, List[pathlib.Path]]):
         self.params = merge_hparams_dicts(dataset_dirs)
         self.dataset_dirs = dataset_dirs
-        if 'data_collection_params' in self.params.keys():
-            self.data_collection_params = self.params['data_collection_params']
-        else:
-            self.data_collection_params = self.params
-
+        self.data_collection_params = self.params['data_collection_params']
         self.scenario_params = self.data_collection_params.get('scenario_params', {})
         self.state_description = self.data_collection_params['state_description']
 

@@ -53,51 +53,52 @@ class ResultsToDynamicsDataset:
         self.outdir.mkdir(exist_ok=True, parents=True)
 
     def run(self, dataset_hparams_fn=None):
-        self.save_hparams(dataset_hparams_fn = dataset_hparams_fn)
+        self.save_hparams(data_collection_params_fn= dataset_hparams_fn)
         self.results_to_dynamics_dataset()
         split_dataset(self.outdir, val_split=self.val_split, test_split=self.test_split)
 
         return self.outdir
 
-    def save_hparams(self, dataset_hparams_fn=None):
+    def save_hparams(self, data_collection_params_fn=None):
         # FIXME: hard-coded
         planner_params = self.metadata['planner_params']
-        if dataset_hparams_fn is None:
-            dataset_hparams = {
-                'scenario':               planner_params['scenario'],
-                'from_results':           self.results_dir,
-                'seed':                   None,
-                'n_trajs':                len(self.trials),
-                'data_collection_params': {
-                    'scenario_params':               planner_params.get("scenario_params", {}),
-                    'max_step_size':                 planner_params.get("max_step_size", 0.01),
-                    'max_distance_gripper_can_move': 0.1,
-                    'res':                           0.02,
-                    'service_provider':              'gazebo',
-                    'state_description':             {
-                        'left_gripper':    3,
-                        'right_gripper':   3,
-                        'joint_positions': 18,
-                        'rope':            75,
-                    },
-                    'state_metadata_description':    {
-                        'joint_names': None,
-                    },
-                    'action_description':            {
-                        'left_gripper_position':  3,
-                        'right_gripper_position': 3,
-                    },
-                    'env_description':               {
-                        'env':          None,
-                        'extent':       4,
-                        'origin_point': 3,
-                        'res':          None,
-                        'scene_msg':    None,
-                    },
+        dataset_hparams = {
+            'scenario':               planner_params['scenario'],
+            'from_results':           self.results_dir,
+            'seed':                   None,
+            'n_trajs':                len(self.trials)
+        }
+        if data_collection_params_fn is None:
+            data_collection_params= {
+                'scenario_params':               planner_params.get("scenario_params", {}),
+                'max_step_size':                 planner_params.get("max_step_size", 0.01),
+                'max_distance_gripper_can_move': 0.1,
+                'res':                           0.02,
+                'service_provider':              'gazebo',
+                'state_description':             {
+                    'left_gripper':    3,
+                    'right_gripper':   3,
+                    'joint_positions': 18,
+                    'rope':            75,
                 },
-            }
+                'state_metadata_description':    {
+                    'joint_names': None,
+                },
+                'action_description':            {
+                    'left_gripper_position':  3,
+                    'right_gripper_position': 3,
+                },
+                'env_description':               {
+                    'env':          None,
+                    'extent':       4,
+                    'origin_point': 3,
+                    'res':          None,
+                    'scene_msg':    None,
+                },
+            },
         else:
-            dataset_hparams = load_hjson(dataset_hparams_fn)
+            data_collection_params = load_hjson(data_collection_params_fn)
+        dataset_hparams["data_collection_params"] = data_collection_params
         with (self.outdir / 'hparams.hjson').open('w') as dataset_hparams_file:
             my_hdump(dataset_hparams, dataset_hparams_file, indent=2)
 

@@ -29,7 +29,7 @@ PROJECT = 'udnn'
 
 
 def load_udnn_model_wrapper(checkpoint, with_joint_positions=False):
-    model = load_model_artifact(checkpoint, UDNN, 'udnn', version='latest', user='armlab',
+    model = load_model_artifact(checkpoint, UDNN, 'udnn', version='best', user='armlab',
                                 with_joint_positions=with_joint_positions)
     model.eval()
     return model
@@ -78,7 +78,7 @@ def fine_tune_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
     else:
         ckpt_cb = pl.callbacks.ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True, filename='{epoch:02d}')
     hearbeat_callback = HeartbeatCallback(model.scenario)
-    
+
     trainer = pl.Trainer(gpus=1,
                          logger=wb_logger,
                          enable_model_summary=False,
@@ -206,6 +206,10 @@ def eval_main(dataset_dir: pathlib.Path,
         for k, v in metrics_i.items():
             print(f"{k:20s}: {v:0.6f}")
 
+    import torch
+    test_errors = torch.cat(model.test_errors, 0).reshape([-1])
+    print(f"std test error: {torch.std(test_errors).detach().cpu().numpy():.2f}")
+
     return metrics
 
 
@@ -230,22 +234,24 @@ def viz_main(dataset_dir: pathlib.Path,
         inputs = dataset[dataset_anim.t()]
         print(inputs['example_idx'])
 
-        time_anim = RvizAnimationController(n_time_steps=inputs['left_gripper_position'].shape[0])
+        if 'time_mask' in inputs:
+            n_time_steps = int(inputs['time_mask'].sum())
+        else:
+            n_time_steps = inputs['time_idx'].shape[0]
+        time_anim = RvizAnimationController(n_time_steps=n_time_steps)
 
         inputs_batch = torchify(add_batch(inputs))
         outputs_batch = model(inputs_batch)
-        low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=10000)))
+        # low_error_mask = numpify(remove_batch(model.low_error_mask(inputs_batch, outputs_batch, global_step=100)))
         outputs = remove_batch(outputs_batch)
 
         time_anim.reset()
         while not time_anim.done:
             t = time_anim.t()
-            if inputs['time_mask'][t] == 0:
-                break
 
             init_viz_env(s, inputs, t)
             viz_pred_actual_t(original_dataset, model, inputs, outputs, s, t, threshold=0.08)
-            s.plot_weight_rviz(low_error_mask[t])
+            # s.plot_weight_rviz(low_error_mask[t])
             time_anim.step()
 
         n_examples_visualized += 1
