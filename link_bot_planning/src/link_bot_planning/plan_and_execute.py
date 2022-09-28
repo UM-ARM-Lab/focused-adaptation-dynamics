@@ -26,69 +26,6 @@ from moonshine.numpify import numpify
 from moonshine.torch_and_tf_utils import remove_batch, add_batch
 
 
-def execute_actions(
-        scenario: ScenarioWithVisualization,
-        environment: Dict,
-        start_state: Dict,
-        actions: List[Dict],
-        stop_condition: Optional[Callable] = None,
-        plot: bool = False):
-    spinner = SynchronousSpinner('Executing actions')
-
-    # FIXME hacky. this lets us execute as much of the jacobian action as possible
-    # if scenario.robot.robot_namespace != "mock_robot":
-    #     scenario.robot.called.jacobian_target_not_reached_is_failure = False
-
-    before_state = start_state
-    actual_path = [before_state]
-    end_trial = False
-    after_state = None
-    stopped = False
-
-    t = 0
-    for t, action in enumerate(actions):
-        spinner.update()
-        scenario.heartbeat()
-
-        if plot:
-            scenario.plot_environment_rviz(environment)
-            scenario.plot_state_rviz(before_state, label='actual', color='pink')
-            scenario.plot_executed_action(before_state, action)
-
-        end_trial = scenario.execute_action(environment, before_state, action)
-        after_state = scenario.get_state()
-        actual_path.append(after_state)
-
-        if stop_condition is not None:
-            stop = stop_condition(t=t,
-                                  before_state=before_state,
-                                  action=action,
-                                  after_state=after_state)
-            if stop:
-                stopped = True
-                spinner.stop()
-                rospy.logwarn("Stopping mid-execution")
-                break
-
-        before_state = after_state
-
-    if plot and after_state:
-        scenario.plot_environment_rviz(environment)
-        scenario.plot_state_rviz(after_state, label='actual', color='pink')
-
-    if not stopped:
-        spinner.stop()
-
-    time.sleep(2)  # FIXME: hack for CDCPD to catch up, only needed in the real world
-
-    # FIXME hacky reset
-    # if scenario.robot.robot_namespace != "mock_robot":
-    #     scenario.robot.called.jacobian_target_not_reached_is_failure = True
-
-    execution_result = ExecutionResult(path=actual_path, end_trial=end_trial, stopped=stopped, end_t=t)
-    return execution_result
-
-
 class PlanAndExecute:
 
     def __init__(self,
@@ -115,6 +52,7 @@ class PlanAndExecute:
         self.seed = seed
         self.test_scenes_dir = test_scenes_dir
         self.extra_end_conditions = extra_end_conditions
+        self.recording_timestamps = []
         if has_keys(self.planner_params, ['recovery', 'use_recovery']):
             recovery_model_dir = pathlib.Path(self.planner_params['recovery']['recovery_model_dir'])
 
@@ -212,11 +150,14 @@ class PlanAndExecute:
 
         self.on_start_trial(trial_idx)
 
+        time.sleep(30)  # HACK wait for CDCPD
+
         start_time = time.perf_counter()
         total_timeout = self.planner_params['termination_criteria']['total_timeout']
 
         # Get the goal (default is to randomly sample one)
         environment = self.get_environment()
+
         goal = self.get_goal(trial_idx, environment)
 
         attempt_idx = 0
@@ -228,13 +169,8 @@ class PlanAndExecute:
         while True:
             # get start states
             self.service_provider.play()
-            time.sleep(3)  # HACK wait for CDCPD
             start_state = self.scenario.get_state()
             self.service_provider.pause()
-
-            # NOTE: we have assumed the environment does not change after executing, this is a performance optimization
-            #  because getting the environment can be slow (~10 seconds)
-            # environment = self.get_environment()
 
             # Try to make the seeds reproducible, but it needs to change based on attempt idx or we would just keep
             # trying the same plans over and over
@@ -266,15 +202,16 @@ class PlanAndExecute:
                     trial_msg = f"Trial {trial_idx} Ended: not progressing, no recovery. {time_since_start:.3f}s"
                     rospy.loginfo(Fore.BLUE + trial_msg + Fore.RESET)
                     trial_data_dict = {
-                        'setup_info':       setup_info,
-                        'planning_queries': planning_queries,
-                        'total_time':       time_since_start,
-                        'trial_status':     trial_status,
-                        'trial_idx':        trial_idx,
-                        'goal':             goal,
-                        'steps':            steps_data,
-                        'end_state':        end_state,
-                        'seed':             self.seed,
+                        'setup_info':           setup_info,
+                        'planning_queries':     planning_queries,
+                        'total_time':           time_since_start,
+                        'trial_status':         trial_status,
+                        'trial_idx':            trial_idx,
+                        'goal':                 goal,
+                        'steps':                steps_data,
+                        'end_state':            end_state,
+                        'seed':                 self.seed,
+                        'recording_timestamps': self.recording_timestamps,
                     }
                     self.on_trial_complete(trial_data_dict, trial_idx)
                     return
@@ -323,14 +260,13 @@ class PlanAndExecute:
                 self.on_execution_complete(planning_query, planning_result, execution_result)
 
             self.service_provider.play()
-            time.sleep(3)
+            time.sleep(1)
             end_state = self.scenario.get_state()
             self.service_provider.pause()
 
             d = self.scenario.distance_to_goal(end_state, planning_query.goal)
             rospy.loginfo(f"distance to goal after execution is {d:.3f}")
             reached_goal = (d <= self.planner_params['goal_params']['threshold'] + 1e-6)
-            self.scenario._on_execution_complete(f"mp4s/{self.planner_params['method_name']}",reached_goal=reached_goal,idx=trial_idx)
 
             end_conditions = [
                 reached_goal,
@@ -356,15 +292,16 @@ class PlanAndExecute:
                             f"{planning_result.attempted_extensions}ext"]
                     rospy.loginfo(Fore.BLUE + ' '.join(msgs) + Fore.RESET)
                 trial_data_dict = {
-                    'setup_info':       setup_info,
-                    'planning_queries': planning_queries,
-                    'total_time':       time_since_start,
-                    'trial_status':     trial_status,
-                    'trial_idx':        trial_idx,
-                    'goal':             goal,
-                    'steps':            steps_data,
-                    'end_state':        end_state,
-                    'seed':             self.seed,
+                    'setup_info':           setup_info,
+                    'planning_queries':     planning_queries,
+                    'total_time':           time_since_start,
+                    'trial_status':         trial_status,
+                    'trial_idx':            trial_idx,
+                    'goal':                 goal,
+                    'steps':                steps_data,
+                    'end_state':            end_state,
+                    'seed':                 self.seed,
+                    'recording_timestamps': self.recording_timestamps,
                 }
                 self.on_trial_complete(trial_data_dict, trial_idx)
                 return
@@ -426,23 +363,94 @@ class PlanAndExecute:
                 predicted_after_state = planning_result.path[t + 1]
                 return self.stop_condition(predicted_after_state, after_state)
 
-            execution_result = execute_actions(scenario=self.scenario,
-                                               environment=planning_query.environment,
-                                               start_state=planning_query.start,
-                                               actions=planning_result.actions,
-                                               stop_condition=_stop_condition,
-                                               plot=True)
+            execution_result = self.execute_actions(scenario=self.scenario,
+                                                    planned_path=planning_result.path,
+                                                    environment=planning_query.environment,
+                                                    start_state=planning_query.start,
+                                                    actions=planning_result.actions,
+                                                    stop_condition=_stop_condition,
+                                                    plot=True)
 
             self.scenario.robot.raise_on_failure = True
 
             # backup if the stop condition was triggered
-            if False and execution_result.stopped:
+            if execution_result.stopped:
                 undo_action = planning_result.actions[max(execution_result.end_t - 1, 0)]
                 try:
                     self.scenario.execute_action(planning_query.environment, execution_result.path[-1], undo_action)
                 except RobotPlanningError:
                     pass
 
+        return execution_result
+
+    def execute_actions(self,
+                        scenario: ScenarioWithVisualization,
+                        environment: Dict,
+                        start_state: Dict,
+                        actions: List[Dict],
+                        planned_path: List[Dict],
+                        stop_condition: Optional[Callable] = None,
+                        plot: bool = False):
+        spinner = SynchronousSpinner('Executing actions')
+
+        # FIXME hacky. this lets us execute as much of the jacobian action as possible
+        if scenario.robot.robot_namespace != "mock_robot":
+            scenario.robot.called.jacobian_target_not_reached_is_failure = False
+
+        before_state = start_state
+        actual_path = [before_state]
+        end_trial = False
+        after_state = None
+        stopped = False
+
+        t = 0
+        for t, action in enumerate(actions):
+            spinner.update()
+            scenario.heartbeat()
+
+            if plot:
+                scenario.plot_environment_rviz(environment)
+                scenario.plot_state_rviz(before_state, label='actual', color='pink')
+                scenario.plot_executed_action(before_state, action)
+                try:
+                    pred_state = planned_path[t]
+                    model_error = scenario.classifier_distance(before_state, pred_state)
+                    scenario.plot_error_rviz(model_error)
+                except Exception as e:
+                    print("failed to plot error!")
+                    print(e)
+
+            self.recording_timestamps.append(time.time())
+            end_trial = scenario.execute_action(environment, before_state, action)
+            self.recording_timestamps.append(time.time())
+            after_state = scenario.get_state()
+            actual_path.append(after_state)
+
+            if stop_condition is not None:
+                stop = stop_condition(t=t,
+                                      before_state=before_state,
+                                      action=action,
+                                      after_state=after_state)
+                if stop:
+                    stopped = True
+                    spinner.stop()
+                    rospy.logwarn("Stopping mid-execution")
+                    break
+
+            before_state = after_state
+
+        if plot and after_state:
+            scenario.plot_environment_rviz(environment)
+            scenario.plot_state_rviz(after_state, label='actual', color='pink')
+
+        if not stopped:
+            spinner.stop()
+
+        # FIXME hacky reset
+        if scenario.robot.robot_namespace != "mock_robot":
+            scenario.robot.called.jacobian_target_not_reached_is_failure = True
+
+        execution_result = ExecutionResult(path=actual_path, end_trial=end_trial, stopped=stopped, end_t=t)
         return execution_result
 
     def stop_condition(self, predicted_after_state: Dict, after_state: Dict):
@@ -463,7 +471,9 @@ class PlanAndExecute:
             if self.verbose >= 0:
                 self.scenario.plot_action_rviz(before_state, action, label='recovery', color='pink')
             try:
+                self.recording_timestamps.append(time.time())
                 end_trial = self.scenario.execute_action(environment, before_state, action)
+                self.recording_timestamps.append(time.time())
             except RobotPlanningError:
                 pass
             after_state = self.scenario.get_state()
@@ -477,10 +487,7 @@ class PlanAndExecute:
     def get_environment(self):
         # get the environment, which here means anything which is assumed constant during planning
         get_env_params = self.planner_params.copy()
-        res = 0.02 #self.planner.classifier_models[0].model.hparams['dataset_hparams']["data_collection_params"]["res"]
-        if not isinstance(res, np.ndarray):
-            res = np.array(res, dtype=np.float32)
-        get_env_params['res'] = res
+        get_env_params['res'] = self.planner.fwd_model.data_collection_params['res']
         return self.scenario.get_environment(get_env_params)
 
     def set_random_seeds_for_trial(self, trial_idx: int):
@@ -497,11 +504,7 @@ class PlanAndExecute:
     def on_plan_complete(self,
                          planning_query: PlanningQuery,
                          planning_result: PlanningResult):
-        # visualize the plan
-        if self.verbose >= 1:
-            self.scenario.animate_final_path(environment=planning_query.environment,
-                                             planned_path=planning_result.path,
-                                             actions=planning_result.actions)
+        pass
 
     def on_before_execute(self):
         pass

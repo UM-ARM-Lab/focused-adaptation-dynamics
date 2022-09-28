@@ -15,7 +15,6 @@ from link_bot_data.tf_dataset_utils import write_example
 from link_bot_planning.my_planner import PlanningResult
 from link_bot_planning.trial_result import ExecutionResult
 from link_bot_pycommon.serialization import my_hdump
-from moonshine.filepath_tools import load_hjson
 from moonshine.moonshine_utils import sequence_of_dicts_to_dict_of_np_arrays
 from moonshine.numpify import numpify
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
@@ -32,7 +31,6 @@ class ResultsToDynamicsDataset:
                  outname: str,
                  visualize: bool,
                  traj_length: Optional[int] = None,
-                 metadata_dir: Optional[pathlib.Path] = None,
                  val_split=DEFAULT_VAL_SPLIT,
                  test_split=DEFAULT_TEST_SPLIT,
                  root=pathlib.Path("fwd_model_data")):
@@ -43,33 +41,30 @@ class ResultsToDynamicsDataset:
         self.outdir = root / outname
         self.val_split = val_split
         self.test_split = test_split
-        if metadata_dir is None:
-            metadata_dir = results_dir
 
-        self.scenario, self.metadata = results_utils.get_scenario_and_metadata(metadata_dir)
+        self.scenario, self.metadata = results_utils.get_scenario_and_metadata(results_dir)
 
         self.example_idx = None
 
         self.outdir.mkdir(exist_ok=True, parents=True)
 
-    def run(self, dataset_hparams_fn=None):
-        self.save_hparams(data_collection_params_fn= dataset_hparams_fn)
+    def run(self):
+        self.save_hparams()
         self.results_to_dynamics_dataset()
         split_dataset(self.outdir, val_split=self.val_split, test_split=self.test_split)
 
         return self.outdir
 
-    def save_hparams(self, data_collection_params_fn=None):
+    def save_hparams(self):
         # FIXME: hard-coded
         planner_params = self.metadata['planner_params']
+
         dataset_hparams = {
             'scenario':               planner_params['scenario'],
             'from_results':           self.results_dir,
             'seed':                   None,
-            'n_trajs':                len(self.trials)
-        }
-        if data_collection_params_fn is None:
-            data_collection_params= {
+            'n_trajs':                len(self.trials),
+            'data_collection_params': {
                 'scenario_params':               planner_params.get("scenario_params", {}),
                 'max_step_size':                 planner_params.get("max_step_size", 0.01),
                 'max_distance_gripper_can_move': 0.1,
@@ -96,9 +91,7 @@ class ResultsToDynamicsDataset:
                     'scene_msg':    None,
                 },
             },
-        else:
-            data_collection_params = load_hjson(data_collection_params_fn)
-        dataset_hparams["data_collection_params"] = data_collection_params
+        }
         with (self.outdir / 'hparams.hjson').open('w') as dataset_hparams_file:
             my_hdump(dataset_hparams, dataset_hparams_file, indent=2)
 
@@ -154,16 +147,11 @@ class ResultsToDynamicsDataset:
 
             if len(actions_step) == 0 or actions_step[0] is None:
                 continue
-            if len(actions_step) >= len(states_step):
-                #indicates stop on error occurred
-                num_states = len(states_step)
-                actions_step = actions_step[:num_states-1]
 
             actions_step = numpify(actions_step)
             # NOTE: here we append the final action to make action & state the same length
             actions_step.append(actions_step[-1])
             states_step = numpify(states_step)
-            print(states_step[-1]["target_volume"])
 
             actions.extend(actions_step)
             states.extend(states_step)
@@ -178,13 +166,8 @@ class ResultsToDynamicsDataset:
                     if k == 'joint_names':
                         pad_state[k] = v
                     else:
-                        pad_state[k] = v #np.zeros_like(v)
-
-                #pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
-                pad_action = {}
-                pad_action["controlled_container_target_pos"] = pad_state["controlled_container_pos"]
-                pad_action["controlled_container_target_angle"] = pad_state["controlled_container_angle"]
-
+                        pad_state[k] = np.zeros_like(v)
+                pad_action = {k: np.zeros_like(v) for k, v in actions_step[-1].items()}
                 states_padded = states + n_pad * [pad_state]
                 actions_padded = actions + (n_pad - 1) * [pad_action]
                 state_subsequences = [states_padded]

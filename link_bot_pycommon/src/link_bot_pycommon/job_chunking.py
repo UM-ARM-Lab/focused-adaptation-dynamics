@@ -40,7 +40,6 @@ class JobChunker:
                  log: Optional[Dict] = None,
                  serializer=hjson):
         self.logfile_name = logfile_name
-        print(logfile_name)
         self.serializer = serializer
         if root_log is not None:
             self.root_log = root_log
@@ -62,7 +61,6 @@ class JobChunker:
 
     def store_results(self, update_dict: Dict, save=True):
         self.log.update(update_dict)
-        import ipdb; ipdb.set_trace()
         if save:
             self.save()
 
