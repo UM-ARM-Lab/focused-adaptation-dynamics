@@ -1,6 +1,4 @@
 import os
-import warnings
-warnings.filterwarnings("once", UserWarning)
 from typing import Dict, Optional, List
 
 import numpy as np
@@ -111,7 +109,7 @@ class WaterSimScenario(ScenarioWithVisualization):
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
         res = 0.02
-        warnings.warn("Using a different res than what is specified in fwd_model parameters. This is fine for water")
+        rospy.logwarn_once("Using a different res than what is specified in fwd_model parameters. This is fine for water")
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,

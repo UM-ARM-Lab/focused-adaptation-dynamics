@@ -30,13 +30,8 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
     mde_dataset_hparams = load_params(dataset_dir)
 
     def _set_keys_hparam(mde_dataset_hparams, k1, k2):
-        if 'data_collection_params' not in mde_dataset_hparams.keys():
-            mde_dataset_hparams[f'{k1}_keys'] = list(
-                mde_dataset_hparams[f'{k2}_description'].keys())
-
-        else:
-            mde_dataset_hparams[f'{k1}_keys'] = list(
-                mde_dataset_hparams['data_collection_params'][f'{k2}_description'].keys())
+        mde_dataset_hparams[f'{k1}_keys'] = list(
+            mde_dataset_hparams['data_collection_params'][f'{k2}_description'].keys())
 
     mde_dataset_hparams['dataset_dir'] = dataset_dir.as_posix()
     mde_dataset_hparams['fwd_model_hparams'] = model.hparams
@@ -120,6 +115,7 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
             _inputs_from_start_t = torchify(add_batch(inputs_from_start_t))
             predictions_from_start_t = model(_inputs_from_start_t)
             predictions_from_start_t = numpify(remove_batch(predictions_from_start_t))
+
             actual_states_from_start_t = {k: example[k][start_t:] for k in state_keys}
             environment = {k: example[k] for k in dataset.env_keys}
 

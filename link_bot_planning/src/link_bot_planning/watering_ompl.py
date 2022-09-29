@@ -1,4 +1,5 @@
 import warnings
+warnings.simplefilter("once", category=UserWarning)
 from typing import Dict
 
 import numpy as np
@@ -15,7 +16,7 @@ class WateringOmpl(ScenarioOmpl):
 
     def __init__(self, scenario: WaterSimScenario, *args, **kwargs):
         super().__init__(scenario, *args, **kwargs)
-        print("Warning: target container pos hard coded")
+        warnings.warn("Warning: target container pos hard coded")
         self._target_container_pos = np.array([0.5, 0])
 
     @staticmethod
@@ -80,7 +81,6 @@ class WateringOmpl(ScenarioOmpl):
 
         self.add_container_subspace(state_space, 'controlled_container')
         self.add_container_subspace(state_space, 'target_container')
-        # self.add_1d_subspace(state_space, "controlled_container_angle")
         self.add_volume_subspace(state_space, 'control_volume')
         self.add_volume_subspace(state_space, 'target_volume')
 
@@ -128,15 +128,6 @@ class WateringOmpl(ScenarioOmpl):
         volume_subspace.setBounds(volume_bounds)
         volume_subspace.setName(name)
         state_space.addSubspace(volume_subspace, weight=1)
-
-    def add_1d_subspace(self, state_space, name="container"):
-        scalar_subspace = ob.RealVectorStateSpace(1)
-        scalar_bounds = ob.RealVectorBounds(1)
-        scalar_bounds.setLow(-10)
-        scalar_bounds.setHigh(10)
-        scalar_subspace.setBounds(scalar_bounds)
-        scalar_subspace.setName(name)
-        state_space.addSubspace(scalar_subspace, weight=1)
 
     def make_control_space(self):
         control_space = oc.CompoundControlSpace(self.state_space)

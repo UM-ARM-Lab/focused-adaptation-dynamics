@@ -5,7 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from torch.nn import Linear, Sequential, MSELoss
+from torch.nn import Linear, Sequential
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_pycommon.get_scenario import get_scenario
@@ -37,8 +37,6 @@ class UDNN(pl.LightningModule):
         self.total_action_dim = sum([self.dataset_action_description[k] for k in self.hparams.action_keys])
         self.with_joint_positions = with_joint_positions
         self.max_step_size = self.data_collection_params.get('max_step_size', 0.01)  # default for current rope sim
-        self.mae = torch.nn.L1Loss()
-        self.mse = MSELoss()
         self.loss_scaling_by_key = self.hparams.get("loss_scaling_by_key", {})
 
         in_size = self.total_state_dim + self.total_action_dim
@@ -102,7 +100,6 @@ class UDNN(pl.LightningModule):
                                                                                          j=self.scenario.robot.jacobian_follower)
             pred_states_dict['joint_positions'] = torchify(joint_positions).float()
             pred_states_dict['joint_names'] = joint_names
-         
         return pred_states_dict
 
     def one_step_forward(self, action_t, s_t):
@@ -131,7 +128,7 @@ class UDNN(pl.LightningModule):
         return s_t_plus_1
 
     def compute_batch_loss(self, inputs, outputs, use_mask: bool):
-        batch_time_loss = compute_batch_time_loss(inputs, outputs, loss_scaling_by_key=self.loss_scaling_by_key, mse_loss = self.mse)
+        batch_time_loss = compute_batch_time_loss(inputs, outputs, loss_scaling_by_key=self.loss_scaling_by_key)
         if use_mask:
             if self.hparams.get('iterative_lowest_error', False):
                 mask_padded = self.low_error_mask(inputs, outputs)
@@ -154,7 +151,6 @@ class UDNN(pl.LightningModule):
     def low_error_mask(self, inputs, outputs, global_step=None):
         with torch.no_grad():
             error = self.scenario.classifier_distance_torch(inputs, outputs)
-      
 
             if self.hparams.get("soft_masking", False):
                 # FIXME: I think this should just be: low_error_mask = self.soft_mask(error, global_step=global_step)
@@ -176,7 +172,7 @@ class UDNN(pl.LightningModule):
     def soft_mask(self, error, global_step=None):
         if global_step is None:
             global_step = self.global_step
-        low_error_mask = soft_mask(self.global_step, self.hparams['mask_threshold'], error, k_global = self.hparams.get("k_global", 1.0))
+        low_error_mask = soft_mask(global_step, self.hparams['mask_threshold'], error, k_global = self.hparams.get("k_global", 1.0))
         return low_error_mask
 
     def compute_loss(self, inputs, outputs, use_mask: bool):
@@ -200,6 +196,7 @@ class UDNN(pl.LightningModule):
         else:
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
+        self.log('val_loss', val_losses['loss'])
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
@@ -241,16 +238,15 @@ class UDNN(pl.LightningModule):
         super().load_state_dict(state_dict, strict=False)
 
 
-def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}, mse_loss = None):
+def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
     loss_by_key = []
     for k, y_pred in outputs.items():
         y_true = inputs[k]
         loss_scaling = loss_scaling_by_key[k] if k in loss_scaling_by_key else 1
 
         # mean over time and state dim but not batch, not yet.
-        diff = (y_true - y_pred)[:,1:]
-        loss = loss_scaling*(y_true - y_pred).square().mean(-1)
-        
+        loss = loss_scaling * (y_true - y_pred).square().mean(-1)
+
         loss_by_key.append(loss)
     batch_time_loss = torch.stack(loss_by_key).mean(0)
     return batch_time_loss
