@@ -44,9 +44,6 @@ def get_local_env_and_origin_point(center_point,
                                    c: int,
                                    indices: Dict,
                                    batch_size: int):
-    #lagrassa hack
-    if isinstance(environment['res'], np.ndarray):
-        environment['res'] = torch.from_numpy(environment['res']).to(environment['origin_point'].device)
     res = environment['res']
     full_env_origin_point = environment['origin_point']
     full_env = environment['env']

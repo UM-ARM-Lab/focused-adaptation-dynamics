@@ -58,13 +58,17 @@ def main():
 
     outdir = args.outdir
 
-    if not args.test_scenes_dir.exists():
-        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
-        return
+    if args.test_scenes_dir == pathlib.Path("None"):
+        args.test_scenes_dir = None
+        assert args.trials is not None
+    else:
+        if not args.test_scenes_dir.exists():
+            print(f"Test scenes dir {args.test_scenes_dir} does not exist")
+            return
 
-    if args.trials is None:
-        args.trials = list(get_all_scene_indices(args.test_scenes_dir))
-    print(args.trials)
+        if args.trials is None:
+            args.trials = list(get_all_scene_indices(args.test_scenes_dir))
+
 
     planner_params = load_planner_params(args.planner_params)
     if args.method_name:

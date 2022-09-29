@@ -194,7 +194,7 @@ def main():
                         "python",
                         "scripts/planning_evaluation2.py",
                         planner_params_filename,
-                        pathlib.Path("empty").as_posix(),
+                        "None",
                         planning_outdir.as_posix(),
                         dynamics,
                         str(prev_mde),
@@ -206,9 +206,10 @@ def main():
                     ]
                     eval_stdout_filename = outdir / f'{process_idx}_eval.stdout'
                     eval_stdout_file = eval_stdout_filename.open("w")
-                    print(planning_cmd)
                     planning_process = subprocess.Popen(planning_cmd, env=env, stdout=eval_stdout_file, stderr=eval_stdout_file)
                     print(f"PID: {planning_process.pid}")
+                    planning_cmd[2] = str(2)
+                    print(" ".join(planning_cmd))
                     return_code = planning_process.wait()
                     print("Return code for planning process", return_code)
 
@@ -230,8 +231,8 @@ def main():
                                          val_split=0.1,
                                          test_split=0.0,
                                          visualize=False)
-            dataset_hparams_fn = collect_data_params_filename #outdir / "hparams.hjson"
-            dynamics_dataset_dir_i = r.run()
+            data_collection_params_fn = collect_data_params_filename
+            dynamics_dataset_dir_i = r.run(data_collection_params_fn=data_collection_params_fn)
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
             dynamics_dataset_name = dynamics_dataset_dir_i.name
             sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)

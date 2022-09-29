@@ -117,7 +117,7 @@ class OmplRRTWrapper(MyPlanner):
         self.rrt.setIntermediateStates(True)  # this is necessary, because we use this to generate datasets
 
         self.ss.setPlanner(self.rrt)
-        self.si.setMinMaxControlDuration(1, self.params.get('max_steps', 8))
+        self.si.setMinMaxControlDuration(1, self.params.get('max_steps', 50))
 
         self.visualize_propogation_color = [0, 0, 0]
 
@@ -414,20 +414,15 @@ class OmplRRTWrapper(MyPlanner):
             ompl_path = self.ss.getSolutionPath()
             actions, planned_path = self.convert_path(ompl_path)
             if self.params['smooth']:
-                print(f"{len(actions)} actions before smoothing")
                 actions, planned_path = self.smooth(planning_query, actions, planned_path)
-                print(f"{len(actions)} actions after smoothing")
         elif planner_status == MyPlannerStatus.Timeout:
             # Use the approximate solution, since it's usually pretty darn close, and sometimes
             # our goals are impossible to reach so this is important to have
             try:
                 ompl_path = self.ss.getSolutionPath()
                 actions, planned_path = self.convert_path(ompl_path)
-                print("Predicted target volume", planned_path[-1]["target_volume"])
                 if self.params['smooth']:
-                    print(f"{len(actions)} actions before smoothing")
                     actions, planned_path = self.smooth(planning_query, actions, planned_path)
-                    print(f"{len(actions)} actions after smoothing")
             except RuntimeError:
                 rospy.logerr("Timeout before any edges were added. Considering this as Not Progressing.")
                 planner_status = MyPlannerStatus.NotProgressing
@@ -539,7 +534,7 @@ class OmplRRTWrapper(MyPlanner):
 
             # NOTE: we don't check this because smoothing is run even when we Timeout and the goal wasn't reached
             distance_to_goal = self.scenario.distance_to_goal(proposed_state_seq[-1], goal)
-            much_further_from_goal = distance_to_goal - initial_distance_to_goal > self.params.get("smoothing_max_goal_dist_diff", 0.08)
+            much_further_from_goal = distance_to_goal - initial_distance_to_goal > self.params.get("smoothing_max_goal_dist_diff", 0.03)
 
             # if the shortcut was successful, save that as the new path
             accept = classifier_accept and not much_further_from_goal

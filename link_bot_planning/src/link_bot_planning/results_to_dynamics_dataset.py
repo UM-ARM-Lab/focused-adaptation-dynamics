@@ -4,7 +4,6 @@ from typing import Dict, Optional
 import numpy as np
 from colorama import Fore
 from tqdm import tqdm
-
 import rospy
 from analysis import results_utils
 from analysis.results_utils import NoTransitionsError
@@ -56,50 +55,48 @@ class ResultsToDynamicsDataset:
 
         return self.outdir
 
-
     def save_hparams(self, data_collection_params_fn=None):
         # FIXME: hard-coded
         planner_params = self.metadata['planner_params']
         dataset_hparams = {
-            'scenario':               planner_params['scenario'],
-            'from_results':           self.results_dir,
-            'seed':                   None,
-            'n_trajs':                len(self.trials)
+            'scenario': planner_params['scenario'],
+            'from_results': self.results_dir,
+            'seed': None,
+            'n_trajs': len(self.trials)
         }
         if data_collection_params_fn is None:
-            data_collection_params= {
-                'scenario_params':               planner_params.get("scenario_params", {}),
-                'max_step_size':                 planner_params.get("max_step_size", 0.01),
-                'max_distance_gripper_can_move': 0.1,
-                'res':                           0.02,
-                'service_provider':              'gazebo',
-                'state_description':             {
-                    'left_gripper':    3,
-                    'right_gripper':   3,
-                    'joint_positions': 18,
-                    'rope':            75,
-                },
-                'state_metadata_description':    {
-                    'joint_names': None,
-                },
-                'action_description':            {
-                    'left_gripper_position':  3,
-                    'right_gripper_position': 3,
-                },
-                'env_description':               {
-                    'env':          None,
-                    'extent':       4,
-                    'origin_point': 3,
-                    'res':          None,
-                    'scene_msg':    None,
-                },
-            },
+            data_collection_params = {
+                                         'scenario_params': planner_params.get("scenario_params", {}),
+                                         'max_step_size': planner_params.get("max_step_size", 0.01),
+                                         'max_distance_gripper_can_move': 0.1,
+                                         'res': 0.02,
+                                         'service_provider': 'gazebo',
+                                         'state_description': {
+                                             'left_gripper': 3,
+                                             'right_gripper': 3,
+                                             'joint_positions': 18,
+                                             'rope': 75,
+                                         },
+                                         'state_metadata_description': {
+                                             'joint_names': None,
+                                         },
+                                         'action_description': {
+                                             'left_gripper_position': 3,
+                                             'right_gripper_position': 3,
+                                         },
+                                         'env_description': {
+                                             'env': None,
+                                             'extent': 4,
+                                             'origin_point': 3,
+                                             'res': None,
+                                             'scene_msg': None,
+                                         },
+                                     },
         else:
             data_collection_params = load_hjson(data_collection_params_fn)
         dataset_hparams["data_collection_params"] = data_collection_params
         with (self.outdir / 'hparams.hjson').open('w') as dataset_hparams_file:
             my_hdump(dataset_hparams, dataset_hparams_file, indent=2)
-
 
     def results_to_dynamics_dataset(self):
         if self.visualize:
@@ -154,6 +151,11 @@ class ResultsToDynamicsDataset:
             if len(actions_step) == 0 or actions_step[0] is None:
                 continue
 
+            if len(actions_step) >= len(states_step):
+                # indicates stop on error occurred
+                num_states = len(states_step)
+                actions_step = actions_step[:num_states - 1]
+
             actions_step = numpify(actions_step)
             # NOTE: here we append the final action to make action & state the same length
             actions_step.append(actions_step[-1])
@@ -207,5 +209,4 @@ class ResultsToDynamicsDataset:
             example.pop("left_gripper_delta_position", None)
             example.pop("right_gripper_delta_position", None)
             example['time_mask'] = time_mask
-
             yield example

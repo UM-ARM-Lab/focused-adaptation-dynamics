@@ -1,4 +1,6 @@
 import os
+import warnings
+warnings.filterwarnings("once", UserWarning)
 from typing import Dict, Optional, List
 
 import numpy as np
@@ -53,7 +55,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = self._save_cfg["save_frames"]
+        env_kwargs['render'] = True #self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
 
@@ -109,6 +111,7 @@ class WaterSimScenario(ScenarioWithVisualization):
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
         res = 0.02
+        warnings.warn("Using a different res than what is specified in fwd_model parameters. This is fine for water")
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
@@ -119,7 +122,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env = {}
         env.update({k: np.array(v).astype(np.float32) for k, v in voxel_grid_env.items()})
         env["origin_point"] = extent_res_to_origin_point(extent=params[extent_key], res=res)
-        env["res"] = res
+        env["res"] = np.array(res)
         return env
 
     def on_before_get_state_or_execute_action(self):

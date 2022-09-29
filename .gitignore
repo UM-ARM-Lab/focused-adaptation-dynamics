@@ -7,6 +7,10 @@ nohup.out
 *.pyc
 __pycache__
 
+
+*/gifs*
+*/mp4s/*
+
 CATKIN_IGNORE
 .roslaunch.std*
 **/log_data/*

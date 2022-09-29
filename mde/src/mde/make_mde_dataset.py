@@ -70,8 +70,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                 for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step)):
                     # NOTE: what if two modes have the example input example? can we check if we've already generated
                     #  it an skip actually re-doing the conversion to MDE and just re-use the existing one?
-                    #result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
-                    result = write_example(outdir, out_example, total_example_idx, 'pkl')
+                    result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
                     results.append(result)
 
                     metadata_filename = index_to_filename('.pkl', total_example_idx)
@@ -83,9 +82,9 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
             write_mode(outdir, files, mode)
 
         # the pool won't close unless we do this
-        #print("Waiting while results finish writing...")
-        #for result in tqdm(results):
-        #    result.get()
+        print("Waiting while results finish writing...")
+        for result in tqdm(results):
+            result.get()
 
     print("Saving wandb dataset")
     wandb_save_dataset(outdir, project='mde')

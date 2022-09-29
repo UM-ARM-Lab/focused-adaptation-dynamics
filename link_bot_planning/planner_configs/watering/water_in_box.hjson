@@ -3,6 +3,7 @@
   smooth: true
   max_shortcut_length: 20
   n_shortcut_attempts: 30
+  smoothing_max_goal_dist_diff: 0.08
   service_provider: softgym
   scenario_params: {
     k_pos: 1.5
@@ -29,4 +30,5 @@
     attempted_extensions_threshold: 100
   }
   dmax: 0.1
+  max_steps: 8
 }
