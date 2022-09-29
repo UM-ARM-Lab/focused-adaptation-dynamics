@@ -1,7 +1,8 @@
 {
-  accept_type: probabilistic
-  probabilistic_accept_k: 0.01
-  scenario: watering 
+  method_name: mde
+  smooth: true
+  max_shortcut_length: 20
+  scenario: watering
   filter_model_dir: [
     filter_trials/none/none
   ]
@@ -14,6 +15,26 @@
     max_distance_controlled_container_can_move_per_dim: 0.18
     theta_min: 2
     theta_max: 3.1
+  }
+  n_shortcut_attempts: 30
+  smoothing_max_goal_dist_diff: 0.08
+  max_steps: 8
+  service_provider: softgym
+  scenario_params: {
+    k_pos: 1.5
+    k_angle: 2.0
+    controller_max_horizon: 80
+    run_flex: true
+    gui: false
+    max_dist_for_pour : 0.25
+    max_move_dist : 0.3
+  }
+  goal_params: {
+    type: fixed
+    goal_fixed: {
+      goal_target_volume_range : [0.75, 1.00]
+      }
+    threshold: 0.02
   }
   planner_type: rrt
   accept_threshold: 0.5
