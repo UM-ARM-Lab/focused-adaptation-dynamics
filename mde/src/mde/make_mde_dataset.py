@@ -25,9 +25,10 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                      checkpoint: pathlib.Path,
                      outdir: pathlib.Path,
                      step):
-    model = load_udnn_model_wrapper(checkpoint, with_joint_positions=False)
-
     mde_dataset_hparams = load_params(dataset_dir)
+    with_joint_positions = False if mde_dataset_hparams['scenario'] == "watering" else True
+    model = load_udnn_model_wrapper(checkpoint, with_joint_positions=with_joint_positions)
+
 
     def _set_keys_hparam(mde_dataset_hparams, k1, k2):
         mde_dataset_hparams[f'{k1}_keys'] = list(

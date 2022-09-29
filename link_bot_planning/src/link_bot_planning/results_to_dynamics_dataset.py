@@ -209,4 +209,5 @@ class ResultsToDynamicsDataset:
             example.pop("left_gripper_delta_position", None)
             example.pop("right_gripper_delta_position", None)
             example['time_mask'] = time_mask
+
             yield example

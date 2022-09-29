@@ -36,7 +36,7 @@ class SoftGymServices():
     def is_occupied(self, x, y, z, env_indices, res, sphere):
         coords = env_indices[x, y, z]
         obj_idxs = ["plant", "poured"]
-        radius = res/2.
+
         return self._scene.in_collision_sphere_premade(coords, sphere, obj_idxs=obj_idxs)
 
     def pause(self):
@@ -90,4 +90,5 @@ class SoftGymServices():
                         if self.is_occupied(x, y, z, env_coords, res, sphere):
                             grid[x, y, z] = 1
         response.grid = grid
+
         return response

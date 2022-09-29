@@ -100,6 +100,7 @@ class UDNN(pl.LightningModule):
                                                                                          j=self.scenario.robot.jacobian_follower)
             pred_states_dict['joint_positions'] = torchify(joint_positions).float()
             pred_states_dict['joint_names'] = joint_names
+
         return pred_states_dict
 
     def one_step_forward(self, action_t, s_t):
@@ -187,6 +188,7 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
+
         return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
@@ -246,7 +248,6 @@ def compute_batch_time_loss(inputs, outputs, loss_scaling_by_key={}):
 
         # mean over time and state dim but not batch, not yet.
         loss = loss_scaling * (y_true - y_pred).square().mean(-1)
-
         loss_by_key.append(loss)
     batch_time_loss = torch.stack(loss_by_key).mean(0)
     return batch_time_loss
