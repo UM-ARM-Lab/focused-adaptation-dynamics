@@ -34,7 +34,7 @@ def evaluate_online_iter(planner_params_filename, online_dir, iter_idx: int, sce
         planner_params["classifier_model_dir"] = [mde, pathlib.Path(
             "cl_trials/new_feasibility_baseline/none")] + additional_constraints
 
-    if not scenes.exists():
+    if scenes is not None and not scenes.exists():
         print(f"Test scenes dir {scenes} does not exist")
         return
 

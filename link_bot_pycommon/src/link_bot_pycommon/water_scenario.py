@@ -27,6 +27,8 @@ class WaterSimScenario(ScenarioWithVisualization):
     def __init__(self, params: Optional[dict] = None):
         ScenarioWithVisualization.__init__(self, params)
         self.max_action_attempts = 300
+        self._pos_tol = 0.002
+        self._angle_tol = 0.05
         self.robot_reset_rng = np.random.RandomState(0)
         self.control_volumes = []
         self.target_volumes = []
@@ -53,7 +55,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = True #self._save_cfg["save_frames"]
+        env_kwargs['render'] = True
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
 
@@ -62,9 +64,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self._scene = normalize(SOFTGYM_ENVS[softgym_env_name](**env_kwargs))
         self._save_frames = self._save_cfg["save_frames"]
         if self._save_frames:
-            # self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
             self.frames = []
-            # self.frames = [self._scene.get_image()]
 
     def needs_reset(self, state: Dict, params: Dict):
         if state["control_volume"].item() < 0.5:
@@ -109,7 +109,8 @@ class WaterSimScenario(ScenarioWithVisualization):
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
         res = 0.02
-        rospy.logwarn_once("Using a different res than what is specified in fwd_model parameters. This is fine for water")
+        rospy.logwarn_once(
+            "Using a different res than what is specified in fwd_model parameters. This is fine for water")
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
@@ -181,8 +182,6 @@ class WaterSimScenario(ScenarioWithVisualization):
             self.frames = []
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
-        pos_tol = 0.002
-        angle_tol = 0.05
         goal_pos = action["controlled_container_target_pos"].flatten()
         goal_angle = action["controlled_container_target_angle"].flatten()
         curr_state = state
@@ -202,7 +201,8 @@ class WaterSimScenario(ScenarioWithVisualization):
             pos_control = self.params["k_pos"] * (pos_error)
             angle_error = target_angle - curr_angle
             angle_control = self.params["k_angle"] * (angle_error)
-            if np.linalg.norm(curr_pos - goal_pos) < pos_tol and np.abs(goal_angle - curr_angle) < angle_tol:
+            if np.linalg.norm(curr_pos - goal_pos) < self._pos_tol and np.abs(
+                    goal_angle - curr_angle) < self._angle_tol:
                 if curr_state["control_volume"] > 0.9 or curr_state["target_volume"] > 0.97:
                     break
             vector_action = np.hstack([pos_control, angle_control])
@@ -482,10 +482,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         else:
             pourer_pos = target_pos
             pourer_angle = target_angle
-        # pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
-        #               self._scene.glass_params["glass_dis_z"]]
-        # poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
-        #               self._scene.glass_params["poured_glass_dis_z"]]
+
         if "control_volume" in state:
             control_volume = state["control_volume"]
             target_volume = state["target_volume"]

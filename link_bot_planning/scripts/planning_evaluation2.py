@@ -57,7 +57,6 @@ def main():
     args = parser.parse_args()
 
     outdir = args.outdir
-
     if args.test_scenes_dir == pathlib.Path("None"):
         args.test_scenes_dir = None
         assert args.trials is not None

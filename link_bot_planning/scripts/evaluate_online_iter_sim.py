@@ -34,28 +34,34 @@ def main():
     parser.add_argument("--scenes", type=pathlib.Path, default=pathlib.Path('test_scenes/car4_alt'))
     parser.add_argument("--trials", type=int_set_arg, default="0-9")
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
+    parser.add_argument("--no-launch-gazebo", dest="launch_gazebo", action='store_false')
+    parser.set_defaults(launch_gazebo=True)
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
     parser.add_argument('--yes', '-y', action='store_true')
 
     args = parser.parse_args()
 
-    cmd = [
-        'roslaunch',
-        'link_bot_gazebo',
-        'val.launch',
-        'world:=car5_alt.world',
-        'gui:=false',
-        '--no-summary',
-    ]
-    port = np.random.randint(1_024, 65_000)
-    print(f"USING PORTS {port} and {port + 1}")
-    os.environ['ROS_MASTER_URI'] = f'http://localhost:{port}'
-    os.environ['GAZEBO_MASTER_URI'] = f'http://localhost:{port + 1}'
-    p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
-    roslaunch_process = psutil.Process(p.pid)
+    if args.scenes == pathlib.Path("None"):
+        args.scenes = None
 
-    time.sleep(10)
+    if args.launch_gazebo:
+        cmd = [
+            'roslaunch',
+            'link_bot_gazebo',
+            'val.launch',
+            'world:=car5_alt.world',
+            'gui:=false',
+            '--no-summary',
+        ]
+        port = np.random.randint(1_024, 65_000)
+        print(f"USING PORTS {port} and {port + 1}")
+        os.environ['ROS_MASTER_URI'] = f'http://localhost:{port}'
+        os.environ['GAZEBO_MASTER_URI'] = f'http://localhost:{port + 1}'
+        p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
+        roslaunch_process = psutil.Process(p.pid)
+
+        time.sleep(10)
 
     print("STARTING MAIN...")
     evaluate_online_iter(planner_params_filename=args.planner_params,
@@ -69,9 +75,10 @@ def main():
                          yes=args.yes,
                          record=False)
 
-    for proc in roslaunch_process.children(recursive=True):
-        proc.kill()
-    roslaunch_process.kill()
+    if args.launch_gazebo:
+        for proc in roslaunch_process.children(recursive=True):
+            proc.kill()
+        roslaunch_process.kill()
 
 
 if __name__ == '__main__':
