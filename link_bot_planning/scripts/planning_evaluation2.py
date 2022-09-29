@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import ompl.control as oc
-import ompl.base as ob
 import argparse
 import logging
 import pathlib
@@ -16,7 +14,6 @@ from link_bot_classifiers.classifier_utils import strip_torch_model_prefix
 from link_bot_planning.planning_evaluation import load_planner_params, evaluate_planning
 from link_bot_planning.test_scenes import get_all_scene_indices
 from link_bot_pycommon.args import int_set_arg
-import os
 from link_bot_pycommon.load_wandb_model import load_model_artifact
 from mde.torch_mde import MDE
 from moonshine.gpu_config import limit_gpu_mem
@@ -27,7 +24,7 @@ limit_gpu_mem(None)
 def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
     mde_run_id = strip_torch_model_prefix(mde_run_id)
     dynamics_run_id = strip_torch_model_prefix(dynamics_run_id)
-    mde = load_model_artifact(mde_run_id, MDE, project='mde', version='latest', user='armlab')
+    mde = load_model_artifact(mde_run_id, MDE, project='mde', version='best', user='armlab')
     dynamics_used_for_mde = mde.hparams['dataset_hparams']['checkpoint']
     if dynamics_used_for_mde != dynamics_run_id:
         q = input(f"{dynamics_used_for_mde} != {dynamics_run_id} Do you want to override? [y/N]")
@@ -36,7 +33,7 @@ def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
         print("Ok, continuing...")
 
 
-@ros_init.with_ros(f"planning_evaluation{os.environ['STY'].replace('.', '').replace('-', '')}")
+@ros_init.with_ros("planning_evaluation")
 def main():
     colorama.init(autoreset=True)
     np.set_printoptions(suppress=True, precision=5, linewidth=250)
@@ -44,7 +41,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('planner_params', type=pathlib.Path, help='planner params hjson file')
-    #parser.add_argument("test_scenes_dir", type=pathlib.Path)
+    parser.add_argument("test_scenes_dir", type=pathlib.Path)
     parser.add_argument("outdir", type=pathlib.Path, help='used in making the output directory')
     parser.add_argument('dynamics', type=pathlib.Path)
     parser.add_argument('mde', type=pathlib.Path)
@@ -53,12 +50,17 @@ def main():
     parser.add_argument("--seed", type=int, help='an additional seed for testing randomness', default=0)
     parser.add_argument("--yes", '-y', action='store_true', help='override the dynamics/mde check')
     parser.add_argument("--on-exception", choices=['raise', 'catch', 'retry'], default='retry')
+    parser.add_argument("--no-wait-for-move-group", dest="wait_for_move_group", action='store_false')
+    parser.set_defaults(wait_for_move_group=True)
     parser.add_argument('--verbose', '-v', action='count', default=0, help="use more v's for more verbose, like -vvv")
 
     args = parser.parse_args()
-    args.test_scenes_dir = None
 
     outdir = args.outdir
+
+    if not args.test_scenes_dir.exists():
+        print(f"Test scenes dir {args.test_scenes_dir} does not exist")
+        return
 
     if args.trials is None:
         args.trials = list(get_all_scene_indices(args.test_scenes_dir))
@@ -87,8 +89,8 @@ def main():
     #  - check if it matches the dynamics
     if not args.yes and args.mde is not None:
         check_mde_and_dynamics_match(args.dynamics, args.mde)
-
-    #rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray)
+    if args.wait_for_move_group:
+        rospy.wait_for_message("/hdt_michigan/move_group/status", GoalStatusArray, timeout=10)
 
     evaluate_planning(outdir=outdir,
                       planner_params=planner_params,

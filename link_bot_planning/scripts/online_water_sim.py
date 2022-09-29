@@ -99,11 +99,11 @@ def main():
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
-    iterations = 20 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 12# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 20 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    iterations = 3 #int(job_chunker.load_prompt('iterations', 10))
+    n_trials_per_iteration = 2# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 6 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = -0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
-    mde_init_epochs = 10 #int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_init_epochs = 2 #int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = -0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
@@ -194,6 +194,7 @@ def main():
                         "python",
                         "scripts/planning_evaluation2.py",
                         planner_params_filename,
+                        pathlib.Path("empty").as_posix(),
                         planning_outdir.as_posix(),
                         dynamics,
                         str(prev_mde),
@@ -201,6 +202,7 @@ def main():
                         f"--on-exception={how_to_handle}",
                         f"--seed={seed}",
                         f'--method-name={method_name}',
+                        f'--no-wait-for-move-group',
                     ]
                     eval_stdout_filename = outdir / f'{process_idx}_eval.stdout'
                     eval_stdout_file = eval_stdout_filename.open("w")
@@ -219,7 +221,6 @@ def main():
         # convert the planning results to a dynamics dataset
         # NOTE: if we use random data collection on iter0 this will already be set so conversion will be skipped
         dynamics_dataset_name = sub_chunker_i.get("dynamics_dataset_name")
-        metadata_dir = None #outdir
         if dynamics_dataset_name is None:
             t0 = perf_counter()
             r = ResultsToDynamicsDataset(results_dir=planning_outdir,
@@ -228,11 +229,9 @@ def main():
                                          traj_length=10,
                                          val_split=0.1,
                                          test_split=0.0,
-                                         metadata_dir=metadata_dir,
                                          visualize=False)
-            #dataset_hparams_fn = outdir / dynamics_dataset_dirs[0] / "hparams.hjson"
             dataset_hparams_fn = collect_data_params_filename #outdir / "hparams.hjson"
-            dynamics_dataset_dir_i = r.run(dataset_hparams_fn = dataset_hparams_fn)
+            dynamics_dataset_dir_i = r.run()
             wandb_save_dataset(dynamics_dataset_dir_i, project='udnn')
             dynamics_dataset_name = dynamics_dataset_dir_i.name
             sub_chunker_i.store_result('dynamics_dataset_name', dynamics_dataset_name)
@@ -254,7 +253,7 @@ def main():
                                                                      epochs=int(
                                                                          udnn_init_epochs + i * udnn_scale_epochs),
                                                                      repeat=10,
-                                                                     no_val=False,
+                                                                     no_val=True,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab',
@@ -293,7 +292,7 @@ def main():
                                                        epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                        train_mode='train',
                                                        val_mode='val',  # yes needed env if no_val=True
-                                                       no_val=False,
+                                                       no_val=True,
                                                        seed=seed,
                                                        user='armlab',
                                                        nickname=f'{args.nickname}_mde_{i}',
@@ -310,7 +309,7 @@ def main():
                                                            epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                            train_mode='train',
                                                            val_mode='val',
-                                                           no_val=False,
+                                                           no_val=True,
                                                            seed=seed,
                                                            user='armlab',
                                                            nickname=f'{args.nickname}_mde_{i}',

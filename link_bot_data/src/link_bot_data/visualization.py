@@ -57,7 +57,8 @@ class DebuggingViz:
             if k in input_dict:
                 state_0[k] = input_dict[k][b, 0]
         state_0 = numpify(state_0)
-        #state_0['joint_names'] = input_dict['joint_names'][b, 0]
+        _add_joint_names_to_state_from_input(state_0, input_dict, b, 0)
+
         action_0 = numpify({k: input_dict[k][b, 0] for k in self.action_keys})
         self.scenario.plot_action_rviz(state_0, action_0, idx=1, label=label, color=color)
 
@@ -234,7 +235,7 @@ def plot_state_b_t(scenario, state_keys, input_dict, b, t, label: str, color='re
         if k in input_dict:
             state_t[k] = input_dict[k][b, t]
     state_t = numpify(state_t)
-    #state_t['joint_names'] = input_dict['joint_names'][b, t]
+    _add_joint_names_to_state_from_input(state_t, input_dict, b, t)
     scenario.plot_state_rviz(state_t, label=label, color=color)
 
     if 'is_close' in input_dict:
@@ -251,7 +252,7 @@ def plot_state_b_t(scenario, state_keys, input_dict, b, t, label: str, color='re
 
 def plot_state_t(scenario, state_keys, input_dict, t, label: str, color='red'):
     state_t = numpify({k: input_dict[add_predicted(k)][t] for k in state_keys})
-    #state_t['joint_names'] = input_dict['joint_names'][t]
+    _add_joint_names_to_state_from_input(state_t, input_dict, None, t)
     scenario.plot_state_rviz(state_t, label=label, color=color)
 
     if 'is_close' in input_dict:
@@ -264,6 +265,14 @@ def plot_state_t(scenario, state_keys, input_dict, t, label: str, color='red'):
         scenario.plot_error_rviz(error_t)
     else:
         scenario.plot_error_rviz(-999)
+
+def _add_joint_names_to_state_from_input(state, input_dict, b, t):
+    #hack to check if there are joint names in the input and then mutates the state
+    if 'joint_names' in input_dict.keys():
+        if b is not None:
+            state['joint_names'] = input_dict['joint_names'][b, t]
+        else:
+            state['joint_names'] = input_dict['joint_names'][t]
 
 
 def make_robot_trajectory(robot_state: Dict):

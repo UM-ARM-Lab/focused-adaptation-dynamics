@@ -1,10 +1,13 @@
 import numpy as np
+import warnings
+warnings.simplefilter('once', UserWarning)
 try:
     import fcl
 except ImportError:
     print("FCL not there. softgym stack will not work")
 
 from arm_gazebo_msgs.srv import ComputeOccupancyResponse
+from link_bot_data.new_dataset_utils import fetch_dataset
 
 
 class SoftGymServices():
@@ -19,7 +22,8 @@ class SoftGymServices():
 
     def set_scene(self, scene):
         self._scene = scene
-        self.cached_grid = np.load("/home/lagrassa/catkin_ws/src/link_bot/link_bot_data/cached_grid.npy")
+        cached_grid_path = fetch_dataset("cached_grid_data", "mde") / "cached_grid.npy"
+        self.cached_grid = np.load(cached_grid_path)
 
 
     def __call__(self, args, **kwargs):
@@ -67,7 +71,12 @@ class SoftGymServices():
         grid = np.zeros((x_dims, y_dims, z_dims))
         response = ComputeOccupancyResponse()
         if self.cached_grid is not None:
-            assert grid.shape == self.cached_grid.shape
+            if grid.shape != self.cached_grid.shape:
+                warnings.warn(f"Grid shape specified by extent and res is {grid.shape} "
+                              f"and for the chached grid is {self.cached_grid.shape} "
+                              f"which are not the same. This is probably due to a "
+                              f"misspecified res in the fwd_model which is used for res by "
+                              f"default")
             response.grid = self.cached_grid
         else:
             env_coords = self.create_env_coords(x_dims, y_dims, z_dims, center, res)

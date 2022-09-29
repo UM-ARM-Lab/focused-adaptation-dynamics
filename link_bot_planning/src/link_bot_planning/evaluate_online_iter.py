@@ -7,7 +7,7 @@ from link_bot_planning.test_scenes import get_all_scene_indices
 from moonshine.filepath_tools import load_hjson
 
 
-def evaluate_online_iter(planner_params_filename, online_dir, iter_idx: int,  trials, seed, on_exception,
+def evaluate_online_iter(planner_params_filename, online_dir, iter_idx: int, scenes, trials, seed, on_exception,
                          verbose, yes, record: bool, additional_constraints=None):
     if additional_constraints is None:
         additional_constraints = []
@@ -34,11 +34,19 @@ def evaluate_online_iter(planner_params_filename, online_dir, iter_idx: int,  tr
         planner_params["classifier_model_dir"] = [mde, pathlib.Path(
             "cl_trials/new_feasibility_baseline/none")] + additional_constraints
 
-  
+    if not scenes.exists():
+        print(f"Test scenes dir {scenes} does not exist")
+        return
+
+    if trials is None:
+        trials = list(get_all_scene_indices(scenes))
+        print(trials)
+
     evaluate_planning(planner_params=planner_params,
                       outdir=outdir,
                       trials=trials,
                       record=record,
                       how_to_handle=on_exception,
                       verbose=verbose,
+                      test_scenes_dir=scenes,
                       seed=seed)
