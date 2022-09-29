@@ -98,8 +98,6 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
     scenario = dataset.get_scenario()
 
     state_keys = dataset.state_keys + dataset.state_metadata_keys
-    cached_env = np.load("/home/lagrassa/catkin_ws/src/link_bot/link_bot_data/cached_grid.npy")
-    cached_env = cached_env.swapaxes(0,1)
 
     for example in dataset:
         from link_bot_data.tf_dataset_utils import deserialize_scene_msg
@@ -115,17 +113,16 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
             inputs_from_start_t = {}
             inputs_from_start_t.update(start_state)
             inputs_from_start_t.update(actions_from_start_t)
-            #inputs_from_start_t['scene_msg'] = example['scene_msg']
-            #inputs_from_start_t['joint_positions'] = example['joint_positions'][start_t:start_t + 1]
-            #inputs_from_start_t['joint_names'] = example['joint_names'][start_t:start_t + 1]
+            if 'scene_msg' in inputs_from_start_t:
+                inputs_from_start_t['scene_msg'] = example['scene_msg']
+            if 'joint_positions' in example:
+                inputs_from_start_t['joint_positions'] = example['joint_positions'][start_t:start_t + 1]
+                inputs_from_start_t['joint_names'] = example['joint_names'][start_t:start_t + 1]
             _inputs_from_start_t = torchify(add_batch(inputs_from_start_t))
             predictions_from_start_t = model(_inputs_from_start_t)
             predictions_from_start_t = numpify(remove_batch(predictions_from_start_t))
             actual_states_from_start_t = {k: example[k][start_t:] for k in state_keys}
-            missing_keys = ["origin", "res", "origin_point", "extent"]
-            assert example["env"].shape == cached_env.shape
-            example["env"] = cached_env
-            environment = {k: example[k] for k in dataset.env_keys + missing_keys}
+            environment = {k: example[k] for k in dataset.env_keys}
 
             for dt in range(0, steps_per_traj - start_t - 1):
                 out_example = {

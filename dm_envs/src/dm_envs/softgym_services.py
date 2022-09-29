@@ -77,7 +77,7 @@ class SoftGymServices():
                               f"which are not the same. This is probably due to a "
                               f"misspecified res in the fwd_model which is used for res by "
                               f"default")
-            response.grid = self.cached_grid
+            grid = self.cached_grid
         else:
             env_coords = self.create_env_coords(x_dims, y_dims, z_dims, center, res)
             sphere_shape = fcl.Sphere(res/2.)

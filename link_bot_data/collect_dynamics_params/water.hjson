@@ -49,5 +49,8 @@
   }
   env_description: {
     env: null
+    extent: 4
+    origin_point: 3
+    res: null
   }
 }

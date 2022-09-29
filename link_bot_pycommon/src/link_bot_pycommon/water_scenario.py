@@ -1,26 +1,19 @@
-from typing import Dict, Optional, List
-import numpy as np
-import torch
 import os
+from typing import Dict, Optional, List
 
+import numpy as np
+import rospy
+import torch
 from dm_envs.softgym_services import SoftGymServices
+from link_bot_data.dataset_utils import add_predicted
 from link_bot_pycommon.experiment_scenario import MockRobot
 from link_bot_pycommon.get_occupancy import get_environment_for_extents_3d
-from link_bot_pycommon.grid_utils_np import extent_to_env_shape, extent_res_to_origin_point
-from link_bot_data.dataset_utils import add_predicted
-
+from link_bot_pycommon.grid_utils_np import extent_res_to_origin_point
+from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
 from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
-from softgym.utils.visualization import save_numpy_as_gif, save_numpy_as_mp4
-
-from link_bot_pycommon.scenario_with_visualization import ScenarioWithVisualization
-
-from link_bot_pycommon.bbox_marker_utils import make_box_marker_from_extents
+from softgym.utils.visualization import save_numpy_as_mp4
 from visualization_msgs.msg import MarkerArray, Marker
-import rospy
-import tf
-
-control_box_name = "control_box"
 
 
 class WaterSimScenario(ScenarioWithVisualization):
@@ -38,8 +31,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.control_volumes = []
         self.target_volumes = []
         self.data_collect_id = 0
-        #self.params['run_flex'] = False
-        #Hack for when you really don't want to run flex for environment reasons
+        # Hack for when you really don't want to run flex for environment reasons
         if "NO_FLEX" in os.environ:
             self.params["run_flex"] = False
         if self.params.get("run_flex", False):
@@ -48,7 +40,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         if self.params.get("run_flex", False):
             self.service_provider.set_scene(self._scene)
         self.robot = MockRobot()
-        self.robot.disconnect = lambda : self._scene.close()
+        self.robot.disconnect = lambda: self._scene.close()
         self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
@@ -56,13 +48,12 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs = env_arg_dict[softgym_env_name]
 
         default_config = {"save_frames": False, 'img_size': 10}
-        default_config = {"save_frames": True, 'img_size': 800}
         self._save_cfg = self.params.get("save_cfg", default_config)
         # Generate and save the initial states for running this environment for the first time
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = 1 #self._save_cfg["save_frames"]
+        env_kwargs['render'] = self._save_cfg["save_frames"]
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
 
@@ -71,10 +62,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         self._scene = normalize(SOFTGYM_ENVS[softgym_env_name](**env_kwargs))
         self._save_frames = self._save_cfg["save_frames"]
         if self._save_frames:
-            #self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
-            self.frames= []
-            #self.frames = [self._scene.get_image()]
-
+            # self.frames = [self._scene.get_image(self._save_cfg["img_size"], self._save_cfg["img_size"])]
+            self.frames = []
+            # self.frames = [self._scene.get_image()]
 
     def needs_reset(self, state: Dict, params: Dict):
         if state["control_volume"].item() < 0.5:
@@ -87,22 +77,22 @@ class WaterSimScenario(ScenarioWithVisualization):
     def classifier_distance_torch(self, s1, s2):
         """ this is not the distance metric used in planning """
         container_dist = torch.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
-        target_volume_dist = torch.abs(s1["target_volume"]-s2["target_volume"])
-        control_volume_dist = torch.abs(s1["control_volume"]-s2["control_volume"])
+        target_volume_dist = torch.abs(s1["target_volume"] - s2["target_volume"])
+        control_volume_dist = torch.abs(s1["control_volume"] - s2["control_volume"])
         target_volume_dist = target_volume_dist.squeeze(-1)
         control_volume_dist = control_volume_dist.squeeze(-1)
 
-        return container_dist + 0.5*target_volume_dist + 0.5*control_volume_dist
+        return container_dist + 0.5 * target_volume_dist + 0.5 * control_volume_dist
 
     def classifier_distance(self, s1, s2):
         """ this is not the distance metric used in planning """
         container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
-        target_volume_dist = np.abs(s1["target_volume"]-s2["target_volume"])
-        control_volume_dist = np.abs(s1["control_volume"]-s2["control_volume"])
+        target_volume_dist = np.abs(s1["target_volume"] - s2["target_volume"])
+        control_volume_dist = np.abs(s1["control_volume"] - s2["control_volume"])
         target_volume_dist = target_volume_dist[0]
         control_volume_dist = control_volume_dist[0]
 
-        return container_dist + 0.5*target_volume_dist + 0.5*control_volume_dist
+        return container_dist + 0.5 * target_volume_dist + 0.5 * control_volume_dist
 
     def local_planner_cost_function_torch(self, planner):
         def _local_planner_cost_function(actions: List[Dict],
@@ -118,6 +108,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
+        res = 0.02
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
@@ -140,7 +131,6 @@ class WaterSimScenario(ScenarioWithVisualization):
     def on_before_data_collection(self, params: Dict):
         self.reset()
 
-
     def interpolate(self, start_state, end_state, step_size=0.08):
         controlled_container_start = np.array(start_state['controlled_container_pos'])
         controlled_container_angle_start = start_state['controlled_container_angle'].item()
@@ -148,7 +138,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         controlled_container_end = np.array(end_state['controlled_container_pos'])
         controlled_container_delta = controlled_container_end - controlled_container_start
         pos_steps = np.round(np.linalg.norm(controlled_container_delta) / step_size).astype(np.int64)
-        angle_steps = np.round(np.abs(controlled_container_angle_end-controlled_container_angle_start) / step_size).astype(np.int64)
+        angle_steps = np.round(
+            np.abs(controlled_container_angle_end - controlled_container_angle_start) / step_size).astype(np.int64)
         steps = max(pos_steps, angle_steps)
 
         interpolated_actions = []
@@ -156,16 +147,18 @@ class WaterSimScenario(ScenarioWithVisualization):
         for idx, t in enumerate(np.linspace(step_size, 1, steps)):
             controlled_container_t = controlled_container_start + controlled_container_delta * t
             controlled_container_target_angle_interpolated = np.array([angle_traj[idx]])
-            controlled_container_target_angle_interpolated = _match_2d_1d_tensor_shapes(controlled_container_t, controlled_container_target_angle_interpolated)
+            controlled_container_target_angle_interpolated = _match_2d_1d_tensor_shapes(controlled_container_t,
+                                                                                        controlled_container_target_angle_interpolated)
             action = {
-                'controlled_container_target_pos':  controlled_container_t,
+                'controlled_container_target_pos': controlled_container_t,
                 'controlled_container_target_angle': controlled_container_target_angle_interpolated
             }
             interpolated_actions.append(action)
-        if len(interpolated_actions) == 0: #really nothing to interpolate, just give a "null action"
-            controlled_container_angle_end_matched = _match_2d_1d_tensor_shapes(controlled_container_end, np.array([controlled_container_angle_end]))
+        if len(interpolated_actions) == 0:  # really nothing to interpolate, just give a "null action"
+            controlled_container_angle_end_matched = _match_2d_1d_tensor_shapes(controlled_container_end, np.array(
+                [controlled_container_angle_end]))
             null_action = {
-                'controlled_container_target_pos':  controlled_container_end,
+                'controlled_container_target_pos': controlled_container_end,
                 'controlled_container_target_angle': controlled_container_angle_end_matched,
             }
             return [null_action]
@@ -185,7 +178,6 @@ class WaterSimScenario(ScenarioWithVisualization):
             save_numpy_as_mp4(np.array(self.frames), save_name)
             print("Saved to", save_name)
             self.frames = []
-
 
     def execute_action(self, environment, state, action: Dict, **kwargs):
         pos_tol = 0.002
@@ -231,9 +223,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         current_controlled_container_pos = state["controlled_container_pos"]
         for _ in range(self.max_action_attempts):
             action_types = ["free_space", "over_target", "tilt"]
-            if self.is_pour_valid_for_state(state): 
+            if self.is_pour_valid_for_state(state):
                 action_type_probs = [0.2, 0.1, 0.7]
-            elif state["controlled_container_pos"][1] < 0.02: #on ground only one thing works
+            elif state["controlled_container_pos"][1] < 0.02:  # on ground only one thing works
                 action_type_probs = [0.7, 0.3, 0.0]
             else:
                 action_type_probs = [0.3, 0.7, 0.0]
@@ -243,7 +235,7 @@ class WaterSimScenario(ScenarioWithVisualization):
                 random_angle = np.array([action_rng.uniform(low=self.params["action_range"]["angle"][0],
                                                             high=self.params["action_range"]["angle"][1])],
                                         dtype=np.float32)
-                action = {"controlled_container_target_pos":   current_controlled_container_pos,
+                action = {"controlled_container_target_pos": current_controlled_container_pos,
                           "controlled_container_target_angle": random_angle}
             elif action_type == "over_target":
                 noise = action_rng.uniform(low=-0.1, high=0.1, size=(2,))
@@ -251,14 +243,14 @@ class WaterSimScenario(ScenarioWithVisualization):
                 des_x = self._scene.glass_params["poured_glass_x_center"] - self._scene.glass_params[
                     "poured_glass_dis_x"] / 3
                 over_box_pose_with_noise = np.array([des_x, des_height], dtype=np.float32) + noise
-                action = {"controlled_container_target_pos":   over_box_pose_with_noise,
+                action = {"controlled_container_target_pos": over_box_pose_with_noise,
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             else:
                 random_x = action_rng.uniform(low=self.params["action_range"]["x"][0],
                                               high=self.params["action_range"]["x"][1])
                 random_z = action_rng.uniform(low=self.params["action_range"]["z"][0],
                                               high=self.params["action_range"]["z"][1])
-                action = {"controlled_container_target_pos":   np.array([random_x, random_z], dtype=np.float32),
+                action = {"controlled_container_target_pos": np.array([random_x, random_z], dtype=np.float32),
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             if validate and self.is_action_valid(environment, state, action, action_params):
                 return action, False
@@ -276,7 +268,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def is_pour_valid_for_state(self, state: Dict):
         min_height_for_pour = self._scene.glass_params["poured_height"] + 0.02
-        target_x = state["target_container_pos"][0] - self._scene.glass_params["poured_glass_dis_x"]/2.
+        target_x = state["target_container_pos"][0] - self._scene.glass_params["poured_glass_dis_x"] / 2.
         curr_pos = state["controlled_container_pos"]
         curr_height = curr_pos[1]
         if curr_height < min_height_for_pour:
@@ -299,7 +291,7 @@ class WaterSimScenario(ScenarioWithVisualization):
     @staticmethod
     def local_environment_center_differentiable_torch(state):
         pos_xy = state["controlled_container_pos"].unsqueeze(-1)
-        local_center = torch.cat((pos_xy[:, 0], pos_xy[:, 1],  torch.zeros_like(pos_xy[:, 0])),  dim=1)
+        local_center = torch.cat((pos_xy[:, 0], pos_xy[:, 1], torch.zeros_like(pos_xy[:, 0])), dim=1)
         if len(local_center.shape) == 0:
             return local_center.reshape(1, -1)
         return local_center
@@ -337,7 +329,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         delta_angle = _match_2d_1d_tensor_shapes(delta_pos, delta_angle)
         assert len(delta_pos.shape) == len(delta_angle.shape)
         return {
-            'delta_pos':   delta_pos.float(),
+            'delta_pos': delta_pos.float(),
             'delta_angle': delta_angle.float()
         }
 
@@ -347,10 +339,11 @@ class WaterSimScenario(ScenarioWithVisualization):
         delta_angle = state['delta_angle']
         curr_angle = _fix_extremes_1d_data(state["current_controlled_container_angle"])
 
-        local_action = {"controlled_container_target_pos":   state["current_controlled_container_pos"] + delta_pos,
+        local_action = {"controlled_container_target_pos": state["current_controlled_container_pos"] + delta_pos,
                         "controlled_container_target_angle": (
                                 curr_angle + delta_angle)}
-        local_action["controlled_container_target_angle"] =  _match_2d_1d_tensor_shapes(local_action["controlled_container_target_pos"], local_action["controlled_container_target_angle"])
+        local_action["controlled_container_target_angle"] = _match_2d_1d_tensor_shapes(
+            local_action["controlled_container_target_pos"], local_action["controlled_container_target_angle"])
         return local_action
 
     @staticmethod
@@ -362,7 +355,7 @@ class WaterSimScenario(ScenarioWithVisualization):
 
         assert len(delta_pos.shape) == len(current_angle.shape)
         local_dict = {
-            'controlled_container_pos_local':   delta_pos.float(),
+            'controlled_container_pos_local': delta_pos.float(),
             'controlled_container_angle_local': (current_angle).float(),
         }
         local_dict["target_volume"] = state["target_volume"].float()
@@ -387,20 +380,19 @@ class WaterSimScenario(ScenarioWithVisualization):
         return self._scene._wrapped_env.predict_collide_with_plant(target_pose)
 
     def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
-        #somewhat of a lie because no moveit
+        # somewhat of a lie because no moveit
         return True
 
-
     def can_interpolate(self, state: Dict, next_state: Dict):
-        #Checks if it can reach the next state using our controllers, which don't do angle + pos movement. Since interpolate doesn't use the action we only do state here
+        # Checks if it can reach the next state using our controllers, which don't do angle + pos movement. Since interpolate doesn't use the action we only do state here
         max_theta_for_move = 0.1
-        max_move_for_pour = 0.07 #TODO make these configs?
+        max_move_for_pour = 0.07  # TODO make these configs?
         curr_pos = state["controlled_container_pos"]
         curr_angle = state["controlled_container_angle"].item()
         next_pos = next_state["controlled_container_pos"]
         next_angle = next_state["controlled_container_angle"].item()
 
-        #first check if action intends it to be a pour
+        # first check if action intends it to be a pour
         if abs(next_angle - curr_angle) > max_theta_for_move:
             if np.linalg.norm(curr_pos - next_pos) > max_move_for_pour:
                 return False
@@ -408,16 +400,14 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def get_state(self):
         state_vector = self._saved_data[0][0]
-        state = {"controlled_container_pos":   state_vector[:2],
+        state = {"controlled_container_pos": state_vector[:2],
                  "controlled_container_angle": np.array([state_vector[2]], dtype=np.float32),
-                 "target_container_pos":       np.array([state_vector[6] - state_vector[0], 0]),
-                 # need to check this one
-                 "control_volume":             np.array([state_vector[-1]], dtype=np.float32),
-                 "target_volume":              np.array([state_vector[-2]], dtype=np.float32)}
+                 "target_container_pos": np.array([state_vector[6] - state_vector[0], 0]),
+                 "control_volume": np.array([state_vector[-1]], dtype=np.float32),
+                 "target_volume": np.array([state_vector[-2]], dtype=np.float32)}
         return state
 
     def make_box_marker(self, pose, dims, rgb):
-        # fake_extent = [-.1, .1, -.1, .1, -.1, .1]
         marker = Marker()
         marker.scale.x = dims[0]
         marker.scale.y = dims[1]
@@ -439,7 +429,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker = Marker()
         marker.action = Marker.ADD
         marker.type = Marker.TEXT_VIEW_FACING
-        marker.pose.position.x = pose[0]+0.03  # y is 0
+        marker.pose.position.x = pose[0] + 0.03  # y is 0
         marker.pose.position.y = pose[1]
         marker.pose.position.z = 0.1
         marker.pose.orientation.w = 1
@@ -461,7 +451,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker = Marker()
         marker.action = Marker.ADD
         marker.type = Marker.TEXT_VIEW_FACING
-        marker.pose.position.x = pose[0]+0.03  # y is 0
+        marker.pose.position.x = pose[0] + 0.03  # y is 0
         marker.pose.position.y = pose[1]
         marker.pose.position.z = 0.1
         marker.pose.orientation.w = 1
@@ -491,9 +481,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         else:
             pourer_pos = target_pos
             pourer_angle = target_angle
-        #pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
+        # pourer_dims = [self._scene.glass_params["glass_dis_x"], self._scene.glass_params["height"],
         #               self._scene.glass_params["glass_dis_z"]]
-        #poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
+        # poured_dims = [self._scene.glass_params["poured_glass_dis_x"], self._scene.glass_params["poured_height"],
         #               self._scene.glass_params["poured_glass_dis_z"]]
         if "control_volume" in state:
             control_volume = state["control_volume"]
@@ -543,15 +533,15 @@ class WaterSimScenario(ScenarioWithVisualization):
         curr_control_volume = state["control_volume"].item()
         total_volume = curr_target_volume + curr_control_volume
         if curr_target_volume > goal_target_volume_range[0] and curr_target_volume < goal_target_volume_range[1]:
-            desired_volume_dist =  0
+            desired_volume_dist = 0
         else:
             too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
             too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
-            desired_volume_dist =  min(too_low_amount, too_high_amount)
+            desired_volume_dist = min(too_low_amount, too_high_amount)
         spill_penalty = 5
-        amount_spilled = np.abs(1-total_volume)
+        amount_spilled = np.abs(1 - total_volume)
         if amount_spilled < 0.05 or total_volume > 1:
-            #negligible
+            # negligible
             amount_spilled = 0
         desired_spill_dist = min(0.25, spill_penalty * amount_spilled)
         return desired_spill_dist + desired_volume_dist
@@ -590,8 +580,9 @@ def _squeeze_if_3d(data):
         data = data.squeeze(-1)
     return data
 
+
 def _match_2d_1d_tensor_shapes(tensor_to_match, tensor_needing_matching):
-    #Patch fix that only really seems to come up here w/ 1D data 
+    # Patch fix that only really seems to come up here w/ 1D data
     desired_shape_size = len(tensor_to_match.shape)
     current_shape_size = len(tensor_needing_matching.shape)
     assert abs(desired_shape_size - current_shape_size) <= 1

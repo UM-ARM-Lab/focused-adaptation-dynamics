@@ -15,6 +15,7 @@ from link_bot_data.tf_dataset_utils import write_example
 from link_bot_planning.my_planner import PlanningResult
 from link_bot_planning.trial_result import ExecutionResult
 from link_bot_pycommon.serialization import my_hdump
+from moonshine.filepath_tools import load_hjson
 from moonshine.moonshine_utils import sequence_of_dicts_to_dict_of_np_arrays
 from moonshine.numpify import numpify
 from state_space_dynamics.torch_dynamics_dataset import TorchDynamicsDataset
@@ -48,23 +49,25 @@ class ResultsToDynamicsDataset:
 
         self.outdir.mkdir(exist_ok=True, parents=True)
 
-    def run(self):
-        self.save_hparams()
+    def run(self, data_collection_params_fn=None):
+        self.save_hparams(data_collection_params_fn=data_collection_params_fn)
         self.results_to_dynamics_dataset()
         split_dataset(self.outdir, val_split=self.val_split, test_split=self.test_split)
 
         return self.outdir
 
-    def save_hparams(self):
+
+    def save_hparams(self, data_collection_params_fn=None):
         # FIXME: hard-coded
         planner_params = self.metadata['planner_params']
-
         dataset_hparams = {
             'scenario':               planner_params['scenario'],
             'from_results':           self.results_dir,
             'seed':                   None,
-            'n_trajs':                len(self.trials),
-            'data_collection_params': {
+            'n_trajs':                len(self.trials)
+        }
+        if data_collection_params_fn is None:
+            data_collection_params= {
                 'scenario_params':               planner_params.get("scenario_params", {}),
                 'max_step_size':                 planner_params.get("max_step_size", 0.01),
                 'max_distance_gripper_can_move': 0.1,
@@ -91,9 +94,12 @@ class ResultsToDynamicsDataset:
                     'scene_msg':    None,
                 },
             },
-        }
+        else:
+            data_collection_params = load_hjson(data_collection_params_fn)
+        dataset_hparams["data_collection_params"] = data_collection_params
         with (self.outdir / 'hparams.hjson').open('w') as dataset_hparams_file:
             my_hdump(dataset_hparams, dataset_hparams_file, indent=2)
+
 
     def results_to_dynamics_dataset(self):
         if self.visualize:

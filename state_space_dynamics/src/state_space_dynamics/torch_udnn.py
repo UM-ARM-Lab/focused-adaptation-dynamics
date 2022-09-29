@@ -25,10 +25,7 @@ class UDNN(pl.LightningModule):
         self.save_hyperparameters()
 
         datset_params = self.hparams['dataset_hparams']
-        if 'data_collection_params' in datset_params.keys():
-            self.data_collection_params = datset_params['data_collection_params']
-        else:
-            self.data_collection_params = datset_params
+        self.data_collection_params = datset_params['data_collection_params']
         self.data_collection_params['scenario_params']['run_flex'] = False
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
