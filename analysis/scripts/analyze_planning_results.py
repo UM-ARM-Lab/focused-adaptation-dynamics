@@ -21,6 +21,7 @@ def analyze_planning_results(args):
         return shorten(c.split('/')[0])[:16]
 
     df['x_name'] = df['classifier_name'].map(_shorten)
+    df = _rename_to_standard_method_names(df)
 
     # print(df[['any_solved']].to_string(index=False))
     # print(df[['success']].to_string(index=False))
@@ -80,6 +81,18 @@ def barplot_with_values(df, y, hue, outdir, figsize, palette, title=None, **kwar
     else:
         ax.set_title(title)
     plt.savefig(outdir / f'{y}.png')
+
+def _rename_to_standard_method_names(df):
+    for i, method in enumerate(df['method_name']):
+        if "adaptation" in method:
+            df["method_name"][i] = "FOCUS (ours)"
+        elif "all_data_no_mde" in method:
+            df["method_name"][i] = "AllDataNoMDE"
+        elif "all_data" in method:
+            df["method_name"][i] = "AllData"
+        else:
+            raise ValueError(f"Renaming failed with method name {method}")
+    return df
 
 
 @ros_init.with_ros("analyse_planning_results")

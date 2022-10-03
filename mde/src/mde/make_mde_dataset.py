@@ -108,7 +108,7 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
             inputs_from_start_t = {}
             inputs_from_start_t.update(start_state)
             inputs_from_start_t.update(actions_from_start_t)
-            if 'scene_msg' in inputs_from_start_t:
+            if 'scene_msg' in example:
                 inputs_from_start_t['scene_msg'] = example['scene_msg']
             if 'joint_positions' in example:
                 inputs_from_start_t['joint_positions'] = example['joint_positions'][start_t:start_t + 1]

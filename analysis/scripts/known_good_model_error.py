@@ -58,8 +58,7 @@ if __name__ == '__main__':
                 for t in range(1, n_transitions):
                     e_t = float(error[0, t])
                     data.append([domain_name, name, checkpoint, e_t])
-
-    df = pd.DataFrame(data, columns=['name', 'checkpoint', 'error'])
+    df = pd.DataFrame(data, columns=['domain_name', 'name', 'checkpoint', 'error'])
 
     plt.style.use(args.style)
     plt.rcParams['figure.figsize'] = (12, 5)
