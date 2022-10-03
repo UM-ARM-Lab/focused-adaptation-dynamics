@@ -149,10 +149,17 @@ def num_failed_actions(_: pathlib.Path, scenario: ExperimentScenario, __: Dict, 
     failed_actions = 0
     for _, _, actual_state_t, planned_state_t, type_t, _ in get_paths(trial_datum, False):
         if planned_state_t is not None and actual_state_t is not None:
-            left_gripper_error = np.linalg.norm(planned_state_t['left_gripper'] - actual_state_t['left_gripper'])
-            right_gripper_error = np.linalg.norm(planned_state_t['right_gripper'] - actual_state_t['right_gripper'])
-            if left_gripper_error > 0.05 or right_gripper_error > 0.05:
-                failed_actions += 1
+            if scenario.simple_name() == "watering":
+                controlled_container_pos_error = np.linalg.norm(planned_state_t['controlled_container_pos'] - actual_state_t['controlled_container_pos'])
+                target_volume_error = np.linalg.norm(planned_state_t['target_volume'] - actual_state_t['target_volume'])
+                if controlled_container_pos_error > 0.1 or target_volume_error > 0.3:
+                    failed_actions += 1
+
+            else:
+                left_gripper_error = np.linalg.norm(planned_state_t['left_gripper'] - actual_state_t['left_gripper'])
+                right_gripper_error = np.linalg.norm(planned_state_t['right_gripper'] - actual_state_t['right_gripper'])
+                if left_gripper_error > 0.05 or right_gripper_error > 0.05:
+                    failed_actions += 1
     return failed_actions
 
 
@@ -403,6 +410,8 @@ def classifier_dataset(_: pathlib.Path, __: ExperimentScenario, trial_metadata: 
 
 @metrics_funcs
 def target_env(_: pathlib.Path, __: ExperimentScenario, trial_metadata: Dict, ___: Dict):
+    if trial_metadata['test_scenes_dir'] is None:
+        return "no_test_scene_dir"
     return pathlib.Path(trial_metadata['test_scenes_dir']).name
 
 

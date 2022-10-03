@@ -46,10 +46,7 @@ def make_dataframe_worker(args):
         print(f"Bad file {metadata_filename.as_posix()}")
     if not df_filename.exists() or regenerate:
         scenario_params = dict(metadata['planner_params'].get('scenario_params', {'rope_name': 'rope_3d'}))
-
-        # scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
-        # NOTE: hard-coded here because using the "real val" scenario wasn't working for some reason
-        scenario = get_scenario_cached('dual_arm_rope_sim_val_with_robot_feasibility_checking', params=scenario_params)
+        scenario = get_scenario_cached(metadata['planner_params']['scenario'], params=scenario_params)
         data = []
         for data_filename in data_filenames:
             datum = load_gzipped_pickle(data_filename)
@@ -70,6 +67,7 @@ def load_planning_results(results_dirs: List[pathlib.Path], regenerate: bool = F
     args = [(results_dir, regenerate) for results_dir in results_dirs]
     with multiprocessing.get_context("spawn").Pool() as p:
         dfs = list(tqdm(p.imap_unordered(make_dataframe_worker, args), total=len(results_dirs)))
+
 
     df = pd.concat(dfs, ignore_index=True)
     df.columns = column_names
