@@ -91,7 +91,7 @@ class ResultsToDynamicsDataset:
                                              'res': None,
                                              'scene_msg': None,
                                          },
-                                     },
+                                     }
         else:
             data_collection_params = load_hjson(data_collection_params_fn)
         dataset_hparams["data_collection_params"] = data_collection_params
