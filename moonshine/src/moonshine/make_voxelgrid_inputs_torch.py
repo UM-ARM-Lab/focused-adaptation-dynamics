@@ -45,6 +45,7 @@ class VoxelgridInfo:
         # insert the rastered states
         for (k, state_component_t) in state_t.items():
             if state_component_t.shape[1] < 3:
+                #Adding a 0 for when the state component is not 3D (ex. 2D or 1D) 
                 points = state_component_t.reshape([batch_size, -1, state_component_t.shape[1]])
                 padding = torch.zeros((points.shape[0], points.shape[1], 3-points.shape[2]))
                 padding = padding.to(points.device)
