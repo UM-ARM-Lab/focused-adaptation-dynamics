@@ -85,7 +85,8 @@ def main():
     elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online_water.hjson"
         #unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
-        unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+        #unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+        unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
