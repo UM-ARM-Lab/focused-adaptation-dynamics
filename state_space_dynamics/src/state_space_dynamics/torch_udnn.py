@@ -25,7 +25,10 @@ class UDNN(pl.LightningModule):
         self.save_hyperparameters()
 
         datset_params = self.hparams['dataset_hparams']
-        self.data_collection_params = datset_params['data_collection_params']
+        if 'data_collection_params' not in datset_params:
+            self.data_collection_params = datset_params
+        else:
+            self.data_collection_params = datset_params['data_collection_params']
         self.data_collection_params['scenario_params']['run_flex'] = False
         self.scenario = get_scenario(self.hparams.scenario, params=self.data_collection_params['scenario_params'])
         self.dataset_state_description: Dict = self.data_collection_params['state_description']
@@ -52,6 +55,7 @@ class UDNN(pl.LightningModule):
         layers.append(Linear(fc_layer_size, self.total_state_dim))
 
         self.mlp = Sequential(*layers)
+        self.mae = torch.nn.L1Loss()
 
         if self.hparams.get('planning_mask', False):
             torch_ref_dataset = TorchDynamicsDataset(fetch_udnn_dataset(pathlib.Path('known_good_4')), mode='test')
@@ -188,6 +192,11 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
+        with torch.no_grad():
+            for k, y_pred in outputs.items():
+                if 'time_mask' in train_batch:
+                    time_mask = train_batch['time_mask'].bool()
+                self.log(f'train_mae_{k}', self.mae(outputs[k][time_mask], train_batch[k][time_mask]))
 
         return losses['loss']
 

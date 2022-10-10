@@ -78,7 +78,8 @@ def main():
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online_water.hjson"
         #unadapted_run_id = 'easier_pour_initial_model-9kdiv'
-        unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+        #unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
+        unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
         #unadapted_run_id = "notreeunadapted_8_31-2smuh"
 
     elif method_name in ['all_data', 'all_data_no_mde']:
@@ -99,12 +100,12 @@ def main():
     collect_data_params_filename = data_pkg_dir / collect_data_params_filename
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
-    iterations = 3 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 2# int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    iterations = 10 #int(job_chunker.load_prompt('iterations', 10))
+    n_trials_per_iteration = 12 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
     udnn_init_epochs = 6 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
-    udnn_scale_epochs = -0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
     mde_init_epochs = 2 #int(job_chunker.load_prompt('mde_init_epochs', 10))
-    mde_scale_epochs = -0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
+    mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
     if start_with_random_actions in ['false', 'False']:
@@ -158,8 +159,8 @@ def main():
                                                                        n_trajs=30,
                                                                        root=outdir,
                                                                        nickname=f'{args.nickname}_dynamics_dataset_{i}',
-                                                                       val_split=0,
-                                                                       test_split=0,
+                                                                       val_split=0.1,
+                                                                       test_split=0.1,
                                                                        seed=seed):
                     pass
 
@@ -208,7 +209,7 @@ def main():
                     eval_stdout_file = eval_stdout_filename.open("w")
                     planning_process = subprocess.Popen(planning_cmd, env=env, stdout=eval_stdout_file, stderr=eval_stdout_file)
                     print(f"PID: {planning_process.pid}")
-                    planning_cmd[2] = str(2)
+                    planning_cmd[2] = str(planning_cmd[2])
                     print(" ".join(planning_cmd))
                     return_code = planning_process.wait()
                     print("Return code for planning process", return_code)

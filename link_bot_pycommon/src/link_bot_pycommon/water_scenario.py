@@ -46,7 +46,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         self.robot.jacobian_follower = None
 
     def _make_softgym_env(self):
-        softgym_env_name = "PourWaterPlant"
+        softgym_env_name = self.params.get("softgym_env_name", "PourWaterPlant")
         env_kwargs = env_arg_dict[softgym_env_name]
 
         default_config = {"save_frames": False, 'img_size': 10}
@@ -181,7 +181,26 @@ class WaterSimScenario(ScenarioWithVisualization):
             print("Saved to", save_name)
             self.frames = []
 
-    def execute_action(self, environment, state, action: Dict, **kwargs):
+    def execute_compound_action(self, environment, state: Dict, action: Dict, **kwargs):
+        local_action = self.put_action_local_frame(state, action)
+        delta_size = np.linalg.norm(local_action['delta_pos'])
+        if delta_size < self.params["max_move_dist"]:
+            self.execute_action(environment, state, action, **kwargs)
+        else:
+            # Not 100% accurate split but less prone to worse error
+            min_num_actions = int(np.ceil(delta_size / self.params["max_move_dist"]))
+            # each row is an action
+            smaller_actions_np = np.linspace(state["controlled_container_pos"],
+                                             action["controlled_container_target_pos"], min_num_actions)
+            for smaller_action_np in smaller_actions_np:
+                smaller_action = {
+                    "controlled_container_target_pos": smaller_action_np,
+                    "controlled_container_target_angle": action["controlled_container_target_angle"],
+                }
+                current_state = self.get_state()
+                self.execute_action(environment, current_state, smaller_action)
+
+    def execute_action(self, environment, state: Dict, action: Dict, **kwargs):
         goal_pos = action["controlled_container_target_pos"].flatten()
         goal_angle = action["controlled_container_target_angle"].flatten()
         curr_state = state
@@ -249,9 +268,9 @@ class WaterSimScenario(ScenarioWithVisualization):
             else:
                 random_x = action_rng.uniform(low=self.params["action_range"]["x"][0],
                                               high=self.params["action_range"]["x"][1])
-                random_z = action_rng.uniform(low=self.params["action_range"]["z"][0],
-                                              high=self.params["action_range"]["z"][1])
-                action = {"controlled_container_target_pos": np.array([random_x, random_z], dtype=np.float32),
+                random_y = action_rng.uniform(low=self.params["action_range"]["y"][0],
+                                              high=self.params["action_range"]["y"][1])
+                action = {"controlled_container_target_pos": np.array([random_x, random_y], dtype=np.float32),
                           "controlled_container_target_angle": np.array([0], dtype=np.float32)}
             if validate and self.is_action_valid(environment, state, action, action_params):
                 return action, False
@@ -297,14 +316,30 @@ class WaterSimScenario(ScenarioWithVisualization):
             return local_center.reshape(1, -1)
         return local_center
 
-    def reset(self):
+    def reset(self, env_rng=None):
         self._scene.reset()
         null_action = np.zeros(3, )
         self._saved_data = self._scene.step(null_action, record_continuous_video=self._save_frames,
                                             img_size=self._save_cfg["img_size"])
+        if env_rng is None:
+            env_rng = np.random
+        if self.params.get("randomize_start", False):
+            state = self.get_state()
+            random_x = env_rng.uniform(low=self.params["action_range"]["x"][0],
+                                         high=self.params["action_range"]["x"][1])
+            random_y = env_rng.uniform(low=self.params["action_range"]["y"][0],
+                                         high=self.params["action_range"]["y"][1])
+            action = {'controlled_container_target_pos': np.array([random_x, random_y]),
+                      'controlled_container_target_angle': env_rng.uniform(low=-0.05, high=0.1, size=(1,))}
+            print("random action", action)
+            self.execute_compound_action(None, state, action)
+        init_state = self.get_state()
+        if not (init_state["target_volume"] == 0 and init_state["control_volume"] == 1.0):
+            print("Water spilled: resetting again")
+            self.reset()
 
     def randomize_environment(self, env_rng, params: Dict):
-        self.reset()
+        self.reset(env_rng)
 
     def reset_to_start(self, planner_params, _):
         self.reset()
@@ -329,9 +364,12 @@ class WaterSimScenario(ScenarioWithVisualization):
 
         delta_angle = _match_2d_1d_tensor_shapes(delta_pos, delta_angle)
         assert len(delta_pos.shape) == len(delta_angle.shape)
+        if not isinstance(target_pos, np.ndarray):  # must be a tensor
+            delta_pos = delta_pos.float()
+            delta_angle = delta_angle.float()
         return {
-            'delta_pos': delta_pos.float(),
-            'delta_angle': delta_angle.float()
+            'delta_pos': delta_pos,
+            'delta_angle': delta_angle
         }
 
     @staticmethod

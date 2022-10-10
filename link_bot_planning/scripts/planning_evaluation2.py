@@ -2,6 +2,7 @@
 import argparse
 import logging
 import pathlib
+import os
 
 import colorama
 import numpy as np
@@ -33,7 +34,7 @@ def check_mde_and_dynamics_match(dynamics_run_id, mde_run_id):
         print("Ok, continuing...")
 
 
-@ros_init.with_ros("planning_evaluation")
+@ros_init.with_ros(f"planning_evaluation_{os.environ['STY'].replace('.', '').replace('-', '')}")
 def main():
     colorama.init(autoreset=True)
     np.set_printoptions(suppress=True, precision=5, linewidth=250)

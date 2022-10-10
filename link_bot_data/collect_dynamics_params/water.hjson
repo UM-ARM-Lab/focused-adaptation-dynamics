@@ -3,12 +3,12 @@
   scenario: watering 
   real_time_rate: 1
   max_step_size: 100000
-  steps_per_traj: 14
-  randomize_n: null
+  steps_per_traj: 7
+  randomize_n: 1
   res: 0.02
   extent: [
     -0.1
-    0.5
+    0.7
     0.0
     0.9
     -0.4
@@ -16,20 +16,22 @@
     ]
   scenario_params: {
     gui: 0
+    randomize_start: True
     run_flex: true
+    softgym_env_name: PourWater
     max_dist_for_pour : 0.2
     max_move_dist : 0.2
     save_cfg: {
-      save_frames: 1
-      img_size: 1000
+      save_frames: 0
+      img_size: 10
     }
 
     k_pos: 1.5
     k_angle: 2.0
     controller_max_horizon: 80
     action_range : {
-      x : [-0.10, 0.5]
-      z : [0.05, 1.2]
+      x : [-0.10, 0.6]
+      y : [0.05, 1.2]
       angle: [2, 3.14]
     }
   }
