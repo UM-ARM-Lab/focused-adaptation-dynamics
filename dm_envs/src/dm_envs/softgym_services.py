@@ -22,8 +22,8 @@ class SoftGymServices():
 
     def set_scene(self, scene):
         self._scene = scene
-        #cached_grid_path = fetch_dataset("cached_grid_data", "mde") / "cached_grid.npy"
-        self.cached_grid = None #np.load(cached_grid_path)
+        cached_grid_path = fetch_dataset("cached_grid_data5", "mde") / "cached_grid.npy"
+        self.cached_grid = np.load(cached_grid_path)
 
 
     def __call__(self, args, **kwargs):

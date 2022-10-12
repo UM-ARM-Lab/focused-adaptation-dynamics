@@ -108,9 +108,6 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def get_environment(self, params: Dict, **kwargs):
         res = params["res"]
-        res = 0.02
-        rospy.logwarn_once(
-            "Using a different res than what is specified in fwd_model parameters. This is fine for water")
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
@@ -325,14 +322,22 @@ class WaterSimScenario(ScenarioWithVisualization):
             env_rng = np.random
         if self.params.get("randomize_start", False):
             state = self.get_state()
-            random_x = env_rng.uniform(low=self.params["action_range"]["x"][0],
-                                         high=self.params["action_range"]["x"][1])
-            random_y = env_rng.uniform(low=self.params["action_range"]["y"][0],
-                                         high=self.params["action_range"]["y"][1])
-            action = {'controlled_container_target_pos': np.array([random_x, random_y]),
-                      'controlled_container_target_angle': env_rng.uniform(low=-0.05, high=0.1, size=(1,))}
-            print("random action", action)
-            self.execute_compound_action(None, state, action)
+            for j in range(40):
+                random_x = env_rng.uniform(low=self.params["action_range"]["x"][0],
+                                             high=self.params["action_range"]["x"][1])
+                random_y = env_rng.uniform(low=self.params["action_range"]["y"][0],
+                                             high=self.params["action_range"]["y"][1])
+                action = {'controlled_container_target_pos': np.array([random_x, random_y]),
+                          'controlled_container_target_angle': env_rng.uniform(low=-0.05, high=0.1, size=(1,))}
+
+                if self.is_moveit_robot_in_collision(None, state, action):
+                    print("In collision trying again")
+                else:
+                    self.execute_compound_action(None, state, action)
+                    break
+                if j == 40:
+                    print("Could not sample valid start state")
+                    self.reset()
         init_state = self.get_state()
         if not (init_state["target_volume"] == 0 and init_state["control_volume"] == 1.0):
             print("Water spilled: resetting again")
@@ -574,9 +579,9 @@ class WaterSimScenario(ScenarioWithVisualization):
             too_low_amount = abs(curr_target_volume - goal_target_volume_range[0])
             too_high_amount = abs(curr_target_volume - goal_target_volume_range[1])
             desired_volume_dist = min(too_low_amount, too_high_amount)
-        spill_penalty = 5
+        spill_penalty = 3
         amount_spilled = np.abs(1 - total_volume)
-        if amount_spilled < 0.05 or total_volume > 1:
+        if amount_spilled < 0.02 or total_volume > 1:
             # negligible
             amount_spilled = 0
         desired_spill_dist = min(0.25, spill_penalty * amount_spilled)

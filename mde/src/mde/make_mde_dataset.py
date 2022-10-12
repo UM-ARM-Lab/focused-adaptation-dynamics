@@ -57,7 +57,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                 model.scenario  = scenario_cached
             else:
                 model.scenario = dataset.get_scenario()
-                scenario_cached = model.scenario
+                scenario_cached = None #model.scenario
             files = []
 
             if len(dataset) > 0:
@@ -66,6 +66,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
                 for out_example in tqdm(generate_mde_examples(model, dataset, steps_per_traj, step)):
                     # NOTE: what if two modes have the example input example? can we check if we've already generated
                     #  it an skip actually re-doing the conversion to MDE and just re-use the existing one?
+                    #result = write_example(outdir, out_example, total_example_idx, 'pkl') 
                     result = pool.apply_async(func=write_example, args=(outdir, out_example, total_example_idx, 'pkl'))
                     results.append(result)
 
@@ -82,7 +83,7 @@ def make_mde_dataset(dataset_dir: pathlib.Path,
         for result in tqdm(results):
             result.get()
 
-    print("Saving wandb dataset")
+    print("Saving wandb dataset", outdir)
     wandb_save_dataset(outdir, project='mde')
 
     return outdir
@@ -93,7 +94,7 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
     scenario = dataset.get_scenario()
 
     state_keys = dataset.state_keys + dataset.state_metadata_keys
-
+  
     for example in dataset:
         from link_bot_data.tf_dataset_utils import deserialize_scene_msg
         deserialize_scene_msg(example)
