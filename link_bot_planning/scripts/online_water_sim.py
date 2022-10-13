@@ -102,10 +102,10 @@ def main():
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
     iterations = 10 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 12 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 6 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    n_trials_per_iteration = 50 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 3 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
     udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
-    mde_init_epochs = 2 #int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_init_epochs = 6 #int(job_chunker.load_prompt('mde_init_epochs', 10))
     mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
@@ -251,11 +251,11 @@ def main():
                 dynamics_run_id = train_test_dynamics.fine_tune_main(dataset_dir=dynamics_dataset_dirs,
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
-                                                                     batch_size=32,
+                                                                     batch_size=8,
                                                                      steps=-1,
                                                                      epochs=int(
                                                                          udnn_init_epochs + i * udnn_scale_epochs),
-                                                                     repeat=10,
+                                                                     repeat=2,
                                                                      no_val=True,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
