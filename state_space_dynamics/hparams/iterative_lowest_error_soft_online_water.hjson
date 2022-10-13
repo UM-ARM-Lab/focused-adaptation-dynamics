@@ -3,9 +3,9 @@
   use_mask_val: true
   iterative_lowest_error: true
   soft_masking: true
-  k_global : 2
+  k_global : 5
   low_initial_error: false
-  mask_threshold: 0.08
+  mask_threshold: 0.1
   train_mode: train 
   val_mode: val
   state_metadata_keys: []

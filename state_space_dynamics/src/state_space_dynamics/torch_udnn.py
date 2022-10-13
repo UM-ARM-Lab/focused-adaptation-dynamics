@@ -4,8 +4,11 @@ from typing import Dict
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import os
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
+import matplotlib.pyplot as plt
+plt.rcParams['font.size'] = 18
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
 from link_bot_pycommon.get_scenario import get_scenario
@@ -184,7 +187,20 @@ class UDNN(pl.LightningModule):
         batch_losses = self.compute_batch_loss(inputs, outputs, use_mask)
         return {k: v.mean() for k, v in batch_losses.items()}
 
+    def _add_noise_to_batch(self, batch):
+        self.sigma = 0.01
+        self.noise = torch.tensor(0).cuda()
+        if self.training:
+            for k in self.hparams.state_keys + self.hparams.action_keys:
+                if isinstance(batch[k], torch.Tensor):
+                    x = batch[k]
+                    scale = self.sigma * x.detach() 
+                    sampled_noise = self.noise.repeat(*x.size()).float().normal_() * scale
+                    batch[k] = x + sampled_noise
+
     def training_step(self, train_batch, batch_idx):
+        #add noise to batch
+        self._add_noise_to_batch(train_batch)
         outputs = self.forward(train_batch)
         if 'use_mask_train' in self.hparams:
             use_mask = self.hparams.get('use_mask_train', False)
@@ -192,12 +208,48 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
+        self.easy_accuracies = []
+        self.easy_errors = []
+        self.hard_accuracies = []
+        self.hard_errors = []
         with torch.no_grad():
+            error = self.scenario.classifier_distance_torch(train_batch, outputs)
             for k, y_pred in outputs.items():
                 if 'time_mask' in train_batch:
                     time_mask = train_batch['time_mask'].bool()
                 self.log(f'train_mae_{k}', self.mae(outputs[k][time_mask], train_batch[k][time_mask]))
+                #Check accuracy over "pours"
+                for sample_i in range(train_batch["target_volume"].shape[0]):
+                    init_vol = train_batch["target_volume"][sample_i][0]
+                    final_idx = int(train_batch["time_mask"][sample_i].sum() - 1)
+                    final_vol = train_batch["target_volume"][sample_i][final_idx]
+                    pour_accuracy = torch.abs(final_vol - outputs["target_volume"][sample_i][final_idx]).cpu().detach().numpy().item()
+                    pour_error = error[sample_i][final_idx].cpu().detach().numpy().item()
+                    if final_vol - init_vol > 0.95: #easy pour
+                        self.easy_accuracies.append(pour_accuracy)
+                        self.easy_errors.append(pour_error)
+                    if final_vol - init_vol > 0 and final_vol - init_vol < 0.8:
+                        self.hard_accuracies.append(pour_accuracy)
+                        self.hard_errors.append(pour_error)
+        viz_epochs = [0,1,3,5,10] #,20, 40]
+        # using the variable axs for multiple Axes
+        if "VIZ" in os.environ and self.current_epoch in viz_epochs: 
+            if self.current_epoch == 0:
+                self.fig, self.axs = plt.subplots(nrows = len(viz_epochs), sharex=True)
+                self.axs[0].set_xlabel("Error")
 
+            hist_range = (0, 1.5)
+            alpha = 0.7
+            viz_idx = viz_epochs.index(self.current_epoch)
+            self.axs[viz_idx].hist(self.hard_errors, label="hard", bins=90, range=hist_range, alpha=alpha)
+            self.axs[viz_idx].hist(self.easy_errors, label="easy", bins=90, range = hist_range, alpha=alpha)
+            self.axs[viz_idx].set_title(f"epoch: {int(self.current_epoch)}")
+            self.axs[viz_idx].set_xlim([0,1.5])
+            self.axs[viz_idx].set_ylim([0,80])
+            #axs[viz_idx].legend()
+            if viz_idx == len(viz_epochs)-1:
+                plt.tight_layout()
+                plt.show()
         return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
@@ -211,6 +263,7 @@ class UDNN(pl.LightningModule):
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
+        import ipdb; ipdb.set_trace()
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
@@ -221,7 +274,7 @@ class UDNN(pl.LightningModule):
         return test_losses
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=1e-3)
 
     def state_dict(self, *args, **kwargs):
         return self.state_dict_without_initial_model()
