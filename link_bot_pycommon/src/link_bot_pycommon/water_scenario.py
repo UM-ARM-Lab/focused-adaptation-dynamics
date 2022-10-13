@@ -89,8 +89,8 @@ class WaterSimScenario(ScenarioWithVisualization):
         container_dist = np.linalg.norm(s1["controlled_container_pos"] - s2["controlled_container_pos"], axis=-1)
         target_volume_dist = np.abs(s1["target_volume"] - s2["target_volume"])
         control_volume_dist = np.abs(s1["control_volume"] - s2["control_volume"])
-        target_volume_dist = target_volume_dist[0]
-        control_volume_dist = control_volume_dist[0]
+        target_volume_dist = target_volume_dist.flatten()
+        control_volume_dist = control_volume_dist.flatten()
 
         return container_dist + 0.5 * target_volume_dist + 0.5 * control_volume_dist
 
