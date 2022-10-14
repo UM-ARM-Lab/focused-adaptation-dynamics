@@ -49,6 +49,7 @@ def main():
     train_parser.add_argument('--repeat', type=int)
     train_parser.add_argument('--skip', type=int)
     train_parser.add_argument('--epochs', type=int, default=150)
+    train_parser.add_argument('--val_dataset_dir', type=pathlib.Path, default=None)
     train_parser.add_argument('--no-val', action='store_true')
     train_parser.add_argument('--is_nn_mde', type=int, default=1)
     train_parser.add_argument('--dryrun', type=int)

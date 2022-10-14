@@ -21,11 +21,16 @@ class MDEDataModule(pl.LightningDataModule):
                  take: int,
                  skip: int,
                  repeat: Optional[int] = None,
+                 val_dataset_dir: Optional[pathlib.Path] = None,
                  train_mode: str = 'train',
                  val_mode: str = 'val',
                  test_mode: str = 'test'):
         super().__init__()
         self.dataset_dir = dataset_dir
+        if val_dataset_dir is not None:
+            self.val_dataset_dir = val_dataset_dir
+        else:
+            self.val_dataset_dir = dataset_dir
         self.fetched_dataset_dir = None
         self.batch_size = batch_size
         self.take = take
@@ -46,11 +51,11 @@ class MDEDataModule(pl.LightningDataModule):
             self.dataset_hparams = load_params(self.fetched_dataset_dir[-1])
         else:
             self.fetched_dataset_dir = fetch_mde_dataset(self.dataset_dir)
+            self.val_fetched_dataset_dir = fetch_mde_dataset(self.val_dataset_dir)
             self.dataset_hparams = load_params(self.fetched_dataset_dir)
 
     def setup(self, stage: Optional[str] = None):
         transform = transforms.Compose([remove_keys("scene_msg", "sdf", "sdf_grad")])
-
         train_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.train_mode, transform=transform)
         train_dataset_take = dataset_take(train_dataset, self.take)
         train_dataset_skip = dataset_skip(train_dataset_take, self.skip)
@@ -58,7 +63,10 @@ class MDEDataModule(pl.LightningDataModule):
         self.train_dataset = dataset_repeat(train_dataset_skip, self.repeat)
 
         print("Applying take to validation & test as well")
-        val_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.val_mode, transform=transform)
+        if self.val_dataset_dir is None:
+            val_dataset = TorchMDEDataset(self.fetched_dataset_dir, mode=self.val_mode, transform=transform)
+        else:
+            val_dataset = TorchMDEDataset(self.val_fetched_dataset_dir, mode=self.train_mode, transform=transform)
         val_dataset_take = dataset_take(val_dataset, self.take)
         self.val_dataset = val_dataset_take
 

@@ -124,6 +124,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                train_mode='train',
                val_mode='val',
                no_val: Optional[bool] = False,
+               val_dataset_dir: Optional[pathlib.Path] = None,
                project=PROJECT,
                **kwargs):
     pl.seed_everything(seed, workers=True)
@@ -139,6 +140,7 @@ def train_main(dataset_dir: Union[pathlib.Path, List[pathlib.Path]],
                                 take=take,
                                 skip=skip,
                                 repeat=repeat,
+                                val_dataset_dir=val_dataset_dir,
                                 train_mode=train_mode,
                                 val_mode=val_mode)
     data_module.add_dataset_params(params)
