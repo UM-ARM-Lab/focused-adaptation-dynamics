@@ -1,9 +1,11 @@
 import os
+import time
 from typing import Dict, Optional, List
 
 import numpy as np
 import rospy
 import torch
+import transformations
 from dm_envs.softgym_services import SoftGymServices
 from link_bot_data.dataset_utils import add_predicted
 from link_bot_pycommon.experiment_scenario import MockRobot
@@ -63,6 +65,9 @@ class WaterSimScenario(ScenarioWithVisualization):
             print('Waiting to generate environment variations. May take 1 minute for each variation...')
         self._scene = normalize(SOFTGYM_ENVS[softgym_env_name](**env_kwargs))
         self._save_frames = self._save_cfg["save_frames"]
+        geom_params = self._scene.glass_params
+        self.poured_dims = [geom_params["poured_glass_dis_x"], geom_params["poured_height"], geom_params["poured_glass_dis_z"]]
+        self.pourer_dims = [geom_params["glass_dis_x"], geom_params["height"], geom_params["glass_dis_z"]]
         if self._save_frames:
             self.frames = []
 
@@ -345,6 +350,13 @@ class WaterSimScenario(ScenarioWithVisualization):
         if not (init_state["target_volume"] == 0 and init_state["control_volume"] == 1.0):
             print("Water spilled: resetting again")
             self.reset()
+         
+        curr_pos = init_state["controlled_container_pos"]
+        curr_angle = init_state["controlled_container_angle"]
+        pose = np.hstack([curr_pos, curr_angle]).flatten()
+        if self._scene._wrapped_env.predict_collide_with_plant(pose):
+            print("Got stuck: resetting again")
+            self.reset()
 
     def randomize_environment(self, env_rng, params: Dict):
         self.reset(env_rng)
@@ -426,6 +438,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         target_pose = np.hstack([target_pos, target_angle]).flatten()
         return self._scene._wrapped_env.predict_collide_with_plant(target_pose)
 
+
     def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
         # somewhat of a lie because no moveit
         return True
@@ -454,7 +467,7 @@ class WaterSimScenario(ScenarioWithVisualization):
                  "target_volume": np.array([state_vector[-2]], dtype=np.float32)}
         return state
 
-    def make_box_marker(self, pose, dims, rgb):
+    def make_box_marker(self, pose, dims, rgb, angle = 0, alpha=1):
         marker = Marker()
         marker.scale.x = dims[0]
         marker.scale.y = dims[1]
@@ -463,16 +476,20 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.type = Marker.CUBE
         marker.pose.position.x = pose[0]  # y is 0
         marker.pose.position.y = pose[1]
-        marker.pose.orientation.w = 1  # TODO make this match
+        quat_wxyz = transformations.quaternion_from_euler(0,0,-angle)
+        marker.pose.orientation.w = quat_wxyz[0]
+        marker.pose.orientation.x = quat_wxyz[1]
+        marker.pose.orientation.y = quat_wxyz[2]
+        marker.pose.orientation.z = quat_wxyz[3]
         marker.header.frame_id = "map"
         marker.header.stamp = rospy.Time.now()
         marker.color.r = rgb[0]
         marker.color.g = rgb[1]
         marker.color.b = rgb[2]
-        marker.color.a = 1
+        marker.color.a = alpha
         return marker
 
-    def make_volume_marker(self, pose, volume, label="volume"):
+    def make_volume_marker(self, pose, volume, label="volume", volume_status="default", alpha=1):
         marker = Marker()
         marker.action = Marker.ADD
         marker.type = Marker.TEXT_VIEW_FACING
@@ -487,10 +504,17 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.header.stamp = rospy.Time.now()
         marker.ns = label
         marker.text = f"volume: {volume.round(2)}"
-        marker.color.a = 1
-        marker.color.b = 0.9
-        marker.color.r = 0.9
-        marker.color.g = 0.2
+        marker.color.a = alpha
+        if volume_status == "spilled":
+            color =  [1,0,0]
+        elif volume_status == "filled":
+            color = [0,0.2,1]
+            marker.lifetime.secs = 1
+        else:
+            color = [.6, .6, .6]
+        marker.color.r = color[0]
+        marker.color.g = color[2]
+        marker.color.b = color[1]
         marker.scale.z = 0.2
         return marker
 
@@ -507,7 +531,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.pose.orientation.z = 0
         marker.header.frame_id = "map"
         marker.header.stamp = rospy.Time.now()
-        marker.ns = "angle"
+        #marker.ns = "angle"
         marker.text = f"angle: {angle.round(2)}"
         marker.color.a = 1
         marker.color.b = 0.2
@@ -522,12 +546,15 @@ class WaterSimScenario(ScenarioWithVisualization):
             if add_predicted("controlled_container_pos") in state:
                 pourer_pos = state[add_predicted("controlled_container_pos")]
                 pourer_angle = state[add_predicted("controlled_container_angle")]
+                alpha = 0.5
             else:
                 pourer_pos = state["controlled_container_pos"]
                 pourer_angle = state["controlled_container_angle"]
+                alpha = 1.0
         else:
             pourer_pos = target_pos
             pourer_angle = target_angle
+            alpha=0.1 #very light for actions
 
         if "control_volume" in state:
             control_volume = state["control_volume"]
@@ -535,23 +562,26 @@ class WaterSimScenario(ScenarioWithVisualization):
         else:
             control_volume = state[add_predicted("control_volume")]
             target_volume = state[add_predicted("target_volume")]
-        pourer_dims = [.07, .1, .1]
-        poured_dims = [.4, .1, .1]
-        pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, rgb=np.array([1, 0, 0]))
+        if control_volume + target_volume < 0.97:
+            volume_status = "spilled"
+        elif target_volume > 0.97:
+            volume_status = "filled"
+        else:
+            volume_status = "default"
+        pourer_dims = self.pourer_dims
+        poured_dims = self.poured_dims
+        pourer_marker = self.make_box_marker(pourer_pos, pourer_dims, angle=pourer_angle, rgb=np.array([1, 0, 0]), alpha=alpha)
         pourer_marker.id = 0
         msg.markers.append(pourer_marker)
-        pourer_angle_marker = self.make_angle_marker(pourer_pos, pourer_angle)
-        pourer_volume_marker = self.make_angle_marker(pourer_pos, control_volume)
-        pourer_angle_marker.id = 1
+        pourer_volume_marker = self.make_volume_marker(pourer_pos, control_volume, "control_volume", alpha=alpha, volume_status=volume_status)
         pourer_volume_marker.id = 2
-        msg.markers.append(pourer_angle_marker)
         msg.markers.append(pourer_volume_marker)
         if add_predicted("target_container_pos") in state:
             poured_pos = state[add_predicted("target_container_pos")]
         else:
             poured_pos = state["target_container_pos"]
-        poured_marker = self.make_box_marker(poured_pos, poured_dims, rgb=np.array([0, 1, 0]))
-        poured_volume_marker = self.make_volume_marker(poured_pos, target_volume, "target_volume")
+        poured_marker = self.make_box_marker(poured_pos, poured_dims, rgb=np.array([0, 1, 0]), alpha=alpha)
+        poured_volume_marker = self.make_volume_marker(poured_pos, target_volume, "target_volume", alpha=alpha, volume_status=volume_status)
         poured_marker.id = 3
         poured_volume_marker.id = 4
         msg.markers.append(poured_marker)
