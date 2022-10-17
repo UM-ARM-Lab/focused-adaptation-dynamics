@@ -22,7 +22,7 @@ class SoftGymServices():
 
     def set_scene(self, scene):
         self._scene = scene
-        cached_grid_path = fetch_dataset("cached_grid_data5", "mde") / "cached_grid.npy"
+        cached_grid_path = fetch_dataset("cached_grid_data106", "mde") / "cached_grid.npy"
         self.cached_grid = np.load(cached_grid_path)
 
 
@@ -84,11 +84,10 @@ class SoftGymServices():
             tf = fcl.Transform(np.array([0,0,0]))
             sphere = fcl.CollisionObject(sphere_shape, tf)
             for x in range(x_dims):
-                #print(f"{x} out of {x_dims}")
+                print(f"{x} out of {x_dims}")
                 for y in range(y_dims):
                     for z in range(z_dims):
                         if self.is_occupied(x, y, z, env_coords, res, sphere):
                             grid[x, y, z] = 1
-        response.grid = grid
-
+        response.grid = np.transpose(grid, [1,0,2])
         return response

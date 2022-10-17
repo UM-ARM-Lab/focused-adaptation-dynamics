@@ -3,7 +3,8 @@
   use_mask_val: true
   iterative_lowest_error: true
   soft_masking: true
-  k_global : 5
+  k_global : 3
+  dropout_p : 0.01
   low_initial_error: false
   mask_threshold: 0.1
   train_mode: train 
@@ -23,8 +24,9 @@
   fc_layer_sizes: [
     128
     128
+    128
   ]
-  learning_rate: 0.0001
+  learning_rate: 0.001
   loss_scaling_by_key: {
     target_volume : 0.25
     control_volume : 0.25

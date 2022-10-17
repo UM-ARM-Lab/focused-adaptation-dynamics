@@ -8,6 +8,9 @@ import os
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
 import matplotlib.pyplot as plt
+
+from link_bot_pycommon.water_env_util import get_pour_type_and_error
+
 plt.rcParams['font.size'] = 18
 
 from link_bot_data.new_dataset_utils import fetch_udnn_dataset
@@ -51,9 +54,16 @@ class UDNN(pl.LightningModule):
         fc_layer_size = None
 
         layers = []
-        for fc_layer_size in self.hparams.fc_layer_sizes:
+        for layer_i, fc_layer_size in enumerate(self.hparams.fc_layer_sizes):
             layers.append(Linear(in_size, fc_layer_size))
             layers.append(torch.nn.ReLU())
+            if self.hparams.get("use_batchnorm", False):
+                layers.append(torch.nn.BatchNorm1d(fc_layer_size))
+            if layer_i < len(self.hparams.fc_layer_sizes) - 1:
+                if self.hparams.get('dropout_p', 0.0) > 0:
+                    layers.append(torch.nn.Dropout(p=self.hparams.get('dropout_p', 0.0)))
+                else:
+                    assert False
             in_size = fc_layer_size
         layers.append(Linear(fc_layer_size, self.total_state_dim))
 
@@ -168,7 +178,7 @@ class UDNN(pl.LightningModule):
                 low_error_mask = error < self.hparams['mask_threshold']
                 low_error_mask = torch.logical_and(low_error_mask[:, :-1], low_error_mask[:, 1:])
 
-            mask = low_error_mask
+            mask = low_error_mask * (inputs["time_mask"][:,1:])
             mask = mask.float()
             mask_padded = F.pad(mask, [1, 0])
 
@@ -188,7 +198,7 @@ class UDNN(pl.LightningModule):
         return {k: v.mean() for k, v in batch_losses.items()}
 
     def _add_noise_to_batch(self, batch):
-        self.sigma = 0.01
+        self.sigma = 0.001
         self.noise = torch.tensor(0).cuda()
         if self.training:
             for k in self.hparams.state_keys + self.hparams.action_keys:
@@ -208,32 +218,35 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_train', False)
         losses = self.compute_loss(train_batch, outputs, use_mask)
         self.log('train_loss', losses['loss'])
-        self.easy_accuracies = []
-        self.easy_errors = []
-        self.hard_accuracies = []
-        self.hard_errors = []
+        if batch_idx == 0:
+            self.easy_accuracies = []
+            self.easy_errors = []
+            self.hard_accuracies = []
+            self.hard_errors = []
         with torch.no_grad():
             error = self.scenario.classifier_distance_torch(train_batch, outputs)
             for k, y_pred in outputs.items():
                 if 'time_mask' in train_batch:
                     time_mask = train_batch['time_mask'].bool()
                 self.log(f'train_mae_{k}', self.mae(outputs[k][time_mask], train_batch[k][time_mask]))
-                #Check accuracy over "pours"
-                for sample_i in range(train_batch["target_volume"].shape[0]):
-                    init_vol = train_batch["target_volume"][sample_i][0]
-                    final_idx = int(train_batch["time_mask"][sample_i].sum() - 1)
-                    final_vol = train_batch["target_volume"][sample_i][final_idx]
-                    pour_accuracy = torch.abs(final_vol - outputs["target_volume"][sample_i][final_idx]).cpu().detach().numpy().item()
-                    pour_error = error[sample_i][final_idx].cpu().detach().numpy().item()
-                    if final_vol - init_vol > 0.95: #easy pour
-                        self.easy_accuracies.append(pour_accuracy)
-                        self.easy_errors.append(pour_error)
-                    if final_vol - init_vol > 0 and final_vol - init_vol < 0.8:
-                        self.hard_accuracies.append(pour_accuracy)
-                        self.hard_errors.append(pour_error)
-        viz_epochs = [0,1,3,5,10] #,20, 40]
-        # using the variable axs for multiple Axes
-        if "VIZ" in os.environ and self.current_epoch in viz_epochs: 
+            #Check accuracy over "pours"
+            for sample_i in range(train_batch["target_volume"].shape[0]):
+                pour_error, pour_type, sample_error = get_pour_type_and_error(train_batch, outputs, error,
+                                                                              sample_i)
+                if pour_type == "easy_pour":
+                    self.easy_errors.append(sample_error)
+                    self.easy_accuracies.append(pour_error)
+                if pour_type == "hard_pour":
+                    self.hard_errors.append(sample_error)
+                    self.hard_accuracies.append(pour_error)
+        self.log(f'train_easy_pour_error',np.mean(self.easy_errors))
+        self.log(f'train_hard_pour_error',np.mean(self.hard_errors))
+        return losses['loss']
+
+
+    def on_train_epoch_end(self):
+        viz_epochs = [0,10,20,50,100] #,20, 40]
+        if "VIZ" in os.environ and self.current_epoch in viz_epochs : 
             if self.current_epoch == 0:
                 self.fig, self.axs = plt.subplots(nrows = len(viz_epochs), sharex=True)
                 self.axs[0].set_xlabel("Error")
@@ -245,12 +258,12 @@ class UDNN(pl.LightningModule):
             self.axs[viz_idx].hist(self.easy_errors, label="easy", bins=90, range = hist_range, alpha=alpha)
             self.axs[viz_idx].set_title(f"epoch: {int(self.current_epoch)}")
             self.axs[viz_idx].set_xlim([0,1.5])
-            self.axs[viz_idx].set_ylim([0,80])
+            self.axs[viz_idx].set_ylim([0,100])
             #axs[viz_idx].legend()
             if viz_idx == len(viz_epochs)-1:
+                import ipdb; ipdb.set_trace()
                 plt.tight_layout()
                 plt.show()
-        return losses['loss']
 
     def validation_step(self, val_batch, batch_idx):
         val_udnn_outputs = self.forward(val_batch)
@@ -260,10 +273,10 @@ class UDNN(pl.LightningModule):
             use_mask = self.hparams.get('use_meta_mask_val', False)
         val_losses = self.compute_loss(val_batch, val_udnn_outputs, use_mask)
         self.log('val_loss', val_losses['loss'])
+        print(self.current_epoch, val_losses)
         return val_losses['loss']
 
     def test_step(self, test_batch, batch_idx):
-        import ipdb; ipdb.set_trace()
         test_udnn_outputs = self.forward(test_batch)
         test_losses = self.compute_loss(test_batch, test_udnn_outputs, use_mask=False)
         test_losses['error'] = self.scenario.classifier_distance_torch(test_batch, test_udnn_outputs)
@@ -274,7 +287,7 @@ class UDNN(pl.LightningModule):
         return test_losses
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=1e-3)
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=0)
 
     def state_dict(self, *args, **kwargs):
         return self.state_dict_without_initial_model()

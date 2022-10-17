@@ -23,6 +23,8 @@ from moonshine.torch_and_tf_utils import remove_batch, add_batch
 from moonshine.torch_utils import sequence_of_dicts_to_dict_of_tensors
 from moonshine.torchify import torchify
 
+from link_bot_pycommon.water_env_util import get_pour_type_and_error
+
 
 def debug_vgs():
     return rospy.get_param("DEBUG_VG", False)
@@ -41,6 +43,8 @@ class MDE(pl.LightningModule):
         self.local_env_h_rows = self.hparams['local_env_h_rows']
         self.local_env_w_cols = self.hparams['local_env_w_cols']
         self.local_env_c_channels = self.hparams['local_env_c_channels']
+        self._c1 = self.hparams.get("c1", 3)
+        self._c2 = self.hparams.get("c2", 1)
         self.in_channels = self.hparams.get('in_channels', 5)
         self.include_robot_geometry = self.hparams.get('include_robot_geometry', True)
         self.point_state_keys_pred = [add_predicted_hack(k) for k in self.hparams['point_state_keys']]
@@ -128,7 +132,8 @@ class MDE(pl.LightningModule):
 
         self.val_accuracy = torchmetrics.Accuracy()
         self.test_accuracy = torchmetrics.Accuracy()
-        self.val_stat_scores = torchmetrics.StatScores()
+        self.train_stat_scores = torchmetrics.classification.BinaryStatScores()
+        self.val_stat_scores = torchmetrics.classification.BinaryStatScores()
 
     def _input_dict_to_conv_and_fc_layer(self, inputs):
         if self.local_env_helper.device != self.device:
@@ -231,14 +236,16 @@ class MDE(pl.LightningModule):
 
     def compute_loss(self, inputs: Dict[str, torch.Tensor], outputs):
         true_error_after = inputs['error'][:, 1]
-
         mae = (outputs - true_error_after).abs().mean()
         mse_batch = F.mse_loss(outputs, true_error_after, reduction='none')
         mse = mse_batch.mean()
         true_error_after_binary = (true_error_after < self.hparams['error_threshold']).float()
         logits = -outputs
-        bce = F.binary_cross_entropy_with_logits(logits, true_error_after_binary)
         biased_mse = (mse_batch * torch.exp(-10 * true_error_after)).mean()
+
+        bias_mult = torch.exp(-1 * true_error_after)
+        bce = F.binary_cross_entropy_with_logits(logits, true_error_after_binary)
+        asym_mse = self._c1 * torch.mean(bias_mult * torch.pow(F.relu(true_error_after - outputs), 2)) + self._c2 * torch.mean(bias_mult * torch.pow(F.relu(outputs - true_error_after), 2))
 
         if self.hparams.get("loss_type", None) == 'MAE':
             loss = mae
@@ -246,8 +253,10 @@ class MDE(pl.LightningModule):
             loss = bce
         elif self.hparams.get("loss_type", None) == 'biased_mse':
             loss = biased_mse
+        elif self.hparams.get("loss_type", None) == 'asym_biased_mse':
+            loss = asym_mse
         else:
-            loss = mse
+            raise ValueError
 
         return loss, mse, mae, bce
 
@@ -258,7 +267,45 @@ class MDE(pl.LightningModule):
         self.log('train_mae', mae)
         self.log('train_mse', mse)
         self.log('train_bce', bce)
+        if batch_idx == 0:
+            self.easy_accuracies = []
+            self.easy_errors = []
+            self.easy_pred_errors = []
+            self.hard_accuracies = []
+            self.hard_errors = []
+            self.hard_pred_errors = []
+        with torch.no_grad():
+            pred_error = outputs
+            pred_error_binary = (pred_error < self.hparams['error_threshold']).detach().cpu()
+            true_error_after = train_batch['error'][:, 1]
+            true_error_after_binary = (true_error_after < self.hparams['error_threshold']).int().detach().cpu()
+            self.train_stat_scores(pred_error_binary, true_error_after_binary)
+
+            # Check accuracy over "pours"
+            for sample_i in range(train_batch["target_volume"].shape[0]):
+                pour_error, pour_type, sample_error = get_pour_type_and_error(train_batch, None, pred_error,
+                                                                              sample_i)
+                if pour_type == "easy_pour":
+                    self.easy_errors.append(true_error_after[sample_i].detach().item())
+                    self.easy_pred_errors.append(pred_error[sample_i].detach().item())
+                if pour_type == "hard_pour":
+                    self.hard_errors.append(true_error_after[sample_i].detach().item())
+                    self.hard_pred_errors.append(pred_error[sample_i].detach().item())
+        self.log(f'train_easy_pour_pred_error', np.mean(self.easy_pred_errors))
+        self.log(f'train_hard_pour_pred_error', np.mean(self.hard_pred_errors))
+        self.log(f'train_easy_pour_error', np.mean(self.easy_errors))
+        self.log(f'train_hard_pour_error', np.mean(self.hard_errors))
         return loss
+    def on_train_epoch_end(self):
+        tp, fp, tn, fn, _ = self.train_stat_scores.compute()
+        fpr = fp / (fp + tn)
+        tpr = tp / (tp + fn)
+        self.log('train_fpr', fpr)
+        self.log('train_tnr', 1 - fpr)
+        self.log('train_tpr', tpr)
+        self.log('train_fnr', 1 - tpr)
+        # reset all metrics
+        self.train_stat_scores.reset()
 
     def validation_step(self, val_batch: Dict[str, torch.Tensor], batch_idx):
         pred_error = self.forward(val_batch)
@@ -318,6 +365,7 @@ class MDE(pl.LightningModule):
 
         # reset all metrics
         self.val_accuracy.reset()
+        self.val_stat_scores.reset()
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(),

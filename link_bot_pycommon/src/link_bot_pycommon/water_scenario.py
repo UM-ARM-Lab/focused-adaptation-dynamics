@@ -91,6 +91,9 @@ class WaterSimScenario(ScenarioWithVisualization):
         control_volume_dist = np.abs(s1["control_volume"] - s2["control_volume"])
         target_volume_dist = target_volume_dist.flatten()
         control_volume_dist = control_volume_dist.flatten()
+        if not len(container_dist.shape):
+            target_volume_dist = target_volume_dist.item()
+            control_volume_dist = control_volume_dist.item()
 
         return container_dist + 0.5 * target_volume_dist + 0.5 * control_volume_dist
 
@@ -219,7 +222,7 @@ class WaterSimScenario(ScenarioWithVisualization):
             angle_control = self.params["k_angle"] * (angle_error)
             if np.linalg.norm(curr_pos - goal_pos) < self._pos_tol and np.abs(
                     goal_angle - curr_angle) < self._angle_tol:
-                if curr_state["control_volume"] > 0.9 or curr_state["target_volume"] > 0.97:
+                if curr_state["control_volume"] > 0.9 or curr_state["target_volume"] > 0.99:
                     break
             vector_action = np.hstack([pos_control, angle_control])
             self._saved_data = self._scene.step(vector_action, record_continuous_video=self._save_frames,

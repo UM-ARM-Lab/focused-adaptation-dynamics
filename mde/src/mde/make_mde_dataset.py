@@ -146,7 +146,7 @@ def generate_mde_examples(model, dataset, steps_per_traj, step):
                     'error': error,
                 }
 
-                if time_mask[dt] == 0 or time_mask[dt + 1] == 0:  # some examples are invalid/padding, so ignore those
+                if time_mask[start_t + dt] == 0 or time_mask[start_t + dt + 1] == 0:  # some examples are invalid/padding, so ignore those
                     continue
 
                 yield out_example

@@ -1,5 +1,5 @@
 {
-  loss_type: mse
+  loss_type: asym_biased_mse
   point_state_keys: [
     controlled_container_pos
     controlled_container_angle
@@ -36,7 +36,7 @@
   in_channels: 6
   include_robot_geometry: false
   error_threshold: 0.1
-  weight_decay: 0
+  weight_decay: 1e-4
   dropout_p: 0.1
   no_lstm: true
   use_prev_error: true

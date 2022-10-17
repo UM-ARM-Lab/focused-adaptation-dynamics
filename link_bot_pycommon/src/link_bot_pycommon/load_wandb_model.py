@@ -5,9 +5,19 @@ import numpy as np
 import wandb
 
 
-def load_model_artifact(checkpoint, model_class, project, version, user='armlab', **kwargs):
-    local_ckpt_path = model_artifact_path(checkpoint, project, version, user)
-    model = model_class.load_from_checkpoint(local_ckpt_path.as_posix(), from_checkpoint=checkpoint, **kwargs)
+def load_model_artifact(checkpoint, model_class, project, version, user='armlab', is_retry=False, **kwargs):
+    try:
+        local_ckpt_path = model_artifact_path(checkpoint, project, version, user)
+        model = model_class.load_from_checkpoint(local_ckpt_path.as_posix(), from_checkpoint=checkpoint, **kwargs)
+    except wandb.errors.CommError as e:
+        print(e)
+        if not is_retry and "best" in version:
+            #try the other one...
+            best_checkpoint_names = ["best", "best_k"]
+            best_checkpoint_names.remove(version)
+            return load_model_artifact(checkpoint, model_class, project, best_checkpoint_names[0], user=user, is_retry=True, **kwargs)
+        raise e
+
     if checkpoint == 'sim_rope_unadapted_all_data-1lpq9' or 'fixglobal' in checkpoint:
         print("FIXING GLOBAL FRAME BUG!!!")
         model.fix_global_frame_bug = True

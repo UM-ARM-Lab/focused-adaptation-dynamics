@@ -75,18 +75,19 @@ def main():
     if method_name not in args.nickname:
         print(f"{args.nickname=} doesn't make sense with {method_name=}, aborting!")
         return
+    unadapted_run_id = "source_water_10_7_128x128x128_nobatchnorm0pt1dropoutexcludelastfixed-dxwcv"
     if method_name == 'adaptation':
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "iterative_lowest_error_soft_online_water.hjson"
         #unadapted_run_id = 'easier_pour_initial_model-9kdiv'
         #unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
-        unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
+        #unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
         #unadapted_run_id = "notreeunadapted_8_31-2smuh"
 
     elif method_name in ['all_data', 'all_data_no_mde']:
         dynamics_params_filename = dynamics_pkg_dir / "hparams" / "all_data_online_water.hjson"
         #unadapted_run_id = 'sim_rope_unadapted_all_data-1lpq9'
         #unadapted_run_id = "notreeunadapted_8_28-84o6i" #"init_tree_unadapted
-        unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
+        #unadapted_run_id = "source_water_10_7_128x128fasterlr-328nn"
     else:
         raise NotImplementedError(f'Unknown method name {method_name}')
 
@@ -102,11 +103,11 @@ def main():
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
     iterations = 10 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 50 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 3 #int(job_chunker.load_prompt('udnn_init_epochs', 2))
-    udnn_scale_epochs = 0.25 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
-    mde_init_epochs = 6 #int(job_chunker.load_prompt('mde_init_epochs', 10))
-    mde_scale_epochs = 0.25 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
+    n_trials_per_iteration = 100 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 40 # #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_scale_epochs = 2 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    mde_init_epochs = 50 #int(job_chunker.load_prompt('mde_init_epochs', 10))
+    mde_scale_epochs = 2 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
     if start_with_random_actions in ['false', 'False']:
@@ -251,12 +252,12 @@ def main():
                 dynamics_run_id = train_test_dynamics.fine_tune_main(dataset_dir=dynamics_dataset_dirs,
                                                                      checkpoint=prev_dynamics_run_id,
                                                                      params_filename=dynamics_params_filename,
-                                                                     batch_size=8,
+                                                                     batch_size=64,
                                                                      steps=-1,
                                                                      epochs=int(
                                                                          udnn_init_epochs + i * udnn_scale_epochs),
-                                                                     repeat=2,
-                                                                     no_val=True,
+                                                                     repeat=1,
+                                                                     no_val=False,
                                                                      seed=seed,
                                                                      nickname=f'{args.nickname}_udnn_{i}',
                                                                      user='armlab',
@@ -295,7 +296,7 @@ def main():
                                                        epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                        train_mode='train',
                                                        val_mode='val',  # yes needed env if no_val=True
-                                                       no_val=True,
+                                                       no_val=False,
                                                        seed=seed,
                                                        user='armlab',
                                                        nickname=f'{args.nickname}_mde_{i}',
@@ -312,7 +313,7 @@ def main():
                                                            epochs=int(mde_init_epochs + i * mde_scale_epochs),
                                                            train_mode='train',
                                                            val_mode='val',
-                                                           no_val=True,
+                                                           no_val=False,
                                                            seed=seed,
                                                            user='armlab',
                                                            nickname=f'{args.nickname}_mde_{i}',

@@ -48,6 +48,7 @@ class MDEDataModule(pl.LightningDataModule):
         #  in `self.add_dataset_params` I need to have actually constructed the datasets
         if isinstance(self.dataset_dir, list):
             self.fetched_dataset_dir = [fetch_mde_dataset(d) for d in self.dataset_dir]
+            self.val_fetched_dataset_dir = [fetch_mde_dataset(d) for d in self.dataset_dir]
             self.dataset_hparams = load_params(self.fetched_dataset_dir[-1])
         else:
             self.fetched_dataset_dir = fetch_mde_dataset(self.dataset_dir)
