@@ -2,12 +2,12 @@
   accept_type: probabilistic
   probabilistic_accept_k: 0.01
   termination_criteria: {
-    total_timeout: 100 
-    timeout: 100
-    max_extensions: 2000
+    total_timeout: 200 
+    timeout: 200
+    max_extensions: 3000
     max_attempts: 1
     max_planning_attempts: 1
     attempted_extensions_threshold: 100
   }
-  dmax: 0.08
+  dmax: 0.1
 }

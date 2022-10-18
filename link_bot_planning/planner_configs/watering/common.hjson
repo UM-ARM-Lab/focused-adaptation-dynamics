@@ -18,7 +18,7 @@
   }
   n_shortcut_attempts: 30
   smoothing_max_goal_dist_diff: 0.08
-  max_steps: 8
+  max_steps: 12
   service_provider: softgym
   scenario_params: {
     k_pos: 1.5

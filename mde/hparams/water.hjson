@@ -20,7 +20,7 @@
     controlled_container_target_pos
     controlled_container_target_angle
   ]
-  learning_rate:  0.001
+  learning_rate:  0.0005
   rnn_size: 128
   fc_layer_sizes: [ 128, 128 ]
   pooling: [ 2, 2, 2 ]
@@ -36,8 +36,8 @@
   in_channels: 6
   include_robot_geometry: false
   error_threshold: 0.1
-  weight_decay: 1e-4
-  dropout_p: 0.1
+  weight_decay: 1e-6
+  dropout_p: 0.02
   no_lstm: true
   use_prev_error: true
   prev_error_res: false

@@ -119,7 +119,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         extent_key = "scenario_extent" if "scenario_extent" in params else "extent"
         voxel_grid_env = get_environment_for_extents_3d(extent=params[extent_key],
                                                         res=res,
-                                                        frame='map',
+                                                        frame='world',
                                                         service_provider=self.service_provider,
                                                         excluded_models=[])
 
@@ -338,7 +338,7 @@ class WaterSimScenario(ScenarioWithVisualization):
                 action = {'controlled_container_target_pos': np.array([random_x, random_y]),
                           'controlled_container_target_angle': env_rng.uniform(low=-0.05, high=0.1, size=(1,))}
 
-                if self.is_moveit_robot_in_collision(None, state, action):
+                if self.is_moveit_robot_in_collision_range(None, state, action, 0.03):
                     print("In collision trying again")
                 else:
                     self.execute_compound_action(None, state, action)
@@ -438,6 +438,16 @@ class WaterSimScenario(ScenarioWithVisualization):
         target_pose = np.hstack([target_pos, target_angle]).flatten()
         return self._scene._wrapped_env.predict_collide_with_plant(target_pose)
 
+    def is_moveit_robot_in_collision_range(self, environment: Dict, state: Dict, action: Dict, range : float):
+        #change x , and y
+        original_target_pos = action["controlled_container_target_pos"]
+        range_action = {'controlled_container_target_angle': action["controlled_container_target_angle"]}
+        deltas = np.array([[0,range],[0, -range],[range, 0],[-range,0]])
+        for delta in deltas:
+            range_action["controlled_container_target_pos"] = original_target_pos + delta
+            if self.is_moveit_robot_in_collision(environment, state, range_action):
+                return True
+        return False
 
     def moveit_robot_reached(self, state: Dict, action: Dict, next_state: Dict):
         # somewhat of a lie because no moveit
@@ -481,7 +491,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.pose.orientation.x = quat_wxyz[1]
         marker.pose.orientation.y = quat_wxyz[2]
         marker.pose.orientation.z = quat_wxyz[3]
-        marker.header.frame_id = "map"
+        marker.header.frame_id = "world"
         marker.header.stamp = rospy.Time.now()
         marker.color.r = rgb[0]
         marker.color.g = rgb[1]
@@ -500,7 +510,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.pose.orientation.x = 0
         marker.pose.orientation.y = 0
         marker.pose.orientation.z = 0
-        marker.header.frame_id = "map"
+        marker.header.frame_id = "world"
         marker.header.stamp = rospy.Time.now()
         marker.ns = label
         marker.text = f"volume: {volume.round(2)}"
@@ -529,7 +539,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         marker.pose.orientation.x = 0
         marker.pose.orientation.y = 0
         marker.pose.orientation.z = 0
-        marker.header.frame_id = "map"
+        marker.header.frame_id = "world"
         marker.header.stamp = rospy.Time.now()
         #marker.ns = "angle"
         marker.text = f"angle: {angle.round(2)}"
@@ -603,8 +613,8 @@ class WaterSimScenario(ScenarioWithVisualization):
 
     def distance_to_goal(self, state: Dict, goal: Dict, use_torch=False):
         goal_target_volume_range = goal["goal_target_volume_range"]
-        curr_target_volume = state["target_volume"].item()
-        curr_control_volume = state["control_volume"].item()
+        curr_target_volume = abs(state["target_volume"].item())
+        curr_control_volume = abs(state["control_volume"].item())
         total_volume = curr_target_volume + curr_control_volume
         if curr_target_volume > goal_target_volume_range[0] and curr_target_volume < goal_target_volume_range[1]:
             desired_volume_dist = 0

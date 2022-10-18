@@ -4,10 +4,12 @@
   use_mask_val: false
   iterative_mask: false
   low_initial_error: false
+  dropout_p : 0.01
   mask_threshold: null
   train_mode: train
   val_mode: val
   shuffle_buffer_size: 64
+  dropout_p : 0.01
   state_metadata_keys: []
   state_keys: [
     controlled_container_pos
@@ -23,6 +25,7 @@
   fc_layer_sizes: [
     128
     128
+    128 
   ]
   learning_rate: 0.001
   loss_scaling_by_key: {
