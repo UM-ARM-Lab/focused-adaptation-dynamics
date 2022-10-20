@@ -301,7 +301,7 @@ class FullStackRunner:
                                          gui=self.gui,
                                          world=planning_evaluation_params['world'])
 
-        rospy.sleep(10)
+            rospy.sleep(10)
 
         root = planning_module_path / 'results' / logfile_name.parent
         outdir = evaluate_multiple_planning(outdir=root,

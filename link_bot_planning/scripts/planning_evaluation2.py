@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", category=RuntimeWarning)
+    import ompl.base as ob
+    import ompl.control as oc
 import argparse
 import logging
 import pathlib

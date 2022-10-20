@@ -103,11 +103,11 @@ def main():
     planner_params_filename =  pathlib.Path('planner_configs/watering/water_in_box.hjson')# job_chunker.load_prompt_filename('planner_params_filename',
                                                               # 'planner_configs/watering/water_in_box.hjson')
     iterations = 10 #int(job_chunker.load_prompt('iterations', 10))
-    n_trials_per_iteration = 100 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
-    udnn_init_epochs = 40 # #int(job_chunker.load_prompt('udnn_init_epochs', 2))
-    udnn_scale_epochs = 2 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
+    n_trials_per_iteration = 30 # int(job_chunker.load_prompt('n_trials_per_iteration', 100))
+    udnn_init_epochs = 50 # #int(job_chunker.load_prompt('udnn_init_epochs', 2))
+    udnn_scale_epochs = 4 #int(job_chunker.load_prompt('udnn_scale_epochs', 1))
     mde_init_epochs = 50 #int(job_chunker.load_prompt('mde_init_epochs', 10))
-    mde_scale_epochs = 2 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
+    mde_scale_epochs = 4 #int(job_chunker.load_prompt('mde_scale_epochs', 1))
     # TODO: make a special case for bools in load_prompt
     start_with_random_actions = "False" #job_chunker.load_prompt('start_with_random_actions', "false")
     if start_with_random_actions in ['false', 'False']:

@@ -15,7 +15,7 @@ def load_model_artifact(checkpoint, model_class, project, version, user='armlab'
             #try the other one...
             best_checkpoint_names = ["best", "best_k"]
             best_checkpoint_names.remove(version)
-            return load_model_artifact(checkpoint, model_class, project, best_checkpoint_names[0], user=user, is_retry=True, **kwargs)
+            return load_model_artifact(checkpoint, model_class, project, "latest", user=user, is_retry=True, **kwargs)
         raise e
 
     if checkpoint == 'sim_rope_unadapted_all_data-1lpq9' or 'fixglobal' in checkpoint:

@@ -57,7 +57,7 @@ class WaterSimScenario(ScenarioWithVisualization):
         env_kwargs['use_cached_states'] = False
         env_kwargs['save_cached_states'] = False
         env_kwargs['num_variations'] = 1
-        env_kwargs['render'] = True
+        env_kwargs['render'] = False
         env_kwargs["action_repeat"] = 2
         env_kwargs['headless'] = not self.params.get('gui', False)
 
