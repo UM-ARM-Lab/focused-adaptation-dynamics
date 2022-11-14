@@ -4,7 +4,6 @@
   penalize_segment_length_error: false
   train_mode: train
   val_mode: val
-  use_batchnorm: false
   dropout_p: 0.9
   state_metadata_keys: []
   state_keys: [

@@ -4,6 +4,7 @@
   iterative_lowest_error: true
   soft_masking: true
   k_global : 3
+  k_base : 5
   dropout_p : 0.01
   low_initial_error: false
   mask_threshold: 0.1

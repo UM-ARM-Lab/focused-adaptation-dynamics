@@ -279,7 +279,7 @@ def main():
             make_mde_dataset(dataset_dir=fetch_udnn_dataset(dynamics_dataset_name),
                              checkpoint=dynamics_run_id,
                              outdir=mde_dataset_outdir,
-                             step=999)
+                             step=1)
             sub_chunker_i.store_result('mde_dataset_name', mde_dataset_name)
             dt = perf_counter() - t0
             sub_chunker_i.store_result('make_mde_dataset_dt', dt)
