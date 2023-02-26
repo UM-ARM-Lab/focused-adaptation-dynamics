@@ -23,6 +23,7 @@ class TorchUDNNDynamicsWrapper:
 
     def __init__(self, checkpoint: str, scenario: Optional = None):
         self.model: UDNN = load_udnn_model_wrapper(checkpoint)
+        self.model.cuda()
         self.model.with_joint_positions = 'joint_positions' in self.model.data_collection_params[
             'state_description'] or isinstance(scenario, BaseDualArmRopeScenario)
         self.model.eval()
@@ -45,9 +46,8 @@ class TorchUDNNDynamicsWrapper:
         inputs.update(environment)
         inputs.update(add_batch(start_state))
         inputs.update(actions_dict)
-
-        inputs = torchify(inputs)
-        inputs['time_idx'] = torch.arange(len(actions))
+        inputs = torchify(inputs, device=self.model.device)
+        inputs['time_idx'] = torch.arange(len(actions), device=self.model.device)
 
         predicted_states_mean = remove_batch(self.model(add_batch(inputs)))
         predicted_states_stdevs = {}

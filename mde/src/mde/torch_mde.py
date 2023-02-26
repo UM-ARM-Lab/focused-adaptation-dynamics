@@ -244,7 +244,7 @@ class MDE(pl.LightningModule):
         biased_mse = (mse_batch * torch.exp(-10 * true_error_after)).mean()
 
         bias_mult = torch.exp(-1 * true_error_after)
-        bce = F.binary_cross_entropy_with_logits(logits, true_error_after_binary)
+        #bce = F.binary_cross_entropy_with_logits(logits, true_error_after_binary)
         asym_mse = self._c1 * torch.mean(bias_mult * torch.pow(F.relu(true_error_after - outputs), 2)) + self._c2 * torch.mean(bias_mult * torch.pow(F.relu(outputs - true_error_after), 2))
 
         if self.hparams.get("loss_type", None) == 'MAE':
@@ -258,7 +258,7 @@ class MDE(pl.LightningModule):
         else:
             raise ValueError
 
-        return loss, mse, mae, bce
+        return loss, mse, mae, mae
 
     def training_step(self, train_batch: Dict[str, torch.Tensor], batch_idx):
         outputs = self.forward(train_batch)
@@ -282,19 +282,20 @@ class MDE(pl.LightningModule):
             self.train_stat_scores(pred_error_binary, true_error_after_binary)
 
             # Check accuracy over "pours"
-            for sample_i in range(train_batch["target_volume"].shape[0]):
-                pour_error, pour_type, sample_error = get_pour_type_and_error(train_batch, None, pred_error,
-                                                                              sample_i)
-                if pour_type == "easy_pour":
-                    self.easy_errors.append(true_error_after[sample_i].detach().item())
-                    self.easy_pred_errors.append(pred_error[sample_i].detach().item())
-                if pour_type == "hard_pour":
-                    self.hard_errors.append(true_error_after[sample_i].detach().item())
-                    self.hard_pred_errors.append(pred_error[sample_i].detach().item())
-        self.log(f'train_easy_pour_pred_error', np.mean(self.easy_pred_errors))
-        self.log(f'train_hard_pour_pred_error', np.mean(self.hard_pred_errors))
-        self.log(f'train_easy_pour_error', np.mean(self.easy_errors))
-        self.log(f'train_hard_pour_error', np.mean(self.hard_errors))
+            if batch_idx == self.current_epoch % 50:
+                for sample_i in range(train_batch["target_volume"].shape[0]):
+                    pour_error, pour_type, sample_error = get_pour_type_and_error(train_batch, None, pred_error,
+                                                                                  sample_i)
+                    if pour_type == "easy_pour":
+                        self.easy_errors.append(true_error_after[sample_i].detach().item())
+                        self.easy_pred_errors.append(pred_error[sample_i].detach().item())
+                    if pour_type == "hard_pour":
+                        self.hard_errors.append(true_error_after[sample_i].detach().item())
+                        self.hard_pred_errors.append(pred_error[sample_i].detach().item())
+            self.log(f'train_easy_pour_pred_error', np.mean(self.easy_pred_errors))
+            self.log(f'train_hard_pour_pred_error', np.mean(self.hard_pred_errors))
+            self.log(f'train_easy_pour_error', np.mean(self.easy_errors))
+            self.log(f'train_hard_pour_error', np.mean(self.hard_errors))
         return loss
     def on_train_epoch_end(self):
         tp, fp, tn, fn, _ = self.train_stat_scores.compute()
@@ -378,6 +379,8 @@ class MDEConstraintChecker:
     def __init__(self, checkpoint):
         self.model: MDE = load_model_artifact(checkpoint, MDE, project='mde', version='best', user='armlab')
         self.model.eval()
+        self.model.cuda()
+        self.model.local_env_helper.to("cuda")
         self.horizon = 2
         self.name = 'MDE'
 
@@ -388,10 +391,10 @@ class MDEConstraintChecker:
         return pred_error.detach().cpu().numpy()
 
     def states_and_actions_to_torch_inputs(self, states_sequence, actions, environment):
-        states_dict = sequence_of_dicts_to_dict_of_tensors(states_sequence)
-        actions_dict = sequence_of_dicts_to_dict_of_tensors(actions)
+        states_dict = sequence_of_dicts_to_dict_of_tensors(states_sequence, device=self.model.device)
+        actions_dict = sequence_of_dicts_to_dict_of_tensors(actions, device=self.model.device)
         inputs = {}
-        environment = torchify(environment)
+        environment = torchify(environment, device=self.model.device)
         inputs.update(environment)
         for action_key in self.model.hparams.action_keys:
             inputs[action_key] = actions_dict[action_key]
@@ -406,7 +409,7 @@ class MDEConstraintChecker:
             inputs[add_predicted('joint_positions')] = states_dict['joint_positions']
         if 'error' in states_dict:
             inputs['error'] = states_dict['error'][:, 0]
-        inputs['time_idx'] = torch.arange(2, dtype=torch.float32)
+        inputs['time_idx'] = torch.arange(2, dtype=torch.float32, device=self.model.device)
         return inputs
 
 

@@ -25,18 +25,18 @@ def dict_of_tensors_to_sequence_of_dicts(dict_of_seqs, time_axis=0):
         dict_t = {}
         for k, v in dict_of_seqs.items():
             if isinstance(v, torch.Tensor):
-                dict_t[k] = v.index_select(time_axis, torch.tensor(t)).squeeze(time_axis)
+                dict_t[k] = v.index_select(time_axis, torch.tensor(t, device=v.device)).squeeze(time_axis)
             else:
                 dict_t[k] = np.take(v, t, axis=time_axis)
         seq_of_dicts.append(dict_t)
 
     return seq_of_dicts
 
-def sequence_of_dicts_to_dict_of_tensors(seq_of_dicts, axis=0):
+def sequence_of_dicts_to_dict_of_tensors(seq_of_dicts, axis=0, device="cpu"):
     dict_of_seqs = sequence_of_dicts_to_dict_of_sequences(seq_of_dicts)
     out_dict = {}
     for k, v in dict_of_seqs.items():
-        torch_v = [torchify(v_t) for v_t in v]
+        torch_v = [torchify(v_t, device=device) for v_t in v]
         try:
             out_dict[k] = torch.stack(torch_v, axis)
         except TypeError:
