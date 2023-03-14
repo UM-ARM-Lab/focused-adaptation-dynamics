@@ -1,5 +1,0 @@
-{
-  model_class: invariance_mlp
-  fc_layer_sizes: [256, 256]
-  reg: 0.001
-}
